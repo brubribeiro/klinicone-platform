@@ -77,6 +77,14 @@ npm run start:dev          # API em http://localhost:3333/api
 
 **Credenciais padrão do seed:** `admin@mila.com` / `admin123`
 
+**Dados de demonstração (só ambiente local):** para preencher as telas vazias (pacientes, agenda, pacotes vendidos, promoções, estoque, equipamentos, financeiro, metas, documentos, pendências, rotinas de skincare etc.), rode depois das migrations:
+
+```bash
+npm run prisma:seed:demo
+```
+
+Roda o seed principal e os seeds de pacientes, pacotes e promoções, e completa o que faltava, tudo com dados fictícios na clínica `TENANT_SLUG` (padrão `mila-barreto`). É idempotente (pode rodar de novo sem duplicar) e não cria arquivos (sem R2). Recusa rodar com `NODE_ENV=production` ou se `DATABASE_URL`/`DIRECT_URL` não apontar para `localhost`. Não faz parte do `prisma:seed` usado no deploy.
+
 ### 3. Frontend
 
 ```bash

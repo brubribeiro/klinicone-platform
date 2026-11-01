@@ -4,6 +4,10 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ## [Unreleased]
 
+### Added
+
+- Seed de demonstração local `npm run prisma:seed:demo` (`backend/prisma/seed-demo.ts`): encadeia os seeds existentes e completa as telas vazias (horários e bloqueios, equipamentos, movimentações e alertas de estoque, despesas recorrentes e lançamentos financeiros, pacotes vendidos em todos os status, agendamentos em todos os status/tipos, metas, documentos só com metadados, rotinas de skincare, pendências, notificações, feedback e auditoria). Idempotente, por clínica (`TENANT_SLUG`) e recusa rodar com `NODE_ENV=production` ou banco que não seja `localhost`; fora do seed padrão de deploy.
+
 ## [0.2.1] - 2026-10-26
 
 ### Security

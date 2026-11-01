@@ -18,6 +18,7 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
     "prisma:seed": "ts-node --transpile-only prisma/seed.ts",
+    "prisma:seed:demo": "ts-node --transpile-only prisma/seed-demo.ts",
     "prisma:seed-patients": "ts-node --transpile-only prisma/seed-patients.ts",
     "prisma:seed-package-appointments": "ts-node --transpile-only prisma/seed-package-appointments.ts",
     "prisma:seed-promotions": "ts-node --transpile-only prisma/seed-promotions.ts",
