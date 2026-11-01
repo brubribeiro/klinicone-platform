@@ -328,9 +328,9 @@ export class AppointmentsService {
 
       // Controle de sessões de pacote
       if (packageId && !wasCompleted && nowCompleted) {
-        await this.packagesService.incrementSession(packageId);
+        await this.packagesService.incrementSession(packageId, tx);
       } else if (packageId && wasCompleted && !nowCompleted) {
-        await this.packagesService.decrementSession(packageId);
+        await this.packagesService.decrementSession(packageId, tx);
       }
 
       const updated = await tx.appointment.update({
@@ -438,7 +438,7 @@ export class AppointmentsService {
 
       // Devolver sessão do pacote se o agendamento já tinha sido concluído
       if (appt.patientPackageId && appt.status === AppointmentStatus.COMPLETED) {
-        await this.packagesService.decrementSession(appt.patientPackageId);
+        await this.packagesService.decrementSession(appt.patientPackageId, tx);
       }
 
       await tx.appointment.delete({ where: { id } });
