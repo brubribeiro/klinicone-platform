@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
 import {
   Alert,
   Box,
@@ -17,6 +17,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { AuroraIcon } from '../components/AuroraIcon';
 import { APP_VERSION } from '../version';
 import { fontSizes } from '../theme/fontSizes';
+import { adminConsoleUrl, clinicPanelUrl } from '../utils/appUrls';
 
 const BRAND_BG = '#0E2926';
 
@@ -87,13 +88,16 @@ function PanelChoiceButton({ title, description, icon, loading, disabled, onClic
 /** Escolha entre painel da clínica e painel da plataforma (conta dual). */
 export function ChoosePanel() {
   const { user, selectPanel } = useAuth();
-  const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState<'clinic' | 'admin' | null>(null);
 
   if (!user) return <Navigate to="/login" replace />;
   if (!user.canChoosePanel) {
-    return <Navigate to={user.isSuperAdmin && !user.tenantId ? '/admin' : '/'} replace />;
+    if (user.isSuperAdmin && !user.tenantId) {
+      window.location.replace(adminConsoleUrl('/clinicas'));
+      return null;
+    }
+    return <Navigate to="/" replace />;
   }
 
   async function choose(panel: 'clinic' | 'admin') {
@@ -101,7 +105,11 @@ export function ChoosePanel() {
     setLoading(panel);
     try {
       await selectPanel(panel);
-      navigate(panel === 'admin' ? '/admin' : '/', { replace: true });
+      if (panel === 'admin') {
+        window.location.href = adminConsoleUrl('/clinicas');
+        return;
+      }
+      window.location.href = clinicPanelUrl('/');
     } catch (err: unknown) {
       const message =
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
@@ -174,7 +182,7 @@ export function ChoosePanel() {
           />
           <PanelChoiceButton
             title="Painel da plataforma"
-            description="Clínicas, planos, catálogos e auditoria (/admin)"
+            description="Clínicas, planos, catálogos e auditoria da plataforma"
             icon={<AdminPanelSettingsOutlinedIcon color="primary" sx={{ mt: 0.25 }} />}
             loading={loading === 'admin'}
             disabled={busy}

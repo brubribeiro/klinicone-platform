@@ -9,19 +9,20 @@ import type { NavGroup } from '../layout/navConfig';
 import { DRAWER_COLLAPSED_WIDTH, DRAWER_WIDTH, SIDEBAR_BG, drawerTransition } from '../layout/layoutTheme';
 import { SidebarContent } from '../layout/SidebarContent';
 import { AssistantFab } from '../assistant/AssistantFab';
+import { adminPath } from '../../utils/adminPath';
 
 const ADMIN_NAV_GROUPS: NavGroup[] = [
   {
     title: 'Plataforma',
     items: [
-      { label: 'Clínicas', path: '/admin/clinicas', icon: <AuroraIcon name="dashboard" /> },
-      { label: 'Planos', path: '/admin/planos', icon: <AuroraIcon name="pacotes" /> },
-      { label: 'Catálogos', path: '/admin/catalogos', icon: <AuroraIcon name="documentos" /> },
-      { label: 'Uso', path: '/admin/uso', icon: <AuroraIcon name="relatorios" /> },
-      { label: 'Saúde da API', path: '/admin/saude', icon: <AuroraIcon name="eye" /> },
-      { label: 'Reports', path: '/admin/reports', icon: <AuroraIcon name="feedback" /> },
-      { label: 'Anúncios', path: '/admin/anuncios', icon: <AuroraIcon name="bell" /> },
-      { label: 'Auditoria', path: '/admin/auditoria', icon: <AuroraIcon name="clock" /> },
+      { label: 'Clínicas', path: adminPath('/clinicas'), icon: <AuroraIcon name="dashboard" /> },
+      { label: 'Planos', path: adminPath('/planos'), icon: <AuroraIcon name="pacotes" /> },
+      { label: 'Catálogos', path: adminPath('/catalogos'), icon: <AuroraIcon name="documentos" /> },
+      { label: 'Uso', path: adminPath('/uso'), icon: <AuroraIcon name="relatorios" /> },
+      { label: 'Saúde da API', path: adminPath('/saude'), icon: <AuroraIcon name="eye" /> },
+      { label: 'Reports', path: adminPath('/reports'), icon: <AuroraIcon name="feedback" /> },
+      { label: 'Anúncios', path: adminPath('/anuncios'), icon: <AuroraIcon name="bell" /> },
+      { label: 'Auditoria', path: adminPath('/auditoria'), icon: <AuroraIcon name="clock" /> },
     ],
   },
 ];
@@ -33,35 +34,35 @@ const ADMIN_ASSISTANT_SUGGESTIONS = [
 ];
 
 const ADMIN_PAGE_META: { path: string; title: string; subtitle: string }[] = [
-  { path: '/admin/clinicas', title: 'Clínicas', subtitle: 'Clínicas da plataforma, acesso e uso' },
-  { path: '/admin/planos', title: 'Planos', subtitle: 'Preço, módulos e limites (sem cobrança automática)' },
+  { path: adminPath('/clinicas'), title: 'Clínicas', subtitle: 'Clínicas da plataforma, acesso e uso' },
+  { path: adminPath('/planos'), title: 'Planos', subtitle: 'Preço, módulos e limites (sem cobrança automática)' },
   {
-    path: '/admin/catalogos',
+    path: adminPath('/catalogos'),
     title: 'Catálogos',
     subtitle: 'Opções globais compartilhadas por todas as clínicas',
   },
   {
-    path: '/admin/uso',
+    path: adminPath('/uso'),
     title: 'Uso por funcionalidade',
     subtitle: 'Uso dos módulos por clínica e no total (só contagens, sem dados clínicos)',
   },
   {
-    path: '/admin/saude',
+    path: adminPath('/saude'),
     title: 'Saúde da API',
     subtitle: 'Erros 5xx e rotas lentas das requisições (agregado por hora, guardado por 30 dias)',
   },
   {
-    path: '/admin/reports',
+    path: adminPath('/reports'),
     title: 'Central de reports',
     subtitle: 'Bugs e sugestões enviados pelas clínicas',
   },
   {
-    path: '/admin/anuncios',
+    path: adminPath('/anuncios'),
     title: 'Anúncios de release',
     subtitle: 'Avise as clínicas sobre novidades e correções (aparece no sino)',
   },
   {
-    path: '/admin/auditoria',
+    path: adminPath('/auditoria'),
     title: 'Auditoria da plataforma',
     subtitle: 'Ações do super-admin nas clínicas, planos e catálogos',
   },

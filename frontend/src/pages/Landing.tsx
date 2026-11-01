@@ -24,7 +24,7 @@ import { LandingHeroPreview } from '../components/landing/LandingHeroPreview';
 import { LandingPlans } from '../components/landing/LandingPlans';
 import { BENEFITS, BRAND_NAME, BRAND_TAGLINE, FAQ, FEATURES, HERO } from '../components/landing/landingContent';
 import { fontSizes } from '../theme/fontSizes';
-import { appPath } from '../utils/appPath';
+import { clinicPanelUrl } from '../utils/appUrls';
 
 // Mesmo verde-escuro do menu lateral e do painel de marca do login
 const BRAND_BG = '#0E2926';
@@ -49,7 +49,7 @@ function contactHref(subject: string): string | null {
   return `mailto:${contactEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }
 
-const loginHref = appPath('/login');
+const loginHref = clinicPanelUrl('/login');
 
 function BrandLogo() {
   return (
@@ -530,10 +530,10 @@ export function Landing() {
               © {year} {BRAND_NAME} · {BRAND_TAGLINE}
             </Box>
             <Stack direction="row" spacing={3}>
-              <MuiLink href={appPath('/termos')} color="inherit" underline="hover">
+              <MuiLink href={clinicPanelUrl('/termos')} color="inherit" underline="hover">
                 Termos de uso
               </MuiLink>
-              <MuiLink href={appPath('/privacidade')} color="inherit" underline="hover">
+              <MuiLink href={clinicPanelUrl('/privacidade')} color="inherit" underline="hover">
                 Privacidade
               </MuiLink>
               <MuiLink href={loginHref} color="inherit" underline="hover">

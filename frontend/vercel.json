@@ -1,6 +1,5 @@
 {
   "rewrites": [
-    { "source": "/", "destination": "/index.html" },
     { "source": "/painel/assets/(.*)", "destination": "/assets/$1" },
     { "source": "/painel/(.*)", "destination": "/index.html" },
     { "source": "/painel", "destination": "/index.html" }

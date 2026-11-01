@@ -1,10 +1,9 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
-
 import { adminApi } from '../../api/admin';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAppDialog } from '../../contexts/AppDialogContext';
 import { useAppToast } from '../../contexts/AppToastContext';
+import { clinicPanelUrl } from '../../utils/appUrls';
 import { getApiErrorMessage } from '../../utils/apiError';
 import type { AdminTenant } from '../../types';
 
@@ -13,7 +12,6 @@ type TenantRef = Pick<AdminTenant, 'id' | 'name' | 'active'>;
 /** Suspender, reativar e "Entrar como" uma clínica, sempre com confirmação. */
 export function useTenantActions() {
   const queryClient = useQueryClient();
-  const navigate = useNavigate();
   const { enterTenant } = useAuth();
   const { confirm } = useAppDialog();
   const toast = useAppToast();
@@ -36,7 +34,9 @@ export function useTenantActions() {
 
   const enterMutation = useMutation({
     mutationFn: (tenant: TenantRef) => enterTenant(tenant.id),
-    onSuccess: () => navigate('/', { replace: true }),
+    onSuccess: () => {
+      window.location.href = clinicPanelUrl('/');
+    },
     onError: (err) => toast.error(getApiErrorMessage(err, 'Não foi possível entrar na clínica.')),
   });
 

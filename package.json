@@ -2,11 +2,21 @@
   "name": "mila-barreto-platform",
   "private": true,
   "version": "0.2.0",
+  "workspaces": [
+    "frontend",
+    "apps/landing",
+    "apps/admin-console"
+  ],
   "scripts": {
     "version:sync": "node scripts/sync-version.mjs",
-    "dev": "concurrently -k -n backend,frontend -c blue,green \"npm run start:dev --prefix backend\" \"npm run dev --prefix frontend\"",
+    "dev": "concurrently -k -n backend,landing,clinic,admin -c blue,cyan,green,magenta \"npm run start:dev --prefix backend\" \"npm run dev --prefix apps/landing\" \"npm run dev --prefix frontend\" \"npm run dev --prefix apps/admin-console\"",
     "dev:backend": "npm run start:dev --prefix backend",
-    "dev:frontend": "npm run dev --prefix frontend"
+    "dev:clinic": "npm run dev --prefix frontend",
+    "dev:landing": "npm run dev --prefix apps/landing",
+    "dev:admin": "npm run dev --prefix apps/admin-console",
+    "build:clinic": "npm run build --prefix frontend",
+    "build:landing": "npm run build --prefix apps/landing",
+    "build:admin": "npm run build --prefix apps/admin-console"
   },
   "devDependencies": {
     "concurrently": "^9.2.1"

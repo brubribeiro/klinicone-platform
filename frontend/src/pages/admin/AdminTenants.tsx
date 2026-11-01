@@ -31,6 +31,7 @@ import {
 import { TenantFormDialog } from '../../components/admin/TenantFormDialog';
 import { useTenantActions } from '../../components/admin/useTenantActions';
 import { ROW_ACTION_SX, TenantStatusPill, formatLastAccess } from '../../components/admin/adminUi';
+import { adminPath } from '../../utils/adminPath';
 import { clickableProps } from '../../utils/a11y';
 import { fontSizes } from '../../theme/fontSizes';
 import { formatSpecialtiesList } from '../../features/clinicSpecialties';
@@ -72,7 +73,7 @@ export function AdminTenants() {
 
   const filtersActive = !!deferredSearch || status !== 'ALL';
 
-  const openDetail = (t: AdminTenant) => navigate(`/admin/clinicas/${t.id}`);
+  const openDetail = (t: AdminTenant) => navigate(adminPath(`/clinicas/${t.id}`));
 
   return (
     <Box>

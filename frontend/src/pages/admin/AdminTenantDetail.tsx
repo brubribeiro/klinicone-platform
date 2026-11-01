@@ -27,6 +27,7 @@ import {
 import { TenantSpecialtyChips } from '../../components/admin/TenantSpecialtyChips';
 import { formatDateOnlyFromApi } from '../../utils/dateOnly';
 import { getApiErrorMessage } from '../../utils/apiError';
+import { adminPath } from '../../utils/adminPath';
 import { fontSizes } from '../../theme/fontSizes';
 
 const STATS_GRID_SX = {
@@ -284,7 +285,7 @@ export function AdminTenantDetail() {
             <span>Histórico na plataforma</span>
             <Link
               component={RouterLink}
-              to={`/admin/auditoria?clinica=${id}`}
+              to={`${adminPath('/auditoria')}?clinica=${id}`}
               underline="hover"
               sx={{ fontSize: fontSizes.sm, fontWeight: 700 }}
             >
@@ -303,7 +304,7 @@ export function AdminTenantDetail() {
 function BackLink() {
   return (
     <Box>
-      <Button component={RouterLink} to="/admin/clinicas" startIcon={<ArrowBackIcon />} size="small">
+      <Button component={RouterLink} to={adminPath('/clinicas')} startIcon={<ArrowBackIcon />} size="small">
         Clínicas
       </Button>
     </Box>

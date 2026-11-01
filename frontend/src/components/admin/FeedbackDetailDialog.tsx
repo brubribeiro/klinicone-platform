@@ -18,6 +18,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { adminApi } from '../../api/admin';
 import { useAppToast } from '../../contexts/AppToastContext';
 import { getApiErrorMessage } from '../../utils/apiError';
+import { adminPath } from '../../utils/adminPath';
 import { fontSizes } from '../../theme/fontSizes';
 import { DialogHeader, dialogActionsBorderSx, dialogPaperSx } from '../DialogCloseButton';
 import { formatDateTime } from './adminUi';
@@ -139,7 +140,7 @@ export function FeedbackDetailDialog({ reportId, onClose }: Props) {
             </Typography>
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
               <Field label="Clínica">
-                <Link component={RouterLink} to={`/admin/clinicas/${report.tenant.id}`} underline="hover" fontWeight={700}>
+                <Link component={RouterLink} to={adminPath(`/clinicas/${report.tenant.id}`)} underline="hover" fontWeight={700}>
                   {report.tenant.name}
                 </Link>
               </Field>

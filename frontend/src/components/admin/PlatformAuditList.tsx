@@ -1,6 +1,7 @@
 import { Link as RouterLink } from 'react-router-dom';
 import { Box, Link, Skeleton, Stack, Typography, alpha } from '@mui/material';
 
+import { adminPath } from '../../utils/adminPath';
 import { fontSizes } from '../../theme/fontSizes';
 import { formatDateTime, formatPlanLimits } from './adminUi';
 import { formatFeatureList, formatPlanPrice } from '../../features/platformFeatures';
@@ -212,7 +213,7 @@ export function PlatformAuditList({ entries, loading, showTenant, emptyText = 'N
                 {showTenant && (
                   <Typography component="span" sx={{ fontSize: fontSizes.sm, fontWeight: 700 }}>
                     {entry.targetTenantId ? (
-                      <Link component={RouterLink} to={`/admin/clinicas/${entry.targetTenantId}`} underline="hover">
+                      <Link component={RouterLink} to={adminPath(`/clinicas/${entry.targetTenantId}`)} underline="hover">
                         {entry.targetName}
                       </Link>
                     ) : (

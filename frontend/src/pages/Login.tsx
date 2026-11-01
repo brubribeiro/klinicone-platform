@@ -7,6 +7,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { AuroraIcon } from '../components/AuroraIcon';
 import { APP_VERSION } from '../version';
 import { fontSizes } from '../theme/fontSizes';
+import { ExternalRedirect } from '../components/ExternalRedirect';
+import { adminConsoleUrl } from '../utils/appUrls';
 import { clearAuthNotice, readAuthNotice, tenantSuspendedMessage } from '../utils/authNotice';
 
 // Painel de marca Aurora (mesmo verde-escuro do menu lateral)
@@ -109,7 +111,9 @@ export function Login() {
 
   if (user) {
     if (user.panelSelectionPending) return <Navigate to="/escolher-painel" replace />;
-    if (user.isSuperAdmin && !user.tenantId) return <Navigate to="/admin" replace />;
+    if (user.isSuperAdmin && !user.tenantId) {
+      return <ExternalRedirect href={adminConsoleUrl('/clinicas')} />;
+    }
     return <Navigate to="/" replace />;
   }
 
@@ -121,7 +125,7 @@ export function Login() {
     try {
       const { needsPanelSelection } = await loginWithGoogle(response.credential);
       if (needsPanelSelection) navigate('/escolher-painel');
-      else navigate('/');
+      else navigate('/', { replace: true });
     } catch (err: any) {
       const suspended = tenantSuspendedMessage(err);
       if (suspended) {
