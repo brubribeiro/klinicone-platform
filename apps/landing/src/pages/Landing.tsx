@@ -25,6 +25,7 @@ import { LandingPlans } from '../components/LandingPlans';
 import { BENEFITS, BRAND_NAME, BRAND_TAGLINE, FAQ, FEATURES, HERO } from '../components/landingContent';
 import { fontSizes } from '../../../../frontend/src/theme/fontSizes';
 import { clinicPanelUrl } from '../../../../frontend/src/utils/appUrls';
+import { APP_VERSION } from '../../../../frontend/src/version';
 
 // Mesmo verde-escuro do menu lateral e do painel de marca do login
 const BRAND_BG = '#0E2926';
@@ -527,7 +528,7 @@ export function Landing() {
             sx={{ color: 'text.secondary', fontSize: fontSizes.sm }}
           >
             <Box>
-              © {year} {BRAND_NAME} · {BRAND_TAGLINE}
+              © {year} {BRAND_NAME} · {BRAND_TAGLINE} · v{APP_VERSION}
             </Box>
             <Stack direction="row" spacing={3}>
               <MuiLink href={clinicPanelUrl('/termos')} color="inherit" underline="hover">
