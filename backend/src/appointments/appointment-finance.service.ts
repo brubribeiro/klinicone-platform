@@ -38,11 +38,15 @@ export class AppointmentFinanceService {
     const { appointmentId, patientId, procedureIds, packageId } = input;
     if (procedureIds.length === 0) return false;
 
-    const procedures = await tx.procedure.findMany({
+    const found = await tx.procedure.findMany({
       where: { id: { in: procedureIds } },
       include: { materials: { include: { item: true } } },
     });
-    if (procedures.length === 0) return false;
+    if (found.length === 0) return false;
+    const byId = new Map(found.map((p) => [p.id, p]));
+    const procedures = procedureIds
+      .map((id) => byId.get(id))
+      .filter((p): p is (typeof found)[number] => !!p);
 
     const patient = await tx.patient.findUnique({ where: { id: patientId } });
     const patientName = patient?.name ?? 'Paciente';
@@ -53,75 +57,67 @@ export class AppointmentFinanceService {
       const pm = await tx.paymentMethod.findUnique({ where: { id: pmId } });
       if (pm) feePercent = Number(pm.feePercent);
     }
+    const paymentData = {
+      feePercent,
+      paymentMethodId: pmId,
+      installments: input.installments ?? null,
+      cardBrand: input.cardBrand?.trim() || null,
+      authorizationCode: input.authorizationCode?.trim() || null,
+      paidAt: revenuePaidAt,
+      patientId,
+      appointmentId,
+      invoiceIssued: false,
+    };
+    const netOf = (amount: Prisma.Decimal | number) =>
+      feePercent != null ? Math.round(Number(amount) * (1 - feePercent / 100) * 100) / 100 : undefined;
 
+    // O pacote cobre só os procedimentos que estão nos itens dele; os demais são cobrados avulsos.
     const packageRevenue = packageId ? await this.resolvePackageRevenue(tx, packageId) : null;
-    let promotionId: string | null = null;
+    const coveredIds = new Set(packageRevenue?.coveredProcedureIds ?? []);
+    const covered = procedures.filter((p) => coveredIds.has(p.id));
+    const billable = procedures.filter((p) => !coveredIds.has(p.id));
 
-    if (!packageRevenue?.alreadyGenerated) {
-      if (packageId && packageRevenue?.patientPackage) {
-        const label = procedures.map((p) => p.name).join(' + ');
-        let finalAmount = packageRevenue.patientPackage.totalPaid;
-        let netAmount: number | undefined;
-        if (feePercent != null) {
-          netAmount = Math.round(Number(finalAmount) * (1 - feePercent / 100) * 100) / 100;
-        }
-        await tx.financialEntry.create({
-          data: {
-            type: FinancialType.INCOME,
-            description: `Pacote - ${label} - ${patientName}`,
-            amount: finalAmount,
-            netAmount,
-            feePercent,
-            paymentMethodId: pmId,
-            installments: input.installments ?? null,
-            cardBrand: input.cardBrand?.trim() || null,
-            authorizationCode: input.authorizationCode?.trim() || null,
-            category: 'Pacotes',
-            paidAt: revenuePaidAt,
-            patientId,
-            appointmentId,
-            invoiceIssued: false,
-          },
-        });
-        if (packageId) await this.markPackageFinanceGenerated(tx, packageId);
-      } else if (!packageId) {
-        for (const procedure of procedures) {
-          let finalAmount = procedure.price;
-          let description = `${procedure.name} - ${patientName}`;
-          const quote = await this.promotionsService.quoteForProcedure(
-            procedure.id,
-            Number(procedure.price),
-            toBrazilDateAtUtcNoon(input.startAt),
-          );
-          if (quote.promotion) {
-            finalAmount = new Prisma.Decimal(quote.finalPrice);
-            description += ` (Promoção: ${quote.promotion.name} ${this.promotionsService.discountLabel(quote.promotion)})`;
-            if (!promotionId) promotionId = quote.promotion.id;
-          }
-          let netAmount: number | undefined;
-          if (feePercent != null) {
-            netAmount = Math.round(Number(finalAmount) * (1 - feePercent / 100) * 100) / 100;
-          }
-          await tx.financialEntry.create({
-            data: {
-              type: FinancialType.INCOME,
-              description,
-              amount: finalAmount,
-              netAmount,
-              feePercent,
-              paymentMethodId: pmId,
-              installments: input.installments ?? null,
-              cardBrand: input.cardBrand?.trim() || null,
-              authorizationCode: input.authorizationCode?.trim() || null,
-              category: 'Atendimentos',
-              paidAt: revenuePaidAt,
-              patientId,
-              appointmentId,
-              invoiceIssued: false,
-            },
-          });
-        }
+    if (covered.length > 0 && packageRevenue?.patientPackage && !packageRevenue.alreadyGenerated) {
+      const label = covered.map((p) => p.name).join(' + ');
+      const finalAmount = packageRevenue.patientPackage.totalPaid;
+      await tx.financialEntry.create({
+        data: {
+          ...paymentData,
+          type: FinancialType.INCOME,
+          description: `Pacote - ${label} - ${patientName}`,
+          amount: finalAmount,
+          netAmount: netOf(finalAmount),
+          category: 'Pacotes',
+        },
+      });
+      await this.markPackageFinanceGenerated(tx, packageId!);
+    }
+
+    let promotionId: string | null = null;
+    for (const procedure of billable) {
+      let finalAmount = procedure.price;
+      let description = `${procedure.name} - ${patientName}`;
+      const quote = await this.promotionsService.quoteForProcedure(
+        procedure.id,
+        Number(procedure.price),
+        toBrazilDateAtUtcNoon(input.startAt),
+      );
+      if (quote.promotion) {
+        finalAmount = new Prisma.Decimal(quote.finalPrice);
+        description += ` (Promoção: ${quote.promotion.name} ${this.promotionsService.discountLabel(quote.promotion)})`;
+        // Appointment.promotionId guarda uma só: fica a do primeiro item com promoção.
+        if (!promotionId) promotionId = quote.promotion.id;
       }
+      await tx.financialEntry.create({
+        data: {
+          ...paymentData,
+          type: FinancialType.INCOME,
+          description,
+          amount: finalAmount,
+          netAmount: netOf(finalAmount),
+          category: 'Atendimentos',
+        },
+      });
     }
 
     const allMaterials = procedures.flatMap((p) => p.materials);
@@ -223,13 +219,19 @@ export class AppointmentFinanceService {
 
   /** Receita de pacote já lançada (pago antecipadamente ou em outro agendamento do pacote)? */
   private async resolvePackageRevenue(tx: Tx, packageId: string) {
-    const patientPackage = await tx.patientPackage.findUnique({ where: { id: packageId } });
-    if (patientPackage?.financeGenerated) return { alreadyGenerated: true, patientPackage };
+    const patientPackage = await tx.patientPackage.findUnique({
+      where: { id: packageId },
+      include: { package: { select: { items: { select: { procedureId: true } } } } },
+    });
+    const coveredProcedureIds = patientPackage?.package?.items.map((i) => i.procedureId) ?? [];
+    if (patientPackage?.financeGenerated) {
+      return { alreadyGenerated: true, patientPackage, coveredProcedureIds };
+    }
 
     const existing = await tx.financialEntry.findFirst({
-      where: { type: FinancialType.INCOME, appointment: { patientPackageId: packageId } },
+      where: { type: FinancialType.INCOME, category: 'Pacotes', appointment: { patientPackageId: packageId } },
     });
-    return { alreadyGenerated: !!existing, patientPackage };
+    return { alreadyGenerated: !!existing, patientPackage, coveredProcedureIds };
   }
 
   private markPackageFinanceGenerated(tx: Tx, packageId: string) {

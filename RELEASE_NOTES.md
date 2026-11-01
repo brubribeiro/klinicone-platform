@@ -16,6 +16,7 @@ Notas de versão para usuários do painel. Para detalhes técnicos, veja [CHANGE
 
 ### Atendimento
 
+- **Vários procedimentos no mesmo agendamento**: no campo *Procedimento* dá para escolher mais de um (ex.: limpeza de pele + peeling). O horário reserva a soma das durações, a agenda mostra os nomes unidos por "+" e, ao concluir, cada procedimento entra na receita com sua promoção do dia. Se a paciente tem um pacote que cobre só parte dos procedimentos, os cobertos usam o pacote e os outros são cobrados avulsos.
 - **Mapa de aplicação**: em procedimentos com a opção *Mapa de aplicação* ligada, a tela do atendimento ganha a seção para clicar no rosto e marcar cada ponto aplicado, com produto ou dose. O mapa fica salvo no atendimento e aparece na **ficha do paciente**, na aba Agendamentos.
 
 ### Login

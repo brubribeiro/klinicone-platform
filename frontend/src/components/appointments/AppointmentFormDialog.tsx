@@ -303,12 +303,12 @@ export function AppointmentFormDialog({
 
   const selectedPatient = patients.find((p) => p.id === selectedPatientId);
 
-  // Mapa de aplicação: só ao editar; mantém visível se já houver pontos salvos
-  // mesmo que o procedimento tenha deixado de usar o mapa.
+  // Mapa de aplicação: só ao editar, quando algum procedimento usa o mapa (um só mapa por
+  // atendimento); mantém visível se já houver pontos salvos mesmo que deixe de usar.
   const showApplicationMap =
     !!appointment &&
     selectedKind === 'PROCEDURE' &&
-    (!!selectedProcedure?.applicationMap || initialMapPoints.length > 0);
+    (selectedProcedures.some((p) => p.applicationMap) || initialMapPoints.length > 0);
 
   const { data: activePatientPackages = [] } = useQuery({
     queryKey: ['patient-packages-active', selectedPatientId],
@@ -356,10 +356,11 @@ export function AppointmentFormDialog({
     enabled: open,
   });
 
+  // Pacote vale se cobre ao menos um dos procedimentos; os demais são cobrados avulsos.
   const filteredPatientPackages = useMemo(() => {
     if (selectedProcedureIds.length === 0) return [];
     return activePatientPackages.filter((pp) =>
-      selectedProcedureIds.every((pid) =>
+      selectedProcedureIds.some((pid) =>
         pp.package?.items?.some((item) => item.procedureId === pid),
       ),
     );
@@ -371,7 +372,7 @@ export function AppointmentFormDialog({
     return allCatalogPackages.filter(
       (pkg) =>
         pkg.active &&
-        selectedProcedureIds.every((pid) => pkg.items?.some((item) => item.procedureId === pid)) &&
+        selectedProcedureIds.some((pid) => pkg.items?.some((item) => item.procedureId === pid)) &&
         !activePackageIds.has(pkg.id),
     );
   }, [allCatalogPackages, selectedProcedureIds, activePatientPackages]);
@@ -399,42 +400,56 @@ export function AppointmentFormDialog({
     0,
   );
 
-  // Prévia da promoção do dia: só atendimento avulso que ainda não gerou receita
+  // Procedimentos cobertos pelo pacote selecionado; os outros entram como avulsos.
+  const packageCoveredIds = useMemo(
+    () =>
+      new Set(
+        selectedPackageId && selectedPatientPkg
+          ? (selectedPatientPkg.package?.items ?? []).map((item) => item.procedureId)
+          : [],
+      ),
+    [selectedPackageId, selectedPatientPkg],
+  );
+  const billableProcedures = useMemo(
+    () => selectedProcedures.filter((p) => !packageCoveredIds.has(p.id)),
+    [selectedProcedures, packageCoveredIds],
+  );
+
+  // Prévia da promoção do dia por procedimento avulso que ainda não gerou receita
   // (sessão de pacote usa o valor do pacote, com a promoção aplicada na venda).
   const previewDate = /^\d{4}-\d{2}-\d{2}$/.test(selectedDate ?? '') ? selectedDate : '';
   const promotionPreviewEnabled =
-    open &&
-    selectedKind === 'PROCEDURE' &&
-    selectedProcedureIds.length === 1 &&
-    !!previewDate &&
-    !selectedPackageId &&
-    !appointment?.financeGenerated;
-  const { data: promotionQuote } = useQuery({
-    queryKey: ['promotion-preview', selectedProcedureIds[0], previewDate],
-    queryFn: () => appointmentsApi.promotionPreview(selectedProcedureIds[0]!, previewDate),
-    enabled: promotionPreviewEnabled,
-    staleTime: 60_000,
+    open && selectedKind === 'PROCEDURE' && !!previewDate && !appointment?.financeGenerated;
+  const promotionQueries = useQueries({
+    queries: billableProcedures.map((procedure) => ({
+      queryKey: ['promotion-preview', procedure.id, previewDate],
+      queryFn: () => appointmentsApi.promotionPreview(procedure.id, previewDate),
+      enabled: promotionPreviewEnabled,
+      staleTime: 60_000,
+    })),
   });
+  const billableAmount = billableProcedures.reduce((sum, procedure, i) => {
+    const quote = promotionPreviewEnabled ? promotionQueries[i]?.data : undefined;
+    return sum + (quote?.promotion ? quote.finalPrice : Number(procedure.price ?? 0));
+  }, 0);
+  const promotionQuotes = promotionPreviewEnabled
+    ? promotionQueries.flatMap((q) => (q.data?.promotion ? [q.data] : []))
+    : [];
+
+  const packageAmount =
+    selectedPatientPkg && selectedPackageId && !selectedPatientPkg.financeGenerated
+      ? Number(selectedPatientPkg.totalPaid)
+      : 0;
+  const paymentAmountOnComplete = packageAmount + billableAmount;
+  const promotionDiscount = promotionQuotes.reduce((sum, q) => sum + q.discount, 0);
   const promotionSummary: PromotionSummary | undefined =
-    promotionPreviewEnabled && promotionQuote?.promotion
+    promotionQuotes.length > 0
       ? {
-          name: promotionQuote.promotion.name,
-          originalPrice: promotionQuote.originalPrice,
-          discount: promotionQuote.discount,
+          name: [...new Set(promotionQuotes.map((q) => q.promotion!.name))].join(', '),
+          originalPrice: paymentAmountOnComplete + promotionDiscount,
+          discount: promotionDiscount,
         }
       : undefined;
-  const promotionFinalPrice = promotionSummary ? promotionQuote?.finalPrice : undefined;
-
-  const paymentAmountOnComplete = useMemo(() => {
-    if (selectedPatientPkg && selectedPackageId && !selectedPatientPkg.financeGenerated) {
-      return Number(selectedPatientPkg.totalPaid);
-    }
-    if (promotionFinalPrice !== undefined) return promotionFinalPrice;
-    if (selectedProcedures.length > 0) {
-      return selectedProcedures.reduce((sum, p) => sum + Number(p.price ?? 0), 0);
-    }
-    return 0;
-  }, [selectedPatientPkg, selectedPackageId, selectedProcedures, promotionFinalPrice]);
 
   // Mês de referência (competência) — relevante para agendamentos de meses passados
   const appointmentMonthKey = appointment ? dayjs(appointment.startAt).format('YYYY-MM') : '';
@@ -898,7 +913,7 @@ export function AppointmentFormDialog({
                 <PackageSection
                   section={section('package')}
                   isEditing={!!appointment}
-                  selectedProcedure={selectedProcedure}
+                  selectedProcedures={selectedProcedures}
                   selectedPackageId={selectedPackageId}
                   onSelectPackage={setSelectedPackageId}
                   filteredPatientPackages={filteredPatientPackages}
@@ -1132,7 +1147,7 @@ export function AppointmentFormDialog({
         open={!!pendingFormValues}
         isMobile={isMobile}
         patientName={selectedPatient?.name}
-        procedureName={selectedProcedure?.name}
+        procedureName={selectedProcedures.map((p) => p.name).join(' + ') || undefined}
         isPackage={!!(selectedPackageId && selectedPatientPkg)}
         amount={paymentAmountOnComplete}
         promotion={promotionSummary}

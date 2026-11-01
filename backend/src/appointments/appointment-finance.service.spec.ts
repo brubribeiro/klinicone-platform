@@ -28,7 +28,12 @@ describe('AppointmentFinanceService', () => {
       },
       patient: { findUnique: jest.fn().mockResolvedValue({ id: 'patient-1', name: 'Ana' }) },
       patientPackage: {
-        findUnique: jest.fn().mockResolvedValue({ id: 'pp-1', totalPaid: 900, financeGenerated: false }),
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'pp-1',
+          totalPaid: 900,
+          financeGenerated: false,
+          package: { items: [{ procedureId: 'proc-1' }] },
+        }),
         update: jest.fn().mockResolvedValue({}),
       },
       financialEntry: {
@@ -81,5 +86,82 @@ describe('AppointmentFinanceService', () => {
     const entry = tx.financialEntry.create.mock.calls[0][0].data;
     expect(Number(entry.amount)).toBe(900);
     expect(tx.appointment.update).not.toHaveBeenCalled();
+  });
+
+  it('quotes the promotion of each procedure when the booking has several', async () => {
+    tx.procedure.findMany.mockResolvedValue([
+      { id: 'proc-2', name: 'Peeling', price: 300, materials: [] },
+      { id: 'proc-1', name: 'Limpeza', price: 200, materials: [] },
+    ]);
+    promotions.quoteForProcedure.mockImplementation(async (id: string, price: number) =>
+      id === 'proc-2'
+        ? { originalPrice: price, discount: 0, finalPrice: price, promotion: null }
+        : {
+            originalPrice: price,
+            discount: 40,
+            finalPrice: 160,
+            promotion: { id: 'promo-1', name: 'Black Friday', discountType: 'PERCENTAGE', discountValue: 20 },
+          },
+    );
+
+    await service.generateForCompletion(tx, { ...input, procedureIds: ['proc-1', 'proc-2'] });
+
+    const entries = tx.financialEntry.create.mock.calls.map((c: any) => c[0].data);
+    expect(entries.map((e: any) => [e.description.split(' - ')[0], Number(e.amount)])).toEqual([
+      ['Limpeza', 160],
+      ['Peeling', 300],
+    ]);
+    expect(tx.appointment.update).toHaveBeenCalledWith({
+      where: { id: 'appt-1' },
+      data: { promotionId: 'promo-1' },
+    });
+  });
+
+  it('bills procedures outside the package as standalone items', async () => {
+    tx.procedure.findMany.mockResolvedValue([
+      { id: 'proc-1', name: 'Limpeza', price: 200, materials: [] },
+      { id: 'proc-2', name: 'Peeling', price: 300, materials: [] },
+    ]);
+    promotions.quoteForProcedure.mockResolvedValue({
+      originalPrice: 300,
+      discount: 0,
+      finalPrice: 300,
+      promotion: null,
+    });
+
+    await service.generateForCompletion(tx, { ...input, procedureIds: ['proc-1', 'proc-2'], packageId: 'pp-1' });
+
+    expect(promotions.quoteForProcedure).toHaveBeenCalledTimes(1);
+    expect(promotions.quoteForProcedure).toHaveBeenCalledWith('proc-2', 300, expect.any(Date));
+    const entries = tx.financialEntry.create.mock.calls.map((c: any) => c[0].data);
+    expect(entries.map((e: any) => [e.category, Number(e.amount)])).toEqual([
+      ['Pacotes', 900],
+      ['Atendimentos', 300],
+    ]);
+    expect(tx.patientPackage.update).toHaveBeenCalled();
+  });
+
+  it('still bills uncovered procedures when the package revenue was already generated', async () => {
+    tx.procedure.findMany.mockResolvedValue([
+      { id: 'proc-1', name: 'Limpeza', price: 200, materials: [] },
+      { id: 'proc-2', name: 'Peeling', price: 300, materials: [] },
+    ]);
+    tx.patientPackage.findUnique.mockResolvedValue({
+      id: 'pp-1',
+      totalPaid: 900,
+      financeGenerated: true,
+      package: { items: [{ procedureId: 'proc-1' }] },
+    });
+    promotions.quoteForProcedure.mockResolvedValue({
+      originalPrice: 300,
+      discount: 0,
+      finalPrice: 300,
+      promotion: null,
+    });
+
+    await service.generateForCompletion(tx, { ...input, procedureIds: ['proc-1', 'proc-2'], packageId: 'pp-1' });
+
+    const entries = tx.financialEntry.create.mock.calls.map((c: any) => c[0].data);
+    expect(entries.map((e: any) => [e.category, Number(e.amount)])).toEqual([['Atendimentos', 300]]);
   });
 });

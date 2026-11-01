@@ -32,7 +32,7 @@ export function useAppointmentMaterials({
   extraMaterials: ExtraMaterialRow[];
 }) {
   const materials = useMemo(() => {
-    const map = new Map<string, { itemId: string; quantity: number; item?: { id: string; name: string } }>();
+    const map = new Map<string, { itemId: string; quantity: number; item?: InventoryItem }>();
     for (const procedure of selectedProcedures) {
       for (const m of procedure.materials ?? []) {
         const prev = map.get(m.itemId);
@@ -166,7 +166,7 @@ export function MaterialsSection({
                 const tone = noStock ? 'error' : low ? 'warning' : null;
                 return (
                   <Box
-                    key={m.id}
+                    key={m.itemId}
                     component="span"
                     sx={{
                       display: 'inline-flex',

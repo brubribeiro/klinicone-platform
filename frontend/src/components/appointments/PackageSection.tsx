@@ -12,7 +12,7 @@ import type { SectionControl } from './PatientSection';
 export function PackageSection({
   section,
   isEditing,
-  selectedProcedure,
+  selectedProcedures,
   selectedPackageId,
   onSelectPackage,
   filteredPatientPackages,
@@ -26,7 +26,7 @@ export function PackageSection({
 }: {
   section: SectionControl;
   isEditing: boolean;
-  selectedProcedure?: Procedure;
+  selectedProcedures: Procedure[];
   selectedPackageId: string;
   onSelectPackage: (id: string) => void;
   filteredPatientPackages: PatientPackage[];
@@ -137,10 +137,10 @@ export function PackageSection({
       {filteredPatientPackages.length === 0 && availableCatalogPackages.length > 0 && (
         <Stack spacing={1}>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-            Pacotes disponíveis para <strong>{selectedProcedure?.name}</strong>
+            Pacotes disponíveis para <strong>{selectedProcedures.map((p) => p.name).join(' + ')}</strong>
           </Typography>
           {availableCatalogPackages.map((pkg) => {
-            const itemForProc = pkg.items?.find((i) => i.procedureId === selectedProcedure?.id);
+            const itemForProc = pkg.items?.find((i) => selectedProcedures.some((p) => p.id === i.procedureId));
             const sessions =
               pkg.type === 'SESSIONS' ? (itemForProc?.quantity ?? pkg.sessionCount) : pkg.sessionCount;
             const price = pkg.totalPrice
