@@ -16,6 +16,7 @@ import {
   slotOverlapsUnavailability,
 } from '../../utils/unavailabilityCalendar';
 import { slotOverlapsProfessionalAppointment } from '../../utils/appointmentScheduling';
+import { appointmentProcedureLabel } from '../../utils/appointmentProcedures';
 import { categoryColorFor, kindLabel, statusColors, toDarkEvent } from './agendaConfig';
 
 /**
@@ -94,11 +95,12 @@ export function useAgendaData(range: { from: string; to: string }, filterProfess
     () =>
       filteredAppointments.map((a) => {
         const tag = kindLabel[a.kind] ? `[${kindLabel[a.kind]}] ` : '';
-        const catColor = categoryColorFor(a.procedure?.name ?? a.kind ?? '');
+        const serviceName = appointmentProcedureLabel(a);
+        const catColor = categoryColorFor(serviceName || a.kind || '');
         const statusColor = statusColors[a.status]?.border ?? theme.palette.primary.main;
         return {
           id: a.id,
-          title: `${tag}${a.patient?.name ?? 'Paciente'} · ${a.procedure?.name ?? ''}`,
+          title: `${tag}${a.patient?.name ?? 'Paciente'} · ${serviceName}`,
           start: a.startAt,
           end: a.endAt,
           backgroundColor: `${catColor}1A`,

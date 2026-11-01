@@ -14,7 +14,7 @@ describe('AppointmentFinanceService', () => {
     patientId: 'patient-1',
     // 23h em São Paulo do dia 30/11 (já é 01/12 em UTC)
     startAt: new Date('2025-12-01T02:00:00.000Z'),
-    procedureId: 'proc-1',
+    procedureIds: ['proc-1'],
     packageId: null,
     extraMaterials: [],
   };
@@ -22,7 +22,9 @@ describe('AppointmentFinanceService', () => {
   beforeEach(async () => {
     tx = {
       procedure: {
-        findUnique: jest.fn().mockResolvedValue({ id: 'proc-1', name: 'Limpeza', price: 200, materials: [] }),
+        findMany: jest
+          .fn()
+          .mockResolvedValue([{ id: 'proc-1', name: 'Limpeza', price: 200, materials: [] }]),
       },
       patient: { findUnique: jest.fn().mockResolvedValue({ id: 'patient-1', name: 'Ana' }) },
       patientPackage: {

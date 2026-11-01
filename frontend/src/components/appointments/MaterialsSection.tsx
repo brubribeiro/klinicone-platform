@@ -23,15 +23,28 @@ import type { SectionControl } from './PatientSection';
 export function useAppointmentMaterials({
   inventory,
   appointmentSource,
-  selectedProcedure,
+  selectedProcedures,
   extraMaterials,
 }: {
   inventory: InventoryItem[];
   appointmentSource?: Appointment | null;
-  selectedProcedure?: Procedure;
+  selectedProcedures: Procedure[];
   extraMaterials: ExtraMaterialRow[];
 }) {
-  const materials = useMemo(() => selectedProcedure?.materials ?? [], [selectedProcedure]);
+  const materials = useMemo(() => {
+    const map = new Map<string, { itemId: string; quantity: number; item?: { id: string; name: string } }>();
+    for (const procedure of selectedProcedures) {
+      for (const m of procedure.materials ?? []) {
+        const prev = map.get(m.itemId);
+        map.set(m.itemId, {
+          itemId: m.itemId,
+          quantity: (prev?.quantity ?? 0) + Number(m.quantity),
+          item: m.item ?? prev?.item,
+        });
+      }
+    }
+    return [...map.values()];
+  }, [selectedProcedures]);
 
   const effectiveAvailable = useMemo(() => {
     const map = new Map<string, number>();

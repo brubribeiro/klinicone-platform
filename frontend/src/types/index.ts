@@ -358,10 +358,17 @@ export type AppointmentStatus =
 
 export type AppointmentKind = 'EVALUATION' | 'PROCEDURE' | 'RETURN';
 
+export interface AppointmentProcedureLink {
+  procedureId: string;
+  sortOrder?: number;
+  procedure?: Procedure;
+}
+
 export interface Appointment {
   id: string;
   patientId: string;
-  procedureId: string;
+  procedureId?: string | null;
+  appointmentProcedures?: AppointmentProcedureLink[];
   professionalId: string;
   startAt: string;
   endAt: string;

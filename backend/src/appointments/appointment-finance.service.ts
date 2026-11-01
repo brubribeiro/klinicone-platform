@@ -12,7 +12,7 @@ export interface CompletionFinanceInput {
   appointmentId: string;
   patientId: string;
   startAt: Date;
-  procedureId: string;
+  procedureIds: string[];
   packageId: string | null;
   extraMaterials: MaterialQuantity[];
   referenceMonth?: string;
@@ -35,89 +35,103 @@ export class AppointmentFinanceService {
    * materiais. Retorna false quando o procedimento não existe (nada é lançado).
    */
   async generateForCompletion(tx: Tx, input: CompletionFinanceInput): Promise<boolean> {
-    const { appointmentId, patientId, procedureId, packageId } = input;
+    const { appointmentId, patientId, procedureIds, packageId } = input;
+    if (procedureIds.length === 0) return false;
 
-    const procedure = await tx.procedure.findUnique({
-      where: { id: procedureId },
+    const procedures = await tx.procedure.findMany({
+      where: { id: { in: procedureIds } },
       include: { materials: { include: { item: true } } },
     });
+    if (procedures.length === 0) return false;
+
     const patient = await tx.patient.findUnique({ where: { id: patientId } });
-    if (!procedure) return false;
-
     const patientName = patient?.name ?? 'Paciente';
-    let finalAmount = procedure.price;
-    let description = `${procedure.name} - ${patientName}`;
-    let promotionId: string | null = null;
-
-    // Sessão de pacote usa o valor do pacote (promoção de pacote já entrou na venda)
-    if (!packageId) {
-      const quote = await this.promotionsService.quoteForProcedure(
-        procedureId,
-        Number(procedure.price),
-        toBrazilDateAtUtcNoon(input.startAt),
-      );
-      if (quote.promotion) {
-        finalAmount = new Prisma.Decimal(quote.finalPrice);
-        description += ` (Promoção: ${quote.promotion.name} ${this.promotionsService.discountLabel(quote.promotion)})`;
-        promotionId = quote.promotion.id;
-      }
-    }
-
-    // Data de competência da receita (mês de referência p/ agendamentos antigos)
     const revenuePaidAt = resolveRevenuePaidAt(input.referenceMonth, input.startAt);
-
-    // Valor líquido calculado sobre o preço do procedimento (antes da troca pelo valor do pacote)
-    let netAmount: number | undefined;
-    let feePercent: number | undefined;
     const pmId = input.paymentMethodId ?? null;
+    let feePercent: number | undefined;
     if (pmId) {
       const pm = await tx.paymentMethod.findUnique({ where: { id: pmId } });
-      if (pm) {
-        feePercent = Number(pm.feePercent);
-        netAmount = Math.round(Number(finalAmount) * (1 - feePercent / 100) * 100) / 100;
-      }
+      if (pm) feePercent = Number(pm.feePercent);
     }
 
-    // Receita do procedimento (pacotes: apenas no primeiro agendamento, com o valor total do pacote)
     const packageRevenue = packageId ? await this.resolvePackageRevenue(tx, packageId) : null;
+    let promotionId: string | null = null;
+
     if (!packageRevenue?.alreadyGenerated) {
-      if (packageRevenue?.patientPackage) {
-        finalAmount = packageRevenue.patientPackage.totalPaid;
-        description = `Pacote - ${description}`;
+      if (packageId && packageRevenue?.patientPackage) {
+        const label = procedures.map((p) => p.name).join(' + ');
+        let finalAmount = packageRevenue.patientPackage.totalPaid;
+        let netAmount: number | undefined;
+        if (feePercent != null) {
+          netAmount = Math.round(Number(finalAmount) * (1 - feePercent / 100) * 100) / 100;
+        }
+        await tx.financialEntry.create({
+          data: {
+            type: FinancialType.INCOME,
+            description: `Pacote - ${label} - ${patientName}`,
+            amount: finalAmount,
+            netAmount,
+            feePercent,
+            paymentMethodId: pmId,
+            installments: input.installments ?? null,
+            cardBrand: input.cardBrand?.trim() || null,
+            authorizationCode: input.authorizationCode?.trim() || null,
+            category: 'Pacotes',
+            paidAt: revenuePaidAt,
+            patientId,
+            appointmentId,
+            invoiceIssued: false,
+          },
+        });
+        if (packageId) await this.markPackageFinanceGenerated(tx, packageId);
+      } else if (!packageId) {
+        for (const procedure of procedures) {
+          let finalAmount = procedure.price;
+          let description = `${procedure.name} - ${patientName}`;
+          const quote = await this.promotionsService.quoteForProcedure(
+            procedure.id,
+            Number(procedure.price),
+            toBrazilDateAtUtcNoon(input.startAt),
+          );
+          if (quote.promotion) {
+            finalAmount = new Prisma.Decimal(quote.finalPrice);
+            description += ` (Promoção: ${quote.promotion.name} ${this.promotionsService.discountLabel(quote.promotion)})`;
+            if (!promotionId) promotionId = quote.promotion.id;
+          }
+          let netAmount: number | undefined;
+          if (feePercent != null) {
+            netAmount = Math.round(Number(finalAmount) * (1 - feePercent / 100) * 100) / 100;
+          }
+          await tx.financialEntry.create({
+            data: {
+              type: FinancialType.INCOME,
+              description,
+              amount: finalAmount,
+              netAmount,
+              feePercent,
+              paymentMethodId: pmId,
+              installments: input.installments ?? null,
+              cardBrand: input.cardBrand?.trim() || null,
+              authorizationCode: input.authorizationCode?.trim() || null,
+              category: 'Atendimentos',
+              paidAt: revenuePaidAt,
+              patientId,
+              appointmentId,
+              invoiceIssued: false,
+            },
+          });
+        }
       }
-
-      await tx.financialEntry.create({
-        data: {
-          type: FinancialType.INCOME,
-          description,
-          amount: finalAmount,
-          netAmount,
-          feePercent,
-          paymentMethodId: pmId,
-          installments: input.installments ?? null,
-          cardBrand: input.cardBrand?.trim() || null,
-          authorizationCode: input.authorizationCode?.trim() || null,
-          category: packageId ? 'Pacotes' : 'Atendimentos',
-          paidAt: revenuePaidAt,
-          patientId,
-          appointmentId,
-          invoiceIssued: false,
-        },
-      });
-
-      if (packageId) await this.markPackageFinanceGenerated(tx, packageId);
     }
 
-    const totalMaterialCost = await this.computeMaterialCost(
-      tx,
-      procedure.materials,
-      input.extraMaterials,
-    );
+    const allMaterials = procedures.flatMap((p) => p.materials);
+    const totalMaterialCost = await this.computeMaterialCost(tx, allMaterials, input.extraMaterials);
     if (totalMaterialCost > 0) {
+      const label = procedures.map((p) => p.name).join(' + ');
       await tx.financialEntry.create({
         data: {
           type: FinancialType.EXPENSE,
-          description: `Materiais - ${procedure.name} - ${patientName}`,
+          description: `Materiais - ${label} - ${patientName}`,
           amount: new Prisma.Decimal(Math.round(totalMaterialCost * 100) / 100),
           category: 'Materiais de procedimento',
           expenseType: ExpenseType.VARIABLE,
