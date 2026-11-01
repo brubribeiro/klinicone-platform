@@ -35,7 +35,7 @@ export function normalizePlanFeatures(
 }
 
 /**
- * Planos da plataforma: preço de referência, módulos e limites (limites ainda só informativos).
+ * Planos da plataforma: preço de referência, módulos e limites (aplicados em src/plan-limits).
  * Plano não se exclui: desativado, some do seletor de novas clínicas e quem já tem continua com ele.
  */
 @Injectable()

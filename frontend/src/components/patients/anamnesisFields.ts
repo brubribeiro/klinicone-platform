@@ -81,11 +81,15 @@ export function createEmptyAnamnesis(): Record<string, string | boolean | number
   return values;
 }
 
+const toNumber = (value: unknown) =>
+  typeof value === 'number' ? value : parseFloat(String(value ?? '').replace(',', '.'));
+
 export function calcIMC(peso?: unknown, altura?: unknown): number | null {
-  const p = typeof peso === 'number' ? peso : parseFloat(String(peso ?? ''));
-  const a = typeof altura === 'number' ? altura : parseFloat(String(altura ?? ''));
+  const p = toNumber(peso);
+  const a = toNumber(altura);
   if (!p || !a || p <= 0 || a <= 0) return null;
-  const alturaM = a / 100;
+  // Fichas importadas trazem altura em metros ("1,73"); o formulário usa centímetros
+  const alturaM = a < 3 ? a : a / 100;
   return Math.round((p / (alturaM * alturaM)) * 10) / 10;
 }
 

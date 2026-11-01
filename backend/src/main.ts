@@ -1,9 +1,10 @@
-import { NestFactory } from '@nestjs/core';
+import { HttpAdapterHost, NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import helmet from 'helmet';
+import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
-import { PrismaExceptionFilter } from './common/filters/prisma-exception.filter';
+import { ApiErrorFilter } from './observability/api-error.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -21,10 +22,19 @@ async function bootstrap() {
     );
   }
 
+  // Fail-fast: sem GOOGLE_CLIENT_ID a lib pode omitir checagem de audience no ID token
+  const googleClientId = (config.get<string>('GOOGLE_CLIENT_ID') ?? '').trim();
+  if (!googleClientId || googleClientId.length < 20) {
+    throw new Error(
+      'GOOGLE_CLIENT_ID inválido ou ausente. Defina o Client ID OAuth do Google no .env (obrigatório para validar a audience do ID token).',
+    );
+  }
+
   app.setGlobalPrefix('api');
 
   // Headers de segurança HTTP
   app.use(helmet());
+  app.use(cookieParser());
 
   app.useGlobalPipes(
     new ValidationPipe({
@@ -34,7 +44,8 @@ async function bootstrap() {
     }),
   );
 
-  app.useGlobalFilters(new PrismaExceptionFilter());
+  // Erros do Prisma seguem no PrismaExceptionFilter (o ApiErrorFilter delega)
+  app.useGlobalFilters(new ApiErrorFilter(app.get(HttpAdapterHost).httpAdapter));
 
   const corsOrigin = config.get<string>('CORS_ORIGIN', 'http://localhost:5173');
 

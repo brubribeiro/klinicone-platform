@@ -220,6 +220,7 @@ export function Finance() {
           </Typography>
 
           <Stack
+            data-tour="finance-period"
             direction="row"
             alignItems="center"
             spacing={1.25}
@@ -259,6 +260,7 @@ export function Finance() {
 
         {/* Indicadores */}
         <Box
+          data-tour="finance-kpis"
           sx={{
             display: 'grid',
             gridTemplateColumns: { xs: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' },
@@ -331,7 +333,7 @@ export function Finance() {
         </Box>
 
         {/* Transações */}
-        <Card sx={{ borderRadius: '18px', border: 1, borderColor: 'divider', overflow: 'hidden' }}>
+        <Card data-tour="finance-transactions" sx={{ borderRadius: '18px', border: 1, borderColor: 'divider', overflow: 'hidden' }}>
           <ListCardHeader
             breakpoint="lg"
             nowrapFrom={null}

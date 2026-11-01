@@ -13,6 +13,7 @@ import {
   TextField,
   Tooltip,
   Typography,
+  useTheme,
 } from '@mui/material';
 import CheckIcon from '@mui/icons-material/Check';
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
@@ -30,9 +31,11 @@ import {
   GROUP_ORDER,
   PendIcon,
   RESOLVED_META,
+  categoryColor,
   donutPaths,
   isManual,
   itemIcon,
+  pendTone,
   type PendIconName,
 } from '../components/pendencias/pendenciasUtils';
 import { useAppToast } from '../contexts/AppToastContext';
@@ -42,9 +45,6 @@ import { fontSizes } from '../theme/fontSizes';
 import { clickableProps } from '../utils/a11y';
 import { getApiErrorMessage } from '../utils/apiError';
 import { downloadCsv } from '../utils/csv';
-
-/** Mesmo tom da barra lateral, como o botão "Ver detalhes" do protótipo. */
-const DETAILS_BG = '#0E2926';
 
 type View = PendingGroup | 'ALL' | 'RESOLVED';
 
@@ -89,6 +89,10 @@ function plural(n: number, one: string, many: string) {
 }
 
 export function Pendencias() {
+  const theme = useTheme();
+  const groupTone = (g: PendingGroup) => pendTone(theme, GROUP_META[g].tone);
+  const resolvedTone = pendTone(theme, RESOLVED_META.tone);
+  const primaryTone = pendTone(theme, 'primary');
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const toast = useAppToast();
@@ -185,25 +189,38 @@ export function Pendencias() {
     for (const i of items) counts.set(i.category, (counts.get(i.category) ?? 0) + 1);
     return [...counts.entries()]
       .sort((a, b) => b[1] - a[1])
-      .map(([key, n]) => ({ key, n, label: CATEGORY_META[key].label, color: CATEGORY_META[key].color }));
-  }, [items]);
+      .map(([key, n]) => ({ key, n, label: CATEGORY_META[key].label, color: categoryColor(theme, key) }));
+  }, [items, theme]);
   const donut = donutPaths(byCategory);
 
-  const stats: { view: View; label: string; n: number; color: string; bg: string; icon: PendIconName }[] = [
+  const stats: {
+    view: View;
+    label: string;
+    n: number;
+    color: string;
+    text: string;
+    bg: string;
+    border: string;
+    icon: PendIconName;
+  }[] = [
     ...GROUP_ORDER.map((g) => ({
       view: g as View,
       label: GROUP_META[g].label,
       n: countBy(items, g),
-      color: GROUP_META[g].color,
-      bg: GROUP_META[g].statBg,
+      color: groupTone(g).main,
+      text: groupTone(g).text,
+      bg: groupTone(g).statBg,
+      border: groupTone(g).border,
       icon: GROUP_META[g].icon,
     })),
     {
       view: 'RESOLVED',
       label: RESOLVED_META.label,
       n: data?.resolvedCount ?? 0,
-      color: RESOLVED_META.color,
-      bg: RESOLVED_META.statBg,
+      color: resolvedTone.main,
+      text: resolvedTone.text,
+      bg: resolvedTone.statBg,
+      border: resolvedTone.border,
       icon: 'check',
     },
   ];
@@ -242,6 +259,7 @@ export function Pendencias() {
 
   const renderRow = (item: PendingItem) => {
     const meta = GROUP_META[item.group];
+    const tone = groupTone(item.group);
     const canOpen = !!item.link || (isManual(item) && canEdit);
     return (
       <Box
@@ -321,8 +339,10 @@ export function Pendencias() {
             px: 1.4,
             py: 0.6,
             borderRadius: '8px',
-            bgcolor: meta.chipBg,
-            color: meta.color,
+            bgcolor: tone.chipBg,
+            color: tone.text,
+            border: 1,
+            borderColor: tone.border,
             whiteSpace: 'nowrap',
           }}
         >
@@ -340,7 +360,7 @@ export function Pendencias() {
                 border: 1,
                 borderColor: 'divider',
                 color: 'text.disabled',
-                '&:hover': { color: RESOLVED_META.color, borderColor: RESOLVED_META.color, bgcolor: RESOLVED_META.tint },
+                '&:hover': { color: resolvedTone.text, borderColor: resolvedTone.main, bgcolor: resolvedTone.tint },
               }}
             >
               <CheckIcon sx={{ fontSize: 17 }} />
@@ -349,17 +369,15 @@ export function Pendencias() {
         )}
         {canOpen && (
           <Button
+            variant="contained"
             onClick={() => openDetails(item)}
             sx={{
               height: 32,
               px: 1.9,
               borderRadius: '9px',
-              bgcolor: DETAILS_BG,
-              color: '#fff',
               fontSize: fontSizes.xs,
               fontWeight: 700,
               whiteSpace: 'nowrap',
-              '&:hover': { bgcolor: '#1A3B37' },
             }}
           >
             Ver detalhes
@@ -371,6 +389,7 @@ export function Pendencias() {
 
   const renderGroup = (g: PendingGroup) => {
     const meta = GROUP_META[g];
+    const tone = groupTone(g);
     const list = filtered.filter((i) => i.group === g);
     return (
       <Card key={g} sx={{ ...PANEL_SX, overflow: 'hidden' }}>
@@ -379,16 +398,16 @@ export function Pendencias() {
           alignItems="center"
           justifyContent="space-between"
           spacing={1.5}
-          sx={{ px: 2.5, py: 1.9, bgcolor: meta.tint, borderBottom: 1, borderColor: 'divider' }}
+          sx={{ px: 2.5, py: 1.9, bgcolor: tone.tint, borderBottom: 1, borderColor: 'divider' }}
         >
-          <Stack direction="row" alignItems="center" spacing={1.25} sx={{ color: meta.color }}>
+          <Stack direction="row" alignItems="center" spacing={1.25} sx={{ color: tone.text }}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="9" />
               <path d="M12 8v4.5M12 15.8v.1" />
             </svg>
-            <Typography sx={{ fontSize: fontSizes.xl, fontWeight: 800, color: meta.color }}>{meta.label}</Typography>
+            <Typography sx={{ fontSize: fontSizes.xl, fontWeight: 800, color: tone.text }}>{meta.label}</Typography>
           </Stack>
-          <Typography sx={{ fontSize: fontSizes.sm, fontWeight: 700, color: meta.color }}>
+          <Typography sx={{ fontSize: fontSizes.sm, fontWeight: 700, color: tone.text }}>
             {plural(list.length, 'pendência', 'pendências')}
           </Typography>
         </Stack>
@@ -419,8 +438,8 @@ export function Pendencias() {
                 width: 40,
                 height: 40,
                 borderRadius: '13px',
-                bgcolor: 'rgba(214,90,90,.11)',
-                color: '#D65A5A',
+                bgcolor: primaryTone.tint,
+                color: 'primary.main',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -479,8 +498,10 @@ export function Pendencias() {
                       px: 1.1,
                       py: 0.5,
                       borderRadius: '7px',
-                      bgcolor: 'rgba(214,90,90,.12)',
-                      color: '#C4544F',
+                      bgcolor: groupTone(item.group).chipBg,
+                      color: groupTone(item.group).text,
+                      border: 1,
+                      borderColor: groupTone(item.group).border,
                       whiteSpace: 'nowrap',
                       flexShrink: 0,
                     }}
@@ -505,7 +526,7 @@ export function Pendencias() {
               sx={{
                 bgcolor: s.bg,
                 border: 1,
-                borderColor: view === s.view ? s.color : 'divider',
+                borderColor: view === s.view ? s.color : s.border,
                 borderRadius: '16px',
                 px: 2.25,
                 py: 2,
@@ -523,7 +544,7 @@ export function Pendencias() {
                   height: 38,
                   borderRadius: '12px',
                   bgcolor: s.color,
-                  color: '#fff',
+                  color: 'common.white',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -536,9 +557,9 @@ export function Pendencias() {
                 {isLoading ? (
                   <Skeleton width={36} height={28} />
                 ) : (
-                  <Typography sx={{ fontSize: 26, fontWeight: 800, color: s.color, lineHeight: 1.05 }}>{s.n}</Typography>
+                  <Typography sx={{ fontSize: 26, fontWeight: 800, color: s.text, lineHeight: 1.05 }}>{s.n}</Typography>
                 )}
-                <Typography sx={{ fontSize: fontSizes.xs, fontWeight: 800, color: s.color, letterSpacing: '.02em' }}>
+                <Typography sx={{ fontSize: fontSizes.xs, fontWeight: 800, color: s.text, letterSpacing: '.02em' }}>
                   {s.label}
                 </Typography>
               </Stack>
@@ -551,6 +572,7 @@ export function Pendencias() {
           <Stack direction="row" flexWrap="wrap" gap={1}>
             {GROUP_ORDER.map((g) => {
               const meta = GROUP_META[g];
+              const tone = groupTone(g);
               const active = view === g;
               return (
                 <Box
@@ -569,9 +591,9 @@ export function Pendencias() {
                     borderRadius: '12px',
                     cursor: 'pointer',
                     border: 1,
-                    borderColor: active ? meta.color : 'divider',
-                    bgcolor: active ? meta.tint : 'background.paper',
-                    color: active ? meta.color : 'text.secondary',
+                    borderColor: active ? tone.main : 'divider',
+                    bgcolor: active ? tone.tint : 'background.paper',
+                    color: active ? tone.text : 'text.secondary',
                     fontSize: fontSizes.md,
                     fontWeight: 800,
                     whiteSpace: 'nowrap',
@@ -587,8 +609,8 @@ export function Pendencias() {
                       px: 1,
                       py: 0.25,
                       borderRadius: '7px',
-                      bgcolor: active ? meta.chipBg : 'grey.100',
-                      color: active ? meta.color : 'text.disabled',
+                      bgcolor: active ? tone.chipBg : 'grey.100',
+                      color: active ? tone.text : 'text.disabled',
                     }}
                   >
                     {countBy(filtered, g)}
@@ -627,15 +649,15 @@ export function Pendencias() {
               alignItems="center"
               justifyContent="space-between"
               spacing={1.5}
-              sx={{ px: 2.5, py: 1.9, bgcolor: RESOLVED_META.tint, borderBottom: 1, borderColor: 'divider' }}
+              sx={{ px: 2.5, py: 1.9, bgcolor: resolvedTone.tint, borderBottom: 1, borderColor: 'divider' }}
             >
-              <Stack direction="row" alignItems="center" spacing={1.25} sx={{ color: RESOLVED_META.color }}>
+              <Stack direction="row" alignItems="center" spacing={1.25} sx={{ color: resolvedTone.text }}>
                 <PendIcon name="check" size={18} strokeWidth={2} />
-                <Typography sx={{ fontSize: fontSizes.xl, fontWeight: 800, color: RESOLVED_META.color }}>
+                <Typography sx={{ fontSize: fontSizes.xl, fontWeight: 800, color: resolvedTone.text }}>
                   Resolvidas nos últimos 30 dias
                 </Typography>
               </Stack>
-              <Typography sx={{ fontSize: fontSizes.sm, fontWeight: 700, color: RESOLVED_META.color }}>
+              <Typography sx={{ fontSize: fontSizes.sm, fontWeight: 700, color: resolvedTone.text }}>
                 {plural(resolvedList.length, 'pendência', 'pendências')}
               </Typography>
             </Stack>
@@ -660,8 +682,8 @@ export function Pendencias() {
                       width: 36,
                       height: 36,
                       borderRadius: '11px',
-                      bgcolor: RESOLVED_META.tint,
-                      color: RESOLVED_META.color,
+                      bgcolor: resolvedTone.tint,
+                      color: resolvedTone.text,
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',

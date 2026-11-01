@@ -19,7 +19,7 @@ import { SLUG_PATTERN, trimToUndefined } from './create-tenant.dto';
 
 const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value);
 
-/** Limites informativos do plano (ainda não bloqueiam nada). Ausente/null = ilimitado. */
+/** Limites do plano (aplicados em src/plan-limits). Ausente/null = ilimitado. */
 export class PlanLimitsDto {
   @IsOptional()
   @IsInt()

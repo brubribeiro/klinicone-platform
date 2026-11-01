@@ -110,7 +110,7 @@ export async function ensureSystemRoles(prisma: RoleClient, tenantId: string) {
  */
 export async function provisionTenant(
   prisma: PrismaClient,
-  data: { name: string; slug: string; planId?: string | null },
+  data: Prisma.TenantUncheckedCreateInput,
   admin?: { name: string; email: string; password: string },
 ): Promise<Tenant> {
   return prisma.$transaction(async (tx) => {

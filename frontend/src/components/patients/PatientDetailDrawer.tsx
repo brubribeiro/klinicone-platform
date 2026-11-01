@@ -1,4 +1,4 @@
-import { Box, Button, CircularProgress, Drawer, IconButton, Stack, alpha } from '@mui/material';
+import { Box, Button, CircularProgress, Drawer, IconButton, Stack, alpha, useTheme } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import OpenInFullIcon from '@mui/icons-material/OpenInFull';
 import AddIcon from '@mui/icons-material/Add';
@@ -7,11 +7,14 @@ import { useNavigate } from 'react-router-dom';
 
 import { PatientPhotosGallery } from './PatientPhotosGallery';
 import { PatientAnamnesisSection } from './PatientAnamnesisSection';
+import { PatientDocumentsTab } from './PatientDocumentsTab';
+import { PatientFinanceTab } from './PatientFinanceTab';
 import { PatientDrawerAppointmentsTab } from './PatientDrawerAppointmentsTab';
 import { PatientDrawerHeader, type PatientDrawerTab } from './PatientDrawerHeader';
 import { PatientDrawerSummaryTab } from './PatientDrawerSummaryTab';
 import { PatientWhatsAppButton } from './PatientWhatsAppButton';
 import { usePatientChart } from './usePatientChart';
+import { usePatientRecordAccess } from './usePatientRecordAccess';
 import { usePermissions } from '../../contexts/usePermissions';
 import { useAppointmentDialog } from '../../contexts/AppointmentDialogContext';
 
@@ -31,8 +34,10 @@ export function PatientDetailDrawer({
 }: PatientDetailDrawerProps) {
   const [tab, setTab] = useState<PatientDrawerTab>(defaultTab);
   const navigate = useNavigate();
+  const theme = useTheme();
   const { has } = usePermissions();
   const canEdit = has('patients:edit');
+  const { showDocuments, showFinance } = usePatientRecordAccess();
   const { openAppointmentDialog } = useAppointmentDialog();
 
   const { data, isLoading, reliability } = usePatientChart(patientId);
@@ -137,6 +142,16 @@ export function PatientDetailDrawer({
           />
         )}
 
+        {data && tab === 'documents' && showDocuments && (
+          <PatientDocumentsTab
+            patientId={data.id}
+            patientName={data.name}
+            onLeave={handleClose}
+            viewerZIndex={theme.zIndex.modal + 2}
+          />
+        )}
+
+        {data && tab === 'finance' && showFinance && <PatientFinanceTab patientId={data.id} />}
       </Box>
 
       {data && (

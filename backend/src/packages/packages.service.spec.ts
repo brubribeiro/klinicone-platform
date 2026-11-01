@@ -4,11 +4,13 @@ import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { PackagesService } from './packages.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditLogService } from '../audit-log/audit-log.service';
+import { PromotionsService } from '../promotions/promotions.service';
 
 describe('PackagesService', () => {
   let service: PackagesService;
   let prisma: any;
   let auditLog: any;
+  let promotions: any;
 
   const mockPackage = {
     id: 'pkg-1',
@@ -67,6 +69,13 @@ describe('PackagesService', () => {
       $transaction: jest.fn().mockImplementation(async (fn) => fn(prisma)),
     };
 
+    promotions = {
+      quoteForPackage: jest.fn((_id: string, price: number) =>
+        Promise.resolve({ originalPrice: price, discount: 0, finalPrice: price, promotion: null }),
+      ),
+      discountLabel: jest.fn().mockReturnValue('combo R$ 499.00'),
+    };
+
     auditLog = {
       logCreate: jest.fn().mockResolvedValue(undefined),
       logUpdate: jest.fn().mockResolvedValue(undefined),
@@ -78,6 +87,7 @@ describe('PackagesService', () => {
         PackagesService,
         { provide: PrismaService, useValue: prisma },
         { provide: AuditLogService, useValue: auditLog },
+        { provide: PromotionsService, useValue: promotions },
       ],
     }).compile();
 
@@ -115,6 +125,60 @@ describe('PackagesService', () => {
           data: expect.objectContaining({ sessionCount: 3 }),
         }),
       );
+    });
+  });
+
+  describe('createPatientPackage', () => {
+    beforeEach(() => {
+      prisma.$transactionWithRetry = jest.fn().mockImplementation(async (fn) => fn(prisma));
+    });
+
+    it('applies the active package promotion when no price is given', async () => {
+      promotions.quoteForPackage.mockResolvedValue({
+        originalPrice: 2000,
+        discount: 1501,
+        finalPrice: 499,
+        promotion: { id: 'promo-1', name: 'Combo Verão', discountType: 'COMBO', discountValue: 499 },
+      });
+
+      await service.createPatientPackage({
+        patientId: 'patient-1',
+        packageId: 'pkg-1',
+        paymentMethodId: 'pm-1',
+      });
+
+      expect(promotions.quoteForPackage).toHaveBeenCalledWith('pkg-1', 2000, expect.any(Date));
+      expect(prisma.patientPackage.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ totalPaid: 499 }) }),
+      );
+      expect(prisma.financialEntry.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            amount: 499,
+            description: expect.stringContaining('Promoção: Combo Verão'),
+          }),
+        }),
+      );
+    });
+
+    it('keeps a manually agreed price without the promotion label', async () => {
+      promotions.quoteForPackage.mockResolvedValue({
+        originalPrice: 2000,
+        discount: 1501,
+        finalPrice: 499,
+        promotion: { id: 'promo-1', name: 'Combo Verão', discountType: 'COMBO', discountValue: 499 },
+      });
+
+      await service.createPatientPackage({
+        patientId: 'patient-1',
+        packageId: 'pkg-1',
+        totalPaid: 1800,
+        paymentMethodId: 'pm-1',
+      });
+
+      const entry = prisma.financialEntry.create.mock.calls[0][0].data;
+      expect(entry.amount).toBe(1800);
+      expect(entry.description).not.toContain('Promoção');
     });
   });
 

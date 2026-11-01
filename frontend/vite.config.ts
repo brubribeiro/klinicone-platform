@@ -4,8 +4,11 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 
+import { apiDevProxy } from '../scripts/vite-api-proxy';
+
 const appVersion = readFileSync(path.resolve(__dirname, '../VERSION'), 'utf8').trim();
 
+/** Painel da clínica — servido em `/painel` (deploy separado da landing e do console admin). */
 export default defineConfig({
   base: '/painel',
   define: {
@@ -24,18 +27,12 @@ export default defineConfig({
     css: false,
   },
   server: {
-    port: 5173,
+    port: 5174,
     allowedHosts: true,
     hmr: {
       host: 'localhost',
       protocol: 'ws',
     },
-    proxy: {
-      '/api': {
-        target: 'http://localhost:3333',
-        changeOrigin: true,
-        secure: false
-      },
-    },
+    ...apiDevProxy,
   },
 });

@@ -4,6 +4,9 @@ import type { Theme } from '@mui/material/styles';
 import type { SystemStyleObject } from '@mui/system';
 import { fontSizes } from '../theme/fontSizes';
 
+/** Faixa de KPIs no topo das listagens (Pacientes, Documentos, Metas, etc.). */
+export const TOP_STAT_CARD_MIN_HEIGHT = { xs: 88, sm: 92 } as const;
+
 interface StatCardProps {
   label: string;
   value: ReactNode;
@@ -30,7 +33,17 @@ export function StatCard({
   labelSx,
 }: StatCardProps) {
   return (
-    <Card sx={{ p: { xs: 2, sm: 2.25 }, borderRadius: '16px', ...sx }}>
+    <Card
+      sx={{
+        p: { xs: 2, sm: 2.25 },
+        borderRadius: '16px',
+        minHeight: TOP_STAT_CARD_MIN_HEIGHT,
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        ...sx,
+      }}
+    >
       {loading ? (
         <Skeleton
           variant="text"

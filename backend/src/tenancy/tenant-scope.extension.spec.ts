@@ -1,5 +1,10 @@
 import { TenantContext, TenantContextMissingError } from './tenant-context';
-import { scopeArgs, scopeQuery, TENANT_SCOPED_MODELS } from './tenant-scope.extension';
+import {
+  assertRawSqlAllowed,
+  scopeArgs,
+  scopeQuery,
+  TENANT_SCOPED_MODELS,
+} from './tenant-scope.extension';
 
 const T = 'tenant-a';
 
@@ -141,6 +146,21 @@ describe('tenant scope extension', () => {
       const lazy = { then: (resolve: (v: string | null) => void) => resolve((seen = TenantContext.tenantId())) };
       await TenantContext.run(T, () => lazy);
       expect(seen).toBe(T);
+    });
+  });
+
+  describe('assertRawSqlAllowed', () => {
+    it('refuses raw SQL without tenant context', () => {
+      expect(() => assertRawSqlAllowed('$queryRaw')).toThrow(TenantContextMissingError);
+    });
+
+    it('allows raw SQL inside a tenant or unscoped', async () => {
+      await TenantContext.run(T, async () => {
+        expect(() => assertRawSqlAllowed('$queryRaw')).not.toThrow();
+      });
+      await TenantContext.runUnscoped(async () => {
+        expect(() => assertRawSqlAllowed('$executeRaw')).not.toThrow();
+      });
     });
   });
 });

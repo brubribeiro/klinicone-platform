@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Box, Card, Skeleton, Stack, Typography, alpha, type SxProps, type Theme } from '@mui/material';
+import { Box, Card, Skeleton, Stack, Typography, type SxProps, type Theme } from '@mui/material';
 import ReceiptLongOutlinedIcon from '@mui/icons-material/ReceiptLongOutlined';
 import ScheduleIcon from '@mui/icons-material/Schedule';
 import type { Dayjs } from 'dayjs';
@@ -126,15 +126,9 @@ export function RecurringSummaryCards({
         </Box>
       </SummaryCard>
 
-      <SummaryCard
-        sx={{
-          border: 1,
-          borderColor: (t) => alpha(t.palette.warning.main, 0.3),
-          background: (t) => `linear-gradient(155deg, ${alpha(t.palette.warning.main, 0.14)}, ${t.palette.background.paper})`,
-        }}
-      >
+      <SummaryCard>
         <Stack direction="row" alignItems="center" justifyContent="space-between">
-          <Typography sx={{ fontSize: fontSizes.sm, color: 'warning.dark', fontWeight: 700 }}>
+          <Typography sx={{ fontSize: fontSizes.sm, color: 'text.secondary', fontWeight: 600 }}>
             Vencem em {UPCOMING_DAYS} dias
           </Typography>
           <SummaryIcon tone="warning">
@@ -142,12 +136,10 @@ export function RecurringSummaryCards({
           </SummaryIcon>
         </Stack>
         <Box>
-          <Typography
-            sx={{ fontSize: fontSizes['7xl'], fontWeight: 800, letterSpacing: '-.8px', lineHeight: 1.2, color: 'warning.dark' }}
-          >
+          <Typography sx={{ fontSize: fontSizes['7xl'], fontWeight: 800, letterSpacing: '-.8px', lineHeight: 1.2 }}>
             {isLoading ? <Skeleton width={50} /> : dueStats.upcoming}
           </Typography>
-          <Typography sx={{ fontSize: fontSizes.xs, color: 'warning.dark', fontWeight: 600, opacity: 0.85 }}>
+          <Typography sx={{ fontSize: fontSizes.xs, color: 'text.disabled', fontWeight: 600 }}>
             {dueStats.next ? `próximo: ${formatDue(dueStats.next)}` : 'nenhum vencimento'}
           </Typography>
         </Box>

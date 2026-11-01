@@ -31,6 +31,8 @@ export class PaymentMethodsService {
     const created = await this.prisma.paymentMethod.create({
       data: {
         name: dto.name,
+        kind: dto.kind ?? 'OTHER',
+        settlementDays: dto.settlementDays ?? 0,
         feePercent: dto.feePercent ?? 0,
         active: dto.active ?? true,
       },
@@ -46,6 +48,8 @@ export class PaymentMethodsService {
       where: { id },
       data: {
         name: dto.name,
+        kind: dto.kind,
+        settlementDays: dto.settlementDays,
         feePercent: dto.feePercent,
         active: dto.active,
       },

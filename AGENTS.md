@@ -60,7 +60,7 @@ mila-barreto-platform/
   - `$queryRaw`/`$executeRaw` **não** são escopados: filtre `"tenantId"` manualmente.
   - Fora de requisição (jobs, scripts) use `TenantContext.run(tenantId, fn)`; `TenantContext.runUnscoped` só para login, super-admin e jobs que percorrem as clínicas. Scripts de `prisma/` usam `prisma/tenant-script.ts`.
   - `User.email` é único no sistema todo; super-admin (`isSuperAdmin`, sem clínica) só usa rotas com `SuperAdminGuard`.
-  - Painel do super-admin: `src/admin/` (backend) e `/admin` (frontend). Ações dele vão para `PlatformAuditLog` (sem `tenantId`), não para `AuditLog`. O "Entrar como" é um token do super-admin com `tenantId` da clínica e `impersonatorId` igual ao próprio id (ver `JwtStrategy`).
+  - Painel do super-admin: `src/admin/` (backend) e `apps/admin-console/` (front, deploy e versão próprios). Ações dele vão para `PlatformAuditLog` (sem `tenantId`), não para `AuditLog`. O "Entrar como" é um token do super-admin com `tenantId` da clínica e `impersonatorId` igual ao próprio id (ver `JwtStrategy`).
 
 ---
 
@@ -108,7 +108,7 @@ mila-barreto-platform/
 - API: `http://localhost:3333/api` (prefixo `/api`)
 - Frontend: Vite (porta padrão do projeto); `VITE_API_URL` em `.env`
 - Banco: Docker Compose — Postgres `localhost:5432`, db `mila_platform`
-- Seed: `admin@mila.com` / `admin123`
+- Auth: login **somente Google** (`POST /api/auth/google`, UI em `Login.tsx`). Seed cria usuários demo por e-mail (ex. `admin@mila.com`) — não há login e-mail/senha na API nem no painel.
 
 ---
 
@@ -126,7 +126,8 @@ mila-barreto-platform/
 
 ## 10. Versionamento
 
-- **Fonte da verdade:** arquivo `VERSION` na raiz (`MAJOR.MINOR.PATCH`).
+- **Fonte da verdade:** arquivo `VERSION` na raiz (`MAJOR.MINOR.PATCH`) — painel da clínica (`frontend/`) + backend.
+- **Apps com versão própria:** `apps/landing/VERSION` e `apps/admin-console/VERSION` (`npm run version:sync:landing` / `:admin`). Mudança só nesses apps não bumpa o `VERSION` da raiz nem entra no `RELEASE_NOTES.md`.
 - **Sincronizar:** `npm run version:sync` na raiz (atualiza `package.json` do monorepo, frontend e backend).
 - **Changelog:** registrar mudanças técnicas em `CHANGELOG.md`.
 - **Release notes:** registrar mudanças para usuários em `RELEASE_NOTES.md` (português).

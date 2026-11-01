@@ -1,18 +1,19 @@
 import { Button, Stack } from '@mui/material';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 
-import type { Patient } from '../../types';
+import type { PatientWithHistory } from '../../api/patients';
 import { usePermissions } from '../../contexts/usePermissions';
 import { PatientSkinRoutinesCard } from '../skincare/PatientSkinRoutinesCard';
 import { AnamnesisView, hasAnamnesisData } from './AnamnesisView';
+import { PatientMeasurementsCard } from './PatientMeasurementsCard';
 
-/** Aba "Anamnese" da ficha completa e da gaveta: rotinas de skincare, botão de edição e respostas. */
+/** Aba "Anamnese" da ficha completa e da gaveta: rotinas de skincare, medidas corporais, botão de edição e respostas. */
 export function PatientAnamnesisSection({
   patient,
   onEdit,
   buttonSize,
 }: {
-  patient: Patient;
+  patient: PatientWithHistory;
   onEdit?: () => void;
   buttonSize?: 'small';
 }) {
@@ -24,6 +25,7 @@ export function PatientAnamnesisSection({
           patient={{ id: patient.id, name: patient.name, phone: patient.phone, email: patient.email }}
         />
       )}
+      <PatientMeasurementsCard patient={patient} canEdit={has('patients:edit')} />
       {onEdit && (
         <Stack direction="row" justifyContent="flex-end">
           <Button variant="contained" size={buttonSize} startIcon={<EditOutlinedIcon />} onClick={onEdit}>

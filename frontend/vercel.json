@@ -1,7 +1,17 @@
 {
+  "ignoreCommand": "node ../scripts/vercel-ignore-build.mjs ../VERSION",
   "rewrites": [
-    { "source": "/painel/assets/(.*)", "destination": "/assets/$1" },
-    { "source": "/painel/(.*)", "destination": "/index.html" },
-    { "source": "/painel", "destination": "/index.html" }
+    {
+      "source": "/painel/assets/(.*)",
+      "destination": "/assets/$1"
+    },
+    {
+      "source": "/painel/(.*)",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/painel",
+      "destination": "/index.html"
+    }
   ]
 }

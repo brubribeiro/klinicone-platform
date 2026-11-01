@@ -4,6 +4,7 @@ import { NotificationType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { EquipmentService } from '../equipment/equipment.service';
+import { MessageDispatchService } from '../messages/message-dispatch.service';
 import { TenantContext } from '../tenancy/tenant-context';
 
 const CHECK_INTERVAL_MS = 60 * 60 * 1000;
@@ -21,6 +22,7 @@ export class SchedulerService implements OnModuleInit, OnModuleDestroy {
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
     private readonly equipment: EquipmentService,
+    private readonly messageDispatches: MessageDispatchService,
   ) {}
 
   onModuleInit() {
@@ -35,7 +37,9 @@ export class SchedulerService implements OnModuleInit, OnModuleDestroy {
       KEEP_ALIVE_INTERVAL_MS,
     );
 
-    this.logger.log('Scheduler iniciado — verificações a cada 1h, keep-alive a cada 4.5 min (7h–21h)');
+    this.logger.log(
+      'Scheduler iniciado — verificações a cada 1h (incl. gatilhos WhatsApp), keep-alive a cada 4.5 min (7h–21h)',
+    );
   }
 
   onModuleDestroy() {
@@ -46,29 +50,38 @@ export class SchedulerService implements OnModuleInit, OnModuleDestroy {
   /** Roda as verificações uma clínica por vez, cada uma no próprio contexto de tenant. */
   private async runAll() {
     const tenants = await TenantContext.runUnscoped(() =>
-      this.prisma.tenant.findMany({ where: { active: true }, select: { id: true, slug: true } }),
+      this.prisma.tenant.findMany({ where: { active: true }, select: { id: true, slug: true, name: true } }),
     );
     for (const tenant of tenants) {
-      await TenantContext.run(tenant.id, () => this.runAllForTenant()).catch((e) =>
+      await TenantContext.run(tenant.id, () => this.runAllForTenant(tenant.name)).catch((e) =>
         this.logger.error(`Scheduler error (clínica ${tenant.slug})`, e),
       );
     }
   }
 
-  private async runAllForTenant() {
+  private async runAllForTenant(clinicName: string) {
     await Promise.allSettled([
       this.checkEquipmentMaintenance(),
       this.checkInventoryExpiring(),
       this.checkPatientReturnDue(),
       this.checkPatientReactivation(),
+      this.checkMessageTriggers(clinicName),
     ]);
+  }
+
+  private async checkMessageTriggers(clinicName: string) {
+    try {
+      await this.messageDispatches.processAutoTriggers(clinicName);
+    } catch (e) {
+      this.logger.error('Erro ao processar gatilhos de mensagens WhatsApp', e);
+    }
   }
 
   private async keepAlive() {
     const hour = new Date().getHours();
     if (hour < KEEP_ALIVE_START_HOUR || hour >= KEEP_ALIVE_END_HOUR) return;
 
-    await this.prisma.$queryRaw`SELECT 1`;
+    await TenantContext.runUnscoped(() => this.prisma.$queryRaw`SELECT 1`);
   }
 
   private async checkEquipmentMaintenance() {

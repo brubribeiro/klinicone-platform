@@ -21,6 +21,11 @@ import { goalsApi, type GoalScope } from '../api/goals';
 import { AuroraIcon } from '../components/AuroraIcon';
 import { GoalFormDialog } from '../components/goals/GoalFormDialog';
 import {
+  LIST_HEADER_PAPER_SELECT_SX,
+  LIST_HEADER_PRIMARY_ACTION_SX,
+  ListCardHeader,
+} from '../components/ListCardHeader';
+import {
   clampProgress,
   formatGoalPeriod,
   formatGoalValue,
@@ -30,6 +35,7 @@ import {
 } from '../components/goals/goalUtils';
 import { usePermissions } from '../contexts/usePermissions';
 import type { Goal } from '../types';
+import { StatCard } from '../components/StatCard';
 import { fontSizes } from '../theme/fontSizes';
 import { clickableProps } from '../utils/a11y';
 
@@ -37,17 +43,6 @@ const CARD_GRID_SX = {
   display: 'grid',
   gridTemplateColumns: { xs: '1fr', sm: 'repeat(auto-fill, minmax(360px, 1fr))' },
   gap: 2.25,
-} as const;
-
-const TOOLBAR_SELECT_SX = {
-  flexShrink: 0,
-  minWidth: 160,
-  '& .MuiOutlinedInput-root': {
-    height: 38,
-    borderRadius: '12px',
-    fontSize: fontSizes.sm,
-    bgcolor: 'background.paper',
-  },
 } as const;
 
 const SCOPE_OPTIONS: { value: GoalScope; label: string }[] = [
@@ -85,40 +80,38 @@ export function Goals() {
     setFormOpen(true);
   };
 
+  const scopeLabel = SCOPE_OPTIONS.find((o) => o.value === scope)?.label ?? 'Metas';
+
   return (
     <Stack spacing={2.25}>
-      {/* Resumo + filtros + ações */}
-      <Stack
-        direction={{ xs: 'column', md: 'row' }}
-        alignItems={{ xs: 'stretch', md: 'center' }}
-        justifyContent="space-between"
-        spacing={1.5}
-      >
-        <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: { xs: 1, sm: 1.75 }, flex: 1, minWidth: 0 }}>
-          {summaryCards.map((s) => (
-            <Card key={s.label} sx={{ px: { xs: 1.5, sm: 2.25 }, py: 2, borderRadius: '14px', border: 1, borderColor: 'divider' }}>
-              {isLoading ? (
-                <Skeleton width={60} height={30} />
-              ) : (
-                <Typography sx={{ fontSize: fontSizes['5xl'], fontWeight: 800, letterSpacing: '-0.5px', lineHeight: 1.2, color: s.color }}>
-                  {s.value}
-                </Typography>
-              )}
-              <Typography sx={{ fontSize: fontSizes.xs, color: 'text.secondary', fontWeight: 600, mt: 0.25 }}>
-                {s.label}
-              </Typography>
-            </Card>
-          ))}
-        </Box>
+      <Box data-tour="goals-summary" sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: { xs: 1, sm: 1.75 } }}>
+        {summaryCards.map((s) => (
+          <StatCard key={s.label} label={s.label} value={s.value} color={s.color} loading={isLoading} />
+        ))}
+      </Box>
 
-        <Stack direction="row" alignItems="center" spacing={1.25} justifyContent={{ md: 'flex-end' }} sx={{ flexShrink: 0 }}>
+      <Card data-tour="goals-list" sx={{ borderRadius: '18px', overflow: 'hidden' }}>
+        <ListCardHeader
+          breakpoint="md"
+          nowrapFrom="md"
+          title={
+            <Box sx={{ minWidth: 0 }}>
+              <Typography sx={{ fontSize: fontSizes.xl, fontWeight: 700 }}>{scopeLabel}</Typography>
+              <Typography sx={{ fontSize: fontSizes.xs, color: 'text.disabled', fontWeight: 600 }}>
+                {isLoading
+                  ? 'Carregando…'
+                  : `${goals.length} ${goals.length === 1 ? 'meta' : 'metas'}`}
+              </Typography>
+            </Box>
+          }
+        >
           <TextField
             select
             size="small"
             value={scope}
             onChange={(e) => setScope(e.target.value as GoalScope)}
-            sx={TOOLBAR_SELECT_SX}
-            inputProps={{ 'aria-label': 'Período' }}
+            sx={LIST_HEADER_PAPER_SELECT_SX}
+            inputProps={{ 'aria-label': 'Filtrar metas por período' }}
           >
             {SCOPE_OPTIONS.map((o) => (
               <MenuItem key={o.value} value={o.value}>
@@ -127,42 +120,40 @@ export function Goals() {
             ))}
           </TextField>
           {canCreate && (
-            <Button
+            <Button data-tour="goals-new"
               variant="contained"
               startIcon={<AddIcon />}
               onClick={() => {
                 setEditing(null);
                 setFormOpen(true);
               }}
-              sx={{ flexShrink: 0, whiteSpace: 'nowrap', height: 38, px: 2.25, borderRadius: '12px', boxShadow: (t) => `0 6px 16px -6px ${t.palette.primary.main}` }}
+              sx={LIST_HEADER_PRIMARY_ACTION_SX}
             >
               Nova meta
             </Button>
           )}
-        </Stack>
-      </Stack>
+        </ListCardHeader>
 
-      {/* Cards de metas */}
-      {isLoading ? (
-        <Box sx={CARD_GRID_SX}>
-          {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} variant="rounded" height={176} sx={{ borderRadius: '18px' }} />
-          ))}
-        </Box>
-      ) : goals.length === 0 ? (
-        <Card sx={{ p: 6, textAlign: 'center', borderRadius: '18px' }}>
-          <Box sx={{ color: 'text.disabled', mb: 1 }}>
-            <AuroraIcon name="metas" size={46} strokeWidth={1.4} />
+        {isLoading ? (
+          <Box sx={{ ...CARD_GRID_SX, p: { xs: 2, sm: 2.25 } }}>
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Skeleton key={i} variant="rounded" height={176} sx={{ borderRadius: '18px' }} />
+            ))}
           </Box>
-          <Typography sx={{ fontWeight: 700 }}>
-            {scope === 'current' ? 'Nenhuma meta em andamento' : 'Nenhuma meta encontrada'}
-          </Typography>
-          <Typography color="text.secondary" sx={{ fontSize: fontSizes.md, mt: 0.5 }}>
-            Defina objetivos de faturamento, pacientes, procedimentos e outros indicadores para acompanhar o progresso.
-          </Typography>
-        </Card>
-      ) : (
-        <Box sx={CARD_GRID_SX}>
+        ) : goals.length === 0 ? (
+          <Box sx={{ p: 6, textAlign: 'center' }}>
+            <Box sx={{ color: 'text.disabled', mb: 1 }}>
+              <AuroraIcon name="metas" size={46} strokeWidth={1.4} />
+            </Box>
+            <Typography sx={{ fontWeight: 700 }}>
+              {scope === 'current' ? 'Nenhuma meta em andamento' : 'Nenhuma meta encontrada'}
+            </Typography>
+            <Typography color="text.secondary" sx={{ fontSize: fontSizes.md, mt: 0.5 }}>
+              Defina objetivos de faturamento, pacientes, procedimentos e outros indicadores para acompanhar o progresso.
+            </Typography>
+          </Box>
+        ) : (
+          <Box sx={{ ...CARD_GRID_SX, p: { xs: 2, sm: 2.25 } }}>
           {goals.map((g) => {
             const option = metricOption(g.metric);
             const status = goalStatus(g.progress);
@@ -275,8 +266,9 @@ export function Goals() {
               </Card>
             );
           })}
-        </Box>
-      )}
+          </Box>
+        )}
+      </Card>
 
       <GoalFormDialog
         open={formOpen}

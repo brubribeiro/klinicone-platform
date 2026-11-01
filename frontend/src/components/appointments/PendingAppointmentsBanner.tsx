@@ -21,6 +21,7 @@ export function PendingAppointmentsBanner({ appointments, onOpen }: PendingAppoi
 
   return (
     <Box
+      data-tour="agenda-pending"
       sx={{
         mb: 1.5,
         borderRadius: '13px',

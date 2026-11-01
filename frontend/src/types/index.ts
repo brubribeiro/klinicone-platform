@@ -32,6 +32,10 @@ export interface User {
   isSuperAdmin?: boolean;
   /** Nome da clínica quando o super-admin "entrou como" ela */
   tenantName?: string;
+  /** Após login Google quando o e-mail tem clínica e super-admin */
+  panelSelectionPending?: boolean;
+  /** Pode alternar entre painel da clínica e /admin */
+  canChoosePanel?: boolean;
 }
 
 // ===== Painel administrativo da plataforma (super-admin) =====
@@ -43,7 +47,7 @@ export interface AdminTenantMetrics {
   lastAccessAt: string | null;
 }
 
-/** Limites informativos do plano (ausente = ilimitado). */
+/** Limites do plano, aplicados pela API (ausente = ilimitado). */
 export interface PlanLimits {
   maxUsers?: number;
   maxPatients?: number;
@@ -67,7 +71,19 @@ export interface AdminPlan {
 
 export type AdminPlanSummary = Pick<AdminPlan, 'id' | 'name' | 'slug' | 'active' | 'features' | 'priceCents' | 'currency'>;
 
-export interface AdminTenant {
+export interface AdminTenantProfile {
+  specialties: string[];
+  foundedAt: string | null;
+  legalName: string | null;
+  document: string | null;
+  phone: string | null;
+  email: string | null;
+  city: string | null;
+  state: string | null;
+  notes: string | null;
+}
+
+export interface AdminTenant extends AdminTenantProfile {
   id: string;
   name: string;
   slug: string;
@@ -103,7 +119,34 @@ export type PlatformAuditAction =
   | 'CATALOG_CREATE'
   | 'CATALOG_UPDATE'
   | 'CATALOG_ACTIVATE'
-  | 'CATALOG_DEACTIVATE';
+  | 'CATALOG_DEACTIVATE'
+  | 'FEEDBACK_STATUS_CHANGE'
+  | 'ANNOUNCEMENT_GENERATE'
+  | 'ANNOUNCEMENT_CREATE'
+  | 'ANNOUNCEMENT_UPDATE'
+  | 'ANNOUNCEMENT_DELETE'
+  | 'ANNOUNCEMENT_SCHEDULE'
+  | 'ANNOUNCEMENT_UNSCHEDULE'
+  | 'ANNOUNCEMENT_SEND';
+
+/** Aviso de novidades/correções do super-admin para as clínicas (vira notificação no sino). */
+export type AnnouncementKind = 'FEATURE' | 'FIX';
+export type AnnouncementStatus = 'DRAFT' | 'SCHEDULED' | 'SENT';
+
+export interface PlatformAnnouncement {
+  id: string;
+  /** Versão do release de origem; null = escrito à mão. */
+  version: string | null;
+  kind: AnnouncementKind;
+  title: string;
+  body: string;
+  status: AnnouncementStatus;
+  scheduledAt: string | null;
+  sentAt: string | null;
+  recipientCount: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export interface PlatformAuditLog {
   id: string;
@@ -122,7 +165,8 @@ export type PlatformCatalogKind =
   | 'message_category'
   | 'message_trigger'
   | 'procedure_category'
-  | 'inventory_unit';
+  | 'inventory_unit'
+  | 'skincare_tag';
 
 /** Item completo (painel /admin). */
 export interface PlatformCatalogItem {
@@ -238,6 +282,26 @@ export interface PatientPhoto {
   } | null;
 }
 
+export interface PatientMeasurement {
+  id: string;
+  patientId: string;
+  appointmentId?: string | null;
+  measuredAt: string;
+  weightKg: number | null;
+  heightCm: number | null;
+  waistCm: number | null;
+  abdomenCm: number | null;
+  hipCm: number | null;
+  notes?: string | null;
+  createdAt: string;
+  appointment?: {
+    id: string;
+    startAt: string;
+    kind?: AppointmentKind;
+    procedure?: { name: string } | null;
+  } | null;
+}
+
 export interface Procedure {
   id: string;
   name: string;
@@ -322,8 +386,22 @@ export interface Appointment {
     paymentMethod?: { name: string } | null;
   }[];
   extraMaterials?: AppointmentMaterial[];
+  /** Pontos marcados no atendimento quando o procedimento usa mapa de aplicação. */
+  applicationMap?: ApplicationMap | null;
   startedAt?: string | null;
   finishedAt?: string | null;
+}
+
+/** Ponto do mapa de aplicação; x/y em % da largura/altura do desenho. */
+export interface ApplicationMapPoint {
+  x: number;
+  y: number;
+  note?: string;
+}
+
+export interface ApplicationMap {
+  template: 'face';
+  points: ApplicationMapPoint[];
 }
 
 export type PackageType = 'COMBO' | 'SESSIONS';
@@ -389,9 +467,13 @@ export type FinancialType = 'INCOME' | 'EXPENSE';
 
 export type ExpenseType = 'FIXED' | 'VARIABLE';
 
+export type PaymentMethodKind = 'CASH' | 'PIX' | 'DEBIT' | 'CREDIT' | 'OTHER';
+
 export interface PaymentMethodEntry {
   id: string;
   name: string;
+  kind?: PaymentMethodKind;
+  settlementDays?: number;
   feePercent: number | string;
   active: boolean;
   createdAt?: string;
@@ -408,6 +490,9 @@ export interface FinancialEntry {
   feePercent?: number | string | null;
   paymentMethodId?: string | null;
   paymentMethod?: PaymentMethodEntry | null;
+  installments?: number | null;
+  cardBrand?: string | null;
+  authorizationCode?: string | null;
   category?: string;
   paidAt?: string;
   dueDate?: string;
@@ -462,6 +547,25 @@ export interface MessageTemplate {
   updatedAt?: string;
 }
 
+export type MessageDispatchStatus = 'PENDING' | 'SENT' | 'SKIPPED';
+
+export interface MessageDispatch {
+  id: string;
+  templateId: string;
+  patientId: string;
+  appointmentId?: string | null;
+  trigger: MessageTrigger;
+  phone?: string | null;
+  renderedMessage: string;
+  waMeUrl?: string | null;
+  status: MessageDispatchStatus;
+  createdAt: string;
+  sentAt?: string | null;
+  template?: { id: string; name: string; trigger: MessageTrigger };
+  patient?: { id: string; name: string; phone?: string | null };
+  appointment?: { id: string; startAt: string; procedure?: { name: string } | null };
+}
+
 export interface WorkingHours {
   id: string;
   userId: string;
@@ -510,6 +614,7 @@ export interface DocumentFile {
   status: DocumentStatus;
   signedAt?: string | null;
   storageKey?: string | null;
+  /** Sempre null na API — abrir via `documentsApi.getAccessUrl` (presign). */
   fileUrl?: string | null;
   mimeType?: string | null;
   size?: number | null;
@@ -523,7 +628,8 @@ export interface DocumentFile {
   equipmentId?: string | null;
   createdAt: string;
   updatedAt?: string;
-  patient?: { id: string; name: string } | null;
+  /** `phone` e `email` só vêm em GET /documents/:id */
+  patient?: { id: string; name: string; phone?: string | null; email?: string | null } | null;
   equipment?: { id: string; name: string } | null;
   template?: { id: string; name: string } | null;
 }
@@ -571,6 +677,14 @@ export interface Promotion {
   _count?: { appointments: number };
 }
 
+/** Valor cheio, desconto e valor final com a melhor promoção ativa (prévia do backend). */
+export interface PromotionQuote {
+  originalPrice: number;
+  discount: number;
+  finalPrice: number;
+  promotion: { id: string; name: string; discountType: DiscountType; discountValue: number } | null;
+}
+
 export type NotificationType =
   | 'APPOINTMENT_CREATED'
   | 'APPOINTMENT_CANCELLED'
@@ -580,7 +694,9 @@ export type NotificationType =
   | 'PATIENT_RETURN_DUE'
   | 'PATIENT_REACTIVATION'
   | 'USER_CREATED'
-  | 'EQUIPMENT_MAINTENANCE';
+  | 'EQUIPMENT_MAINTENANCE'
+  | 'PLATFORM_ANNOUNCEMENT'
+  | 'FEEDBACK_CLOSED';
 
 export interface Notification {
   id: string;
@@ -601,6 +717,100 @@ export interface NotificationPreference {
 }
 
 export type FeedbackType = 'BUG' | 'SUGGESTION';
+
+export type FeedbackStatus = 'OPEN' | 'TRIAGED' | 'CLOSED';
+
+/** Report na central do super-admin (todas as clínicas). */
+export interface AdminFeedbackReport {
+  id: string;
+  type: FeedbackType;
+  status: FeedbackStatus;
+  title: string;
+  pageUrl: string | null;
+  createdAt: string;
+  statusChangedAt: string | null;
+  tenant: { id: string; name: string };
+  user: { id: string; name: string; email: string };
+  /** Só no detalhe. */
+  description?: string;
+}
+
+export interface PlatformModuleUsage {
+  key: string;
+  label: string;
+  /** null = módulo sem registro próprio (ex.: Métricas). */
+  metricLabel: string | null;
+  enabledTenants: number;
+  activeTenants: number | null;
+  periodCount: number | null;
+  totalCount: number | null;
+  /** Requisições à API do módulo no período (medidas desde a observabilidade). */
+  requests: number;
+}
+
+export interface PlatformTenantUsage {
+  id: string;
+  name: string;
+  slug: string;
+  active: boolean;
+  plan: { id: string; name: string } | null;
+  features: string[];
+  activeUsers: number;
+  usersAccessedInPeriod: number;
+  lastAccessAt: string | null;
+  storageBytes: number;
+  files: number;
+  usage: Record<string, { period: number; total: number } | null>;
+}
+
+export interface PlatformUsage {
+  range: { from: string; to: string };
+  totals: {
+    tenants: number;
+    activeTenants: number;
+    activeUsers: number;
+    usersAccessedInPeriod: number;
+    storageBytes: number;
+    files: number;
+  };
+  modules: PlatformModuleUsage[];
+  tenants: PlatformTenantUsage[];
+}
+
+export interface ApiRouteStats {
+  method: string;
+  /** Padrão da rota, ex.: /api/patients/:id */
+  route: string;
+  count: number;
+  clientErrors: number;
+  serverErrors: number;
+  /** 5xx / total (0–1) */
+  errorRate: number;
+  avgMs: number | null;
+  /** Estimado pelo histograma (limite superior da faixa). */
+  p95Ms: number | null;
+  maxMs: number | null;
+}
+
+export interface ApiRequestErrorEntry {
+  id: string;
+  createdAt: string;
+  method: string;
+  route: string;
+  statusCode: number;
+  durationMs: number;
+  errorName: string | null;
+  message: string | null;
+  tenant: { id: string; name: string } | null;
+}
+
+export interface ApiObservability {
+  window: { hours: number; since: string };
+  totals: Omit<ApiRouteStats, 'method' | 'route'> & { routes: number };
+  slowRoutes: ApiRouteStats[];
+  errorRoutes: ApiRouteStats[];
+  recentErrors: ApiRequestErrorEntry[];
+}
 
 export interface FeedbackReport {
   id: string;
@@ -725,7 +935,8 @@ export interface PendingRuleConfig {
 
 export type SkincareMoment = 'manha' | 'noite' | 'semanal';
 export type SkincareStep = 'limpeza' | 'tratamento' | 'hidratacao' | 'protetor' | 'olhos' | 'esfoliacao' | 'mascara';
-export type SkincareTag = 'acido' | 'acido-alto' | 'retinoide' | 'fragrancia' | 'oleo';
+/** Valor do catálogo global `skincare_tag`. */
+export type SkincareTag = string;
 export type SkincareRuleField = 'pele' | 'afeccao' | 'olheira' | 'idade';
 
 export interface SkincareProduct {

@@ -27,20 +27,7 @@ import { FeatureGuard } from '../common/guards/feature.guard';
 import { RequirePermissions } from '../common/decorators/require-permissions.decorator';
 import { RequireFeature } from '../common/decorators/require-feature.decorator';
 import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
-
-const ALLOWED_MIMES = new Set([
-  'application/pdf',
-  'image/jpeg',
-  'image/png',
-  'image/webp',
-  'image/gif',
-  'application/msword',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'application/vnd.ms-excel',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  'text/plain',
-  'text/csv',
-]);
+import { DOCUMENT_ALLOWED_MIMES } from './upload-allowlist';
 
 const UPLOAD_OPTIONS = {
   limits: { fileSize: 25 * 1024 * 1024 },
@@ -49,7 +36,8 @@ const UPLOAD_OPTIONS = {
     file: Express.Multer.File,
     cb: (error: Error | null, acceptFile: boolean) => void,
   ) => {
-    if (ALLOWED_MIMES.has(file.mimetype)) {
+    // Primeira barreira (MIME declarado); o service valida magic bytes do buffer.
+    if (DOCUMENT_ALLOWED_MIMES.has(file.mimetype)) {
       cb(null, true);
     } else {
       cb(new BadRequestException(`Tipo de arquivo não permitido: ${file.mimetype}`), false);

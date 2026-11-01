@@ -168,7 +168,7 @@ export function Packages() {
             />
           </Stack>
           {canCreate && (
-            <Button
+            <Button data-tour="packages-new"
               variant="contained"
               startIcon={<AddIcon />}
               onClick={() => {

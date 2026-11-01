@@ -32,6 +32,15 @@ model Tenant {
   featuresExtra  Json?
   // Módulos do plano que esta clínica não tem
   featuresDenied Json?
+  specialties Json?
+  foundedAt   DateTime? @db.Date
+  legalName   String?
+  document    String?
+  phone       String?
+  email       String?
+  city        String?
+  state       String?
+  notes       String?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
@@ -45,10 +54,12 @@ model Tenant {
   documents               Document[]
   documentTemplates       DocumentTemplate[]
   messageTemplates        MessageTemplate[]
+  messageDispatches       MessageDispatch[]
   notifications           Notification[]
   notificationPreferences NotificationPreference[]
   patients                Patient[]
   patientPhotos           PatientPhoto[]
+  patientMeasurements     PatientMeasurement[]
   procedures              Procedure[]
   procedureEquipments     ProcedureEquipment[]
   procedureMaterials      ProcedureMaterial[]
@@ -73,6 +84,7 @@ model Tenant {
   skincareRoutines        SkincareRoutine[]
   feedbackReports         FeedbackReport[]
   platformAuditLogs       PlatformAuditLog[]
+  apiRequestErrors        ApiRequestError[]
 
   @@index([planId])
   @@map("tenants")
@@ -89,7 +101,7 @@ model Plan {
   currency    String   @default("BRL")
   // Módulos incluídos (Json string[] do catálogo em platform-features.ts)
   features    Json?
-  // Limites/recursos informativos, ex.: { "maxUsers": 5, "maxPatients": 500, "storageGb": 5 } (null = ilimitado)
+  // Limites aplicados pela API (src/plan-limits), ex.: { "maxUsers": 5, "maxPatients": 500, "storageGb": 5 } (null = ilimitado)
   limits      Json?
   // false = não pode ser atribuído a novas clínicas; quem já tem continua com ele
   active      Boolean  @default(true)
@@ -105,8 +117,8 @@ model Plan {
 // Não é dado de clínica: sem tenantId, fora do escopo automático; a clínica alvo fica em targetTenantId.
 model PlatformAuditLog {
   id             String   @id @default(uuid())
-  // TENANT_*, PLAN_*, CATALOG_*, TENANT_PLAN_CHANGE, TENANT_FEATURES_CHANGE
-  // (planos/catálogos: targetTenantId nulo, targetName = plano ou item)
+  // TENANT_*, PLAN_*, CATALOG_*, TENANT_PLAN_CHANGE, TENANT_FEATURES_CHANGE, FEEDBACK_STATUS_CHANGE, ANNOUNCEMENT_*
+  // (planos/catálogos/avisos: targetTenantId nulo, targetName = plano, item ou título do aviso)
   action         String
   actorId        String
   actorName      String
@@ -124,12 +136,95 @@ model PlatformAuditLog {
   @@map("platform_audit_logs")
 }
 
+// Observabilidade da API (painel super-admin): contagens e latência por hora e rota.
+// Sem tenantId (não é dado de clínica) e sem nada da requisição além do padrão da rota.
+model ApiRouteMetric {
+  id         String   @id @default(uuid())
+  // Início da hora (UTC)
+  hour       DateTime
+  method     String
+  // Padrão da rota (/api/patients/:id), nunca a URL com ids
+  route      String
+  // Clínica da requisição; "" = sem clínica (login, super-admin, público)
+  tenantKey  String   @default("")
+  count      Int      @default(0)
+  // Respostas 4xx e 5xx
+  clientErrors Int    @default(0)
+  serverErrors Int    @default(0)
+  totalMs    Float    @default(0)
+  maxMs      Int      @default(0)
+  // Histograma de duração (requisições por faixa, em ms) para estimar o p95
+  le50       Int      @default(0)
+  le100      Int      @default(0)
+  le250      Int      @default(0)
+  le500      Int      @default(0)
+  le1000     Int      @default(0)
+  le2500     Int      @default(0)
+  le5000     Int      @default(0)
+  gt5000     Int      @default(0)
+
+  @@unique([hour, method, route, tenantKey])
+  @@index([hour])
+  @@map("api_route_metrics")
+}
+
+// Últimos erros 5xx da API (painel super-admin). Só o tipo e a 1ª linha da mensagem, sem corpo nem parâmetros.
+model ApiRequestError {
+  id             String   @id @default(uuid())
+  method         String
+  route          String
+  statusCode     Int
+  durationMs     Int
+  errorName      String?
+  message        String?
+  targetTenantId String?
+  createdAt      DateTime @default(now())
+
+  targetTenant Tenant? @relation(fields: [targetTenantId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@map("api_request_errors")
+}
+
+enum AnnouncementKind {
+  FEATURE // novidade
+  FIX // correção
+}
+
+enum AnnouncementStatus {
+  DRAFT
+  SCHEDULED
+  SENT
+}
+
+// Aviso do super-admin às clínicas (novidades/correções de um release). Não é dado de clínica:
+// sem tenantId. Ao enviar, vira uma Notification PLATFORM_ANNOUNCEMENT para cada usuário das
+// clínicas ativas; rascunhos podem ser gerados do RELEASE_NOTES.md (version + kind).
+model PlatformAnnouncement {
+  id             String             @id @default(uuid())
+  // Versão do release de origem (null = aviso escrito à mão)
+  version        String?
+  kind           AnnouncementKind
+  title          String
+  body           String
+  status         AnnouncementStatus @default(DRAFT)
+  scheduledAt    DateTime?
+  sentAt         DateTime?
+  recipientCount Int?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  @@unique([version, kind])
+  @@index([status, scheduledAt])
+  @@map("platform_announcements")
+}
+
 // Catálogo global da plataforma (sem tenantId): categorias de documento/mensagem,
 // gatilhos de mensagem, sugestões de procedimento e unidades de estoque.
 // Todas as clínicas consomem o mesmo; só o super-admin edita em /admin.
 model PlatformCatalogItem {
   id        String   @id @default(uuid())
-  // document_category | message_category | message_trigger | procedure_category | inventory_unit
+  // document_category | message_category | message_trigger | procedure_category | inventory_unit | skincare_tag
   kind      String
   // Valor persistido nas entidades da clínica (slug / código)
   value     String
@@ -191,13 +286,13 @@ model Role {
 
 model User {
   id                   String   @id @default(uuid())
-  // Null apenas para super-admin (isSuperAdmin = true), que não pertence a nenhuma clínica
+  // Super-admin puro: tenantId e roleId nulos. Clínica (com ou sem isSuperAdmin dual): tenantId + roleId (CHECK users_tenant_or_super_admin_check).
   tenantId             String?
   name                 String
   // E-mail continua único no sistema inteiro: o login acha o usuário (e a clínica) pelo e-mail
   email                String   @unique
   password             String
-  // Null apenas para super-admin
+  // Null só no super-admin puro; conta dual mantém o grupo da clínica
   roleId               String?
   isSuperAdmin         Boolean  @default(false)
   active               Boolean  @default(true)
@@ -213,6 +308,8 @@ model User {
   photoUrl             String? // URL pública/derivada da foto
   // Última requisição autenticada (atualizada no máximo a cada poucos minutos); métrica do painel admin
   lastAccessAt         DateTime?
+  // Incrementado no logout: JWTs com tv antigo deixam de ser aceitos (revogação de sessão)
+  tokenVersion         Int      @default(0)
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 
@@ -401,12 +498,53 @@ model MessageTemplate {
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
 
-  procedure Procedure? @relation(fields: [procedureId], references: [id], onDelete: SetNull)
+  procedure  Procedure?         @relation(fields: [procedureId], references: [id], onDelete: SetNull)
+  dispatches MessageDispatch[]
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
   @@unique([tenantId, name])
   @@map("message_templates")
+}
+
+/// Fila / histórico de envios WhatsApp (MVP: deep link wa.me; registro evita duplicata por gatilho).
+enum MessageDispatchStatus {
+  PENDING
+  SENT
+  SKIPPED
+}
+
+enum MessageDispatchSource {
+  AUTO
+  MANUAL
+}
+
+model MessageDispatch {
+  id                String                @id @default(uuid())
+  tenantId          String                @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  templateId        String
+  patientId         String
+  appointmentId     String?
+  trigger           MessageTrigger
+  dedupKey          String
+  phone             String?
+  renderedMessage   String
+  waMeUrl           String?
+  status            MessageDispatchStatus @default(PENDING)
+  source            MessageDispatchSource @default(AUTO)
+  createdAt         DateTime              @default(now())
+  sentAt            DateTime?
+
+  template    MessageTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  patient     Patient         @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  appointment Appointment?    @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@unique([tenantId, dedupKey])
+  @@index([status, createdAt])
+  @@index([tenantId])
+  @@map("message_dispatches")
 }
 
 // =========================
@@ -422,6 +560,10 @@ enum NotificationType {
   PATIENT_REACTIVATION
   USER_CREATED
   EQUIPMENT_MAINTENANCE
+  // Novidades/correções enviadas pelo super-admin (PlatformAnnouncement)
+  PLATFORM_ANNOUNCEMENT
+  // Report de bug/sugestão finalizado no /admin
+  FEEDBACK_CLOSED
 }
 
 model Notification {
@@ -493,12 +635,14 @@ model Patient {
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
 
-  appointments     Appointment[]
-  financialEntries FinancialEntry[]
-  documents        Document[]
-  packages         PatientPackage[]
-  photos           PatientPhoto[]
-  skincareRoutines SkincareRoutine[]
+  appointments      Appointment[]
+  financialEntries  FinancialEntry[]
+  documents         Document[]
+  packages          PatientPackage[]
+  photos            PatientPhoto[]
+  skincareRoutines  SkincareRoutine[]
+  measurements      PatientMeasurement[]
+  messageDispatches MessageDispatch[]
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
@@ -535,6 +679,33 @@ model PatientPhoto {
   @@index([appointmentId])
   @@index([tenantId])
   @@map("patient_photos")
+}
+
+// Medidas corporais do paciente ao longo do tempo (IMC é calculado a partir de peso e altura).
+model PatientMeasurement {
+  id            String       @id @default(uuid())
+  tenantId      String       @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  patientId     String
+  appointmentId String? // consulta em que as medidas foram tomadas (opcional)
+  measuredAt    DateTime
+  weightKg      Decimal?     @db.Decimal(5, 2)
+  heightCm      Decimal?     @db.Decimal(5, 1)
+  waistCm       Decimal?     @db.Decimal(5, 1)
+  abdomenCm     Decimal?     @db.Decimal(5, 1)
+  hipCm         Decimal?     @db.Decimal(5, 1)
+  notes         String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  patient     Patient      @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  appointment Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@index([patientId, measuredAt])
+  @@index([appointmentId])
+  @@index([tenantId])
+  @@map("patient_measurements")
 }
 
 // =========================
@@ -827,6 +998,8 @@ model Appointment {
   patientPackageId  String?
   // Promoção aplicada automaticamente (se houver)
   promotionId       String?
+  // Snapshot do mapa de aplicação (pontos marcados no atendimento), quando o procedimento usa
+  applicationMap    Json?
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
 
@@ -836,9 +1009,11 @@ model Appointment {
   patientPackage PatientPackage? @relation(fields: [patientPackageId], references: [id])
   promotion      Promotion?      @relation(fields: [promotionId], references: [id])
 
-  financialEntries FinancialEntry[]
-  extraMaterials   AppointmentMaterial[]
-  photos           PatientPhoto[]
+  financialEntries  FinancialEntry[]
+  extraMaterials    AppointmentMaterial[]
+  photos            PatientPhoto[]
+  measurements      PatientMeasurement[]
+  messageDispatches MessageDispatch[]
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
@@ -875,12 +1050,23 @@ enum FinancialType {
   EXPENSE
 }
 
+enum PaymentMethodKind {
+  CASH
+  PIX
+  DEBIT
+  CREDIT
+  OTHER
+}
+
 // Formas de pagamento cadastráveis, com taxa da maquininha (feePercent).
 // O valor líquido (netAmount) é calculado automaticamente ao gerar lançamento.
 model PaymentMethod {
   id         String   @id @default(uuid())
   tenantId   String   @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
   name       String
+  kind       PaymentMethodKind @default(OTHER)
+  // Dias até o recebimento na conta (conciliação / previsão de caixa)
+  settlementDays Int  @default(0)
   // Taxa percentual cobrada pela operadora/maquininha (0 = sem taxa, ex: dinheiro/PIX)
   feePercent Decimal  @default(0) @db.Decimal(5, 2)
   active     Boolean  @default(true)
@@ -913,6 +1099,10 @@ model FinancialEntry {
   // Taxa percentual aplicada (snapshot no momento do lançamento)
   feePercent         Decimal?      @db.Decimal(5, 2)
   paymentMethodId    String?
+  // Dados opcionais de maquininha (cartão) no momento do lançamento
+  installments       Int?
+  cardBrand          String?
+  authorizationCode  String?
   category           String?
   paidAt             DateTime?
   dueDate            DateTime?
@@ -1046,6 +1236,13 @@ enum FeedbackType {
   SUGGESTION
 }
 
+// Triagem pelo super-admin na central de reports (/admin/reports)
+enum FeedbackStatus {
+  OPEN
+  TRIAGED
+  CLOSED
+}
+
 model FeedbackReport {
   id          String       @id @default(uuid())
   tenantId    String       @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
@@ -1054,6 +1251,9 @@ model FeedbackReport {
   description String
   pageUrl     String?
   userId      String
+  status      FeedbackStatus @default(OPEN)
+  // Última troca de status (quem/quando fica na platform_audit_logs)
+  statusChangedAt DateTime?
   createdAt   DateTime     @default(now())
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
@@ -1062,6 +1262,7 @@ model FeedbackReport {
   @@index([userId])
   @@index([createdAt])
   @@index([type])
+  @@index([status])
   @@index([tenantId])
   @@map("feedback_reports")
 }

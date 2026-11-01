@@ -145,7 +145,10 @@ interface QueryParams {
  * Escopo automático por clínica: filtra toda leitura/alteração/exclusão por tenantId
  * e preenche tenantId em todo create (inclusive aninhado), lendo o tenant do TenantContext.
  * Sem tenant no contexto a consulta é recusada (TenantContextMissingError), salvo em
- * TenantContext.runUnscoped. Não cobre $queryRaw/$executeRaw: filtre tenantId à mão.
+ * TenantContext.runUnscoped.
+ *
+ * `$queryRaw` / `$executeRaw` (e *Unsafe) não recebem filtro automático: só rodam com
+ * tenant no contexto ou em `runUnscoped`. Em SQL de clínica, filtre `"tenantId"` à mão.
  */
 export function scopeQuery({ model, operation, args, query }: QueryParams) {
   if (!TENANT_SCOPED_MODELS.has(model)) return query(args);
@@ -155,9 +158,40 @@ export function scopeQuery({ model, operation, args, query }: QueryParams) {
   return query(scopeArgs(model, operation, args as Data, store.tenantId));
 }
 
+/** Recusa raw SQL fora de tenant ou runUnscoped (evita vazamento cross-tenant futuro). */
+export function assertRawSqlAllowed(operation: string): void {
+  const store = TenantContext.current();
+  if (store?.unscoped) return;
+  if (store?.tenantId) return;
+  throw new TenantContextMissingError('raw', operation);
+}
+
+async function guardedRaw(
+  operation: string,
+  args: unknown,
+  query: (args: any) => Promise<unknown>,
+) {
+  assertRawSqlAllowed(operation);
+  return query(args);
+}
+
 export const tenantScopeExtension = Prisma.defineExtension({
   name: 'tenant-scope',
-  query: { $allModels: { $allOperations: scopeQuery } },
+  query: {
+    $allModels: { $allOperations: scopeQuery },
+    $queryRaw({ args, query }) {
+      return guardedRaw('$queryRaw', args, query);
+    },
+    $executeRaw({ args, query }) {
+      return guardedRaw('$executeRaw', args, query);
+    },
+    $queryRawUnsafe({ args, query }) {
+      return guardedRaw('$queryRawUnsafe', args, query);
+    },
+    $executeRawUnsafe({ args, query }) {
+      return guardedRaw('$executeRawUnsafe', args, query);
+    },
+  },
 });
 
 /** Aplica o escopo por clínica num PrismaClient avulso (seeds e scripts). */

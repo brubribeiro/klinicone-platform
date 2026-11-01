@@ -230,6 +230,19 @@ const ICONS: Record<string, ReactNode> = {
       <path d="M9 10.5h.01M12 10.5h.01M15 10.5h.01" />
     </>
   ),
+  assistant: (
+    <>
+      <path d="M11 3.5l1.9 4.6 4.6 1.9-4.6 1.9L11 16.5l-1.9-4.6L4.5 10l4.6-1.9z" />
+      <path d="M18 14.5l.8 1.7 1.7.8-1.7.8L18 19.5l-.8-1.7-1.7-.8 1.7-.8z" />
+    </>
+  ),
+  help: (
+    <>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M9.6 9.4a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.2-2.4 3.7" />
+      <path d="M12 17h.01" />
+    </>
+  ),
 };
 
 export type AuroraIconName = keyof typeof ICONS;

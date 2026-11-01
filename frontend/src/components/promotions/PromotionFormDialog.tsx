@@ -8,7 +8,6 @@ import {
   Dialog,
   DialogActions,
   DialogContent,
-  InputAdornment,
   ListItemText,
   MenuItem,
   Stack,
@@ -29,6 +28,7 @@ import { promotionsApi, CreatePromotionPayload } from '../../api/promotions';
 import { useAppToast } from '../../contexts/AppToastContext';
 import { getApiErrorMessage } from '../../utils/apiError';
 import { DialogHeader, dialogActionsBorderSx, dialogPaperSx } from '../DialogCloseButton';
+import { FieldAdornment } from '../FieldAdornment';
 import { MoneyField } from '../MoneyField';
 import { LabeledField } from '../LabeledField';
 import { dateInputValueFromApi, dateOnlyToApiIso } from '../../utils/dateOnly';
@@ -76,19 +76,6 @@ const COMMEMORATIVE_OPTIONS = [
 ];
 
 const DIALOG_MAX_WIDTH = 640;
-
-const DISABLED_FIELD_SX = {
-  '& .MuiOutlinedInput-root.Mui-disabled': {
-    bgcolor: 'grey.100',
-    '& .MuiOutlinedInput-notchedOutline': { borderColor: 'divider' },
-    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'divider' },
-  },
-  '& .MuiInputBase-input.Mui-disabled': {
-    WebkitTextFillColor: (t: import('@mui/material').Theme) => t.palette.text.disabled,
-    cursor: 'not-allowed',
-  },
-  '& .Mui-disabled .MuiInputAdornment-root .MuiTypography-root': { color: 'text.disabled' },
-} as const;
 
 function PromotionActiveToggle({ control, fullWidth = false }: { control: Control<FormValues>; fullWidth?: boolean }) {
   return (
@@ -138,7 +125,7 @@ export function PromotionFormDialog({ open, onClose, editing, initialCommemorati
     enabled: open,
   });
 
-  const { control, handleSubmit, reset, watch, setValue } = useForm<FormValues>({
+  const { control, handleSubmit, reset, watch, setValue, getValues } = useForm<FormValues>({
     defaultValues: {
       name: '',
       description: '',
@@ -172,7 +159,7 @@ export function PromotionFormDialog({ open, onClose, editing, initialCommemorati
         startAt: dateInputValueFromApi(editing.startAt),
         endAt: dateInputValueFromApi(editing.endAt),
         discountType: editing.discountType,
-        discountValue: editing.discountType === 'COMBO' ? '' : Number(editing.discountValue),
+        discountValue: Number(editing.discountValue) > 0 ? Number(editing.discountValue) : '',
         applicableTo: hasPackages ? 'PACKAGES' : hasProcedures ? 'PROCEDURES' : 'ALL',
         procedureIds: editing.procedures?.map((p) => p.procedureId) ?? [],
         packageIds: editing.packages?.map((p) => p.packageId) ?? [],
@@ -224,7 +211,7 @@ export function PromotionFormDialog({ open, onClose, editing, initialCommemorati
       startAt: dateOnlyToApiIso(values.startAt),
       endAt: dateOnlyToApiIso(values.endAt),
       discountType: values.discountType,
-      discountValue: values.discountType === 'COMBO' ? 0 : Number(values.discountValue),
+      discountValue: Number(values.discountValue),
       active: values.active,
       procedureIds: values.applicableTo === 'PROCEDURES' ? values.procedureIds : [],
       packageIds: values.applicableTo === 'PACKAGES' ? values.packageIds : [],
@@ -342,7 +329,11 @@ export function PromotionFormDialog({ open, onClose, editing, initialCommemorati
                       onChange={(_, val) => {
                         if (!val) return;
                         field.onChange(val);
-                        if (val === 'COMBO') setValue('discountValue', '');
+                        // Combo é preço fechado (não percentual) e exige itens específicos
+                        if (val === 'COMBO' || field.value === 'COMBO') setValue('discountValue', '');
+                        if (val === 'COMBO' && getValues('applicableTo') === 'ALL') {
+                          setValue('applicableTo', 'PACKAGES');
+                        }
                       }}
                       sx={{ '& .MuiToggleButton-root': { textTransform: 'none', fontWeight: 700 } }}
                     >
@@ -354,22 +345,21 @@ export function PromotionFormDialog({ open, onClose, editing, initialCommemorati
                 />
               </LabeledField>
 
-              <LabeledField label="Valor" required={!isCombo}>
+              <LabeledField label={isCombo ? 'Preço do combo' : 'Valor'} required>
                 <Controller
                   name="discountValue"
                   control={control}
                   rules={{
                     validate: (v) => {
-                      if (isCombo) return true;
-                      if (v === '' || Number(v) <= 0) return 'Informe o valor do desconto';
+                      if (v === '' || Number(v) <= 0) {
+                        return isCombo ? 'Informe o preço do combo' : 'Informe o valor do desconto';
+                      }
                       if (discountType === 'PERCENTAGE' && Number(v) > 100) return 'Máximo 100%';
                       return true;
                     },
                   }}
                   render={({ field, fieldState }) =>
-                    isCombo ? (
-                      <TextField fullWidth disabled sx={DISABLED_FIELD_SX} value="—" />
-                    ) : discountType === 'FIXED' ? (
+                    isCombo || discountType === 'FIXED' ? (
                       <MoneyField
                         {...field}
                         fullWidth
@@ -385,7 +375,7 @@ export function PromotionFormDialog({ open, onClose, editing, initialCommemorati
                         error={!!fieldState.error}
                         helperText={fieldState.error?.message}
                         inputProps={{ inputMode: 'decimal', step: 1, min: 0, max: 100 }}
-                        InputProps={{ endAdornment: <InputAdornment position="end">%</InputAdornment> }}
+                        InputProps={{ endAdornment: <FieldAdornment>%</FieldAdornment> }}
                       />
                     )
                   }
@@ -399,8 +389,21 @@ export function PromotionFormDialog({ open, onClose, editing, initialCommemorati
               control={control}
               render={({ field }) => (
                 <LabeledField label="Aplicável a">
-                  <TextField {...field} select fullWidth>
-                    <MenuItem value="ALL">Todos os procedimentos</MenuItem>
+                  <TextField
+                    {...field}
+                    select
+                    fullWidth
+                    helperText={
+                      isCombo
+                        ? 'Combo: o valor acima é o preço final de cada procedimento ou pacote escolhido.'
+                        : field.value === 'PACKAGES'
+                          ? 'Desconto aplicado ao vender o pacote; as sessões não recebem desconto de novo.'
+                          : 'Vale para atendimentos avulsos. Pacotes só entram com "Pacotes específicos".'
+                    }
+                  >
+                    <MenuItem value="ALL" disabled={isCombo}>
+                      Todos os procedimentos
+                    </MenuItem>
                     <MenuItem value="PROCEDURES">Procedimentos específicos</MenuItem>
                     <MenuItem value="PACKAGES">Pacotes específicos</MenuItem>
                   </TextField>

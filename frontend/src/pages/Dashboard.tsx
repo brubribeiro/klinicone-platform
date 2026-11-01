@@ -56,7 +56,7 @@ export function Dashboard() {
         width: '100%',
       }}
     >
-      <AppGrid
+      <AppGrid data-tour="dashboard-summary"
         columns={{ xs: 2, md: 4 }}
         gap={{ xs: 1.5, sm: 3 }}
         sx={{ flexShrink: 0 }}
@@ -109,7 +109,7 @@ export function Dashboard() {
         />
       </AppGrid>
 
-      <Box
+      <Box data-tour="dashboard-week"
         sx={{
           display: 'grid',
           gridTemplateColumns: { xs: '1fr', lg: canSeeGoals ? '1.6fr 1fr' : '1fr' },
@@ -126,10 +126,10 @@ export function Dashboard() {
           }}
         />
 
-        {canSeeGoals && <GoalsCard at={goalsAt} canCreate={has('goals:create')} />}
+        {canSeeGoals && <GoalsCard at={goalsAt} />}
       </Box>
 
-      <Box
+      <Box data-tour="dashboard-extras"
         sx={{
           display: 'grid',
           gridTemplateColumns: { xs: '1fr', md: '1fr 1fr', lg: '1fr 1fr 1fr' },

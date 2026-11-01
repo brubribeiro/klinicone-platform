@@ -1,6 +1,6 @@
 import dayjs from 'dayjs';
 
-import type { AppointmentKind, AppointmentStatus } from '../../types';
+import type { ApplicationMapPoint, AppointmentKind, AppointmentStatus } from '../../types';
 
 export interface ExtraMaterialRow {
   itemId: string;
@@ -31,7 +31,14 @@ export const emptyFormValues: FormValues = {
   clinicalNotes: '',
 };
 
-export type SectionKey = 'patient' | 'service' | 'schedule' | 'package' | 'materials' | 'notes';
+export type SectionKey =
+  | 'patient'
+  | 'service'
+  | 'schedule'
+  | 'package'
+  | 'materials'
+  | 'applicationMap'
+  | 'notes';
 
 export const statusOptions: { value: AppointmentStatus; label: string }[] = [
   { value: 'SCHEDULED', label: 'Agendado' },
@@ -86,4 +93,11 @@ export function normalizeExtraMaterials(rows: ExtraMaterialRow[]) {
   return rows
     .filter((m) => m.itemId && m.quantity > 0)
     .map((m) => ({ itemId: m.itemId, quantity: Number(m.quantity) }));
+}
+
+export function normalizeApplicationMapPoints(points: ApplicationMapPoint[]): ApplicationMapPoint[] {
+  return points.map((p) => {
+    const note = p.note?.trim();
+    return { x: p.x, y: p.y, ...(note ? { note } : {}) };
+  });
 }

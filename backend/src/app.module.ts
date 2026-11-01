@@ -31,6 +31,12 @@ import { SkincareModule } from './skincare/skincare.module';
 import { SchedulerModule } from './scheduler/scheduler.module';
 import { AuditLogModule } from './audit-log/audit-log.module';
 import { AdminModule } from './admin/admin.module';
+import { PlanLimitsModule } from './plan-limits/plan-limits.module';
+import { TenantPlanModule } from './tenant-plan/tenant-plan.module';
+import { PublicModule } from './public/public.module';
+import { AssistantModule } from './assistant/assistant.module';
+import { ObservabilityModule } from './observability/observability.module';
+import { ApiMetricsMiddleware } from './observability/api-metrics.middleware';
 import { AppController } from './app.controller';
 
 @Module({
@@ -41,6 +47,8 @@ import { AppController } from './app.controller';
     }),
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 60 }]),
     PrismaModule,
+    ObservabilityModule,
+    PlanLimitsModule,
     AuthModule,
     UsersModule,
     RolesModule,
@@ -66,12 +74,15 @@ import { AppController } from './app.controller';
     SchedulerModule,
     AuditLogModule,
     AdminModule,
+    TenantPlanModule,
+    PublicModule,
+    AssistantModule,
   ],
   controllers: [AppController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(TenantContextMiddleware, RequestLoggerMiddleware).forRoutes('*');
+    consumer.apply(TenantContextMiddleware, RequestLoggerMiddleware, ApiMetricsMiddleware).forRoutes('*');
   }
 }

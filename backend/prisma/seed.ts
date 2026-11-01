@@ -13,6 +13,7 @@ const defaultUsers = [
   { name: 'Recepção', email: 'recepcao@mila.com', password: 'rec123', roleName: 'Recepção', providesAppointments: false },
 ];
 
+/** Modelos demo com gatilhos — o scheduler (1h) enfileira envios em `message_dispatches` quando ativos. */
 const defaultTemplates = [
   {
     name: 'Confirmação de agendamento',
@@ -739,20 +740,32 @@ async function main() {
 
   console.log('\n→ Formas de pagamento...');
   const defaultPaymentMethods = [
-    { name: 'Dinheiro', feePercent: 0 },
-    { name: 'PIX', feePercent: 0 },
-    { name: 'Débito', feePercent: 1.39 },
-    { name: 'Crédito à vista', feePercent: 3.19 },
-    { name: 'Crédito parcelado', feePercent: 4.99 },
+    { name: 'Dinheiro', feePercent: 0, kind: 'CASH' as const, settlementDays: 0 },
+    { name: 'PIX', feePercent: 0, kind: 'PIX' as const, settlementDays: 0 },
+    { name: 'Débito', feePercent: 1.39, kind: 'DEBIT' as const, settlementDays: 1 },
+    { name: 'Crédito à vista', feePercent: 3.19, kind: 'CREDIT' as const, settlementDays: 30 },
+    { name: 'Crédito parcelado', feePercent: 4.99, kind: 'CREDIT' as const, settlementDays: 30 },
   ];
 
   for (const pm of defaultPaymentMethods) {
     const exists = await prisma.paymentMethod.findFirst({ where: { name: pm.name } });
     if (!exists) {
-      await prisma.paymentMethod.create({ data: { name: pm.name, feePercent: pm.feePercent, active: true } });
+      await prisma.paymentMethod.create({
+        data: {
+          name: pm.name,
+          feePercent: pm.feePercent,
+          kind: pm.kind,
+          settlementDays: pm.settlementDays,
+          active: true,
+        },
+      });
       console.log(`  ✓ Forma de pagamento criada: ${pm.name} (taxa ${pm.feePercent}%)`);
     } else {
-      console.log(`  • Já existe: ${pm.name}`);
+      await prisma.paymentMethod.update({
+        where: { id: exists.id },
+        data: { kind: pm.kind, settlementDays: pm.settlementDays },
+      });
+      console.log(`  • Já existe: ${pm.name} (tipo/prazo atualizados)`);
     }
   }
 

@@ -229,7 +229,7 @@ export function Inventory() {
         </Box>
 
         {/* Tabela de produtos */}
-        <Card sx={{ borderRadius: '18px', border: 1, borderColor: 'divider', overflow: 'hidden' }}>
+        <Card data-tour="inventory-list" sx={{ borderRadius: '18px', border: 1, borderColor: 'divider', overflow: 'hidden' }}>
           <ListCardHeader
             breakpoint="lg"
             nowrapFrom={null}
@@ -274,7 +274,7 @@ export function Inventory() {
               </IconButton>
             </Tooltip>
             {canCreate && (
-              <Button
+              <Button data-tour="inventory-new"
                 variant="outlined"
                 startIcon={<PostAddOutlinedIcon />}
                 onClick={() => {
@@ -286,7 +286,7 @@ export function Inventory() {
                 Cadastrar produto
               </Button>
             )}
-            <Button
+            <Button data-tour="inventory-move"
               variant="outlined"
               startIcon={<SwapVertIcon />}
               onClick={() => openMovement(null)}

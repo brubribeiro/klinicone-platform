@@ -197,7 +197,7 @@ export function EquipmentPage() {
           placeholder="Buscar equipamento..."
         />
         {canCreate && (
-          <Button
+          <Button data-tour="equipment-new"
             variant="contained"
             startIcon={<AddIcon />}
             onClick={() => {
@@ -213,7 +213,7 @@ export function EquipmentPage() {
 
       {/* Lista de cards */}
       {isLoading ? (
-        <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 2.25 }}>
+        <Box data-tour="equipment-list" sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 2.25 }}>
           {Array.from({ length: 6 }).map((_, i) => (
             <Skeleton key={i} variant="rounded" height={250} sx={{ borderRadius: '18px' }} />
           ))}

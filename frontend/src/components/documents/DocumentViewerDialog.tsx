@@ -3,6 +3,7 @@ import {
   Button,
   Dialog,
   DialogActions,
+  type DialogProps,
   DialogContent,
   Skeleton,
   Stack,
@@ -12,6 +13,7 @@ import {
 import ArticleOutlinedIcon from '@mui/icons-material/ArticleOutlined';
 import AttachFileIcon from '@mui/icons-material/AttachFile';
 import PrintOutlinedIcon from '@mui/icons-material/PrintOutlined';
+import SendOutlinedIcon from '@mui/icons-material/SendOutlined';
 import { useQuery } from '@tanstack/react-query';
 
 import { documentsApi } from '../../api/documents';
@@ -41,9 +43,13 @@ interface Props {
   onClose: () => void;
   /** Exibe "Anexar versão assinada" quando informado */
   onAttach?: (doc: DocumentFile) => void;
+  /** Exibe "Enviar ao paciente" quando informado e o documento tem paciente */
+  onSend?: (doc: DocumentFile) => void;
+  /** Ex.: z-index acima da gaveta do paciente */
+  sx?: DialogProps['sx'];
 }
 
-export function DocumentViewerDialog({ doc, onClose, onAttach }: Props) {
+export function DocumentViewerDialog({ doc, onClose, onAttach, onSend, sx }: Props) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
@@ -61,6 +67,7 @@ export function DocumentViewerDialog({ doc, onClose, onAttach }: Props) {
       maxWidth="md"
       fullWidth
       fullScreen={isMobile}
+      sx={sx}
       PaperProps={{ sx: { ...dialogPaperSx(isMobile), display: 'flex', flexDirection: 'column', maxHeight: '94dvh' } }}
     >
       <DialogHeader
@@ -107,6 +114,11 @@ export function DocumentViewerDialog({ doc, onClose, onAttach }: Props) {
         {doc && onAttach && (
           <Button variant="outlined" startIcon={<AttachFileIcon />} onClick={() => onAttach(doc)}>
             {doc.storageKey ? 'Substituir versão assinada' : 'Anexar versão assinada'}
+          </Button>
+        )}
+        {doc?.patientId && onSend && (
+          <Button variant="outlined" startIcon={<SendOutlinedIcon />} onClick={() => onSend(doc)}>
+            Enviar ao paciente
           </Button>
         )}
         <Button

@@ -14,6 +14,7 @@ import {
 } from '../components/documents/DocumentListRow';
 import { DocumentTemplatesDialog } from '../components/documents/DocumentTemplatesDialog';
 import { DocumentViewerDialog } from '../components/documents/DocumentViewerDialog';
+import { SendDocumentDialog } from '../components/documents/SendDocumentDialog';
 import {
   DOCUMENT_STATUSES,
   canOpenDocument,
@@ -54,12 +55,6 @@ const PAGE_SIZE = 8;
 
 const TOOLBAR_SELECT_SX = { ...LIST_HEADER_SELECT_SX, width: { xs: 'calc(50% - 5px)', sm: 160 } } as const;
 
-const STAT_CARD_PROPS = {
-  sx: { p: { xs: 2, sm: '18px 20px' } },
-  skeletonWidth: 70,
-  valueSx: { lineHeight: 1.3 },
-} as const;
-
 function replaceDocument(list: DocumentFile[] | undefined, doc: DocumentFile): DocumentFile[] {
   const prev = list ?? [];
   if (!prev.some((d) => d.id === doc.id)) return [doc, ...prev];
@@ -87,6 +82,7 @@ export function Documents() {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<DocumentFile | null>(null);
   const [viewing, setViewing] = useState<DocumentFile | null>(null);
+  const [sending, setSending] = useState<DocumentFile | null>(null);
   const [templatesOpen, setTemplatesOpen] = useState(false);
   const [menu, setMenu] = useState<{ anchor: HTMLElement; doc: DocumentFile } | null>(null);
   const attachInputRef = useRef<HTMLInputElement>(null);
@@ -281,13 +277,13 @@ export function Documents() {
           gap: { xs: 1.5, sm: 2.25 },
         }}
       >
-        <StatCard {...STAT_CARD_PROPS} label="Total de documentos" value={stats.total} loading={loading} />
-        <StatCard {...STAT_CARD_PROPS} label="Assinados" value={stats.byStatus.SIGNED} loading={loading} />
-        <StatCard {...STAT_CARD_PROPS} label="Pendentes" value={stats.byStatus.PENDING} loading={loading} />
-        <StatCard {...STAT_CARD_PROPS} label="Modelos ativos" value={activeTemplates} loading={templatesLoading} />
+        <StatCard label="Total de documentos" value={stats.total} loading={loading} />
+        <StatCard label="Assinados" value={stats.byStatus.SIGNED} loading={loading} />
+        <StatCard label="Pendentes" value={stats.byStatus.PENDING} loading={loading} />
+        <StatCard label="Modelos ativos" value={activeTemplates} loading={templatesLoading} />
       </Box>
 
-      <Card sx={{ p: 0, overflow: 'hidden', borderRadius: '18px' }}>
+      <Card data-tour="documents-list" sx={{ p: 0, overflow: 'hidden', borderRadius: '18px' }}>
         {/* Título + filtros + ações */}
         <ListCardHeader
           breakpoint="xl"
@@ -378,7 +374,7 @@ export function Documents() {
             </IconButton>
           </Tooltip>
           {canCreate && (
-            <Button variant="contained" startIcon={<AddIcon />} onClick={openNew} sx={LIST_HEADER_PRIMARY_ACTION_SX}>
+            <Button data-tour="documents-new" variant="contained" startIcon={<AddIcon />} onClick={openNew} sx={LIST_HEADER_PRIMARY_ACTION_SX}>
               Novo documento
             </Button>
           )}
@@ -480,6 +476,7 @@ export function Documents() {
         onOpenFile={(d) => void handleOpenDocument(d)}
         onView={setViewing}
         onAttach={startAttach}
+        onSend={setSending}
         onSetStatus={(d, status) => statusMutation.mutate({ id: d.id, status })}
         onEdit={(d) => {
           setEditing(d);
@@ -512,6 +509,12 @@ export function Documents() {
         doc={viewing}
         onClose={() => setViewing(null)}
         onAttach={canEdit ? startAttach : undefined}
+        onSend={canEdit ? setSending : undefined}
+      />
+      <SendDocumentDialog
+        doc={sending}
+        onClose={() => setSending(null)}
+        onSent={(saved) => setViewing((v) => (v?.id === saved.id ? saved : v))}
       />
       <DocumentTemplatesDialog
         open={templatesOpen}

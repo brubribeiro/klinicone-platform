@@ -4,14 +4,28 @@ Notas de versão para usuários do painel. Para detalhes técnicos, veja [CHANGE
 
 ---
 
-## v0.2.1 — 26 out 2026
+## Próxima versão
+
+### Ajuda
+
+- **Assistente**: o botão com o ícone de brilho no topo do painel abre um chat para tirar dúvidas sobre as telas e funcionalidades. As respostas vêm só da documentação da plataforma (estas notas de versão), com a fonte de cada trecho; quando a documentação não cobre a dúvida, o assistente avisa e oferece **Enviar feedback**. Ele não acessa dados de pacientes nem da agenda.
+
+### Site de divulgação
+
+- O endereço principal da plataforma (`/`) passa a mostrar uma **página de apresentação** para clínicas interessadas: funcionalidades, planos, perguntas frequentes e botão **Falar com a gente**. O painel continua em `/painel`, e o botão **Entrar** leva ao login. O nome exibido ("Aurora") é provisório até a escolha do nome da aplicação.
+
+### Atendimento
+
+- **Mapa de aplicação**: em procedimentos com a opção *Mapa de aplicação* ligada, a tela do atendimento ganha a seção para clicar no rosto e marcar cada ponto aplicado, com produto ou dose. O mapa fica salvo no atendimento e aparece na **ficha do paciente**, na aba Agendamentos.
+
+### Login
+
+- Se sua conta Google for **usuário da clínica e administrador da plataforma**, após entrar você escolhe entre o **painel da clínica** e o **painel da plataforma** (`/admin`). No menu do seu avatar, **Trocar painel** permite alternar depois.
 
 ### Correções de segurança
 
 - Só **Administradores** podem promover ou rebaixar alguém para o grupo Administrador; ninguém altera o próprio grupo.
 - Só **Administradores** podem criar, editar ou excluir grupos e permissões — evita que um usuário com permissão de edição conceda acesso total a si mesmo.
-
-A versão aparece no menu lateral e na tela de login.
 
 ---
 
@@ -31,6 +45,7 @@ A versão aparece no menu lateral e na tela de login.
 - O sino de notificações na barra superior foi redesenhado para combinar com o novo estilo.
 - O painel de notificações exibe contador de novas, botão **Marcar lidas** no topo e lista com destaque para itens não lidos.
 - Acesso às **preferências de notificação** ficou no rodapé do painel, com modal redesenhado e toggles mais claros por tipo de alerta.
+- Novo tipo **Novidades da plataforma**: avisos de novas funcionalidades e correções do sistema chegam no sino; quem não quiser recebê-los pode desligar nas preferências.
 
 **Dashboard**
 - A tela inicial foi reorganizada no estilo Aurora, com cards de resumo mais claros: **faturamento do mês**, **itens em baixa**, **agendamentos hoje**, **novos pacientes** e **taxa de ocupação**.
@@ -77,7 +92,7 @@ A versão aparece no menu lateral e na tela de login.
 
 **Procedimentos**
 - Lista redesenhada no estilo Aurora: busca, filtro por **categoria**, paginação e colunas de **margem**, **custo de materiais** e **custo de equipamentos**.
-- Cadastro com **categoria** (Facial, Injetáveis, Laser, etc.), vínculo de **equipamentos** com custo por uso e opção **Mapa de aplicação** (em breve).
+- Cadastro com **categoria** (Facial, Injetáveis, Laser, etc.), vínculo de **equipamentos** com custo por uso e opção **Mapa de aplicação** (marcação de pontos no atendimento).
 - Modal de procedimento reorganizada em seções padronizadas.
 
 **Formulários**
@@ -217,7 +232,10 @@ A versão aparece no menu lateral e na tela de login.
 - **Planos**: página no painel para criar, editar, ativar e desativar planos (já vêm **Essencial**, **Profissional** e **Enterprise**), com **preço de referência**, **módulos** (agenda, pacientes, financeiro, etc.) e limites de usuários, pacientes e armazenamento. Não há cobrança automática; os limites ainda são só informativos, mas os **módulos passam a valer**: o menu esconde o que não está no plano e a API bloqueia o acesso.
 - Cada clínica pode ter um **plano** e, no detalhe, **extras** (módulos além do plano) ou **removidos** (módulos do plano que aquela clínica não tem). Plano desativado some das opções, mas quem já tem continua com ele.
 - **Catálogos**: página no painel para gerenciar as opções compartilhadas por todas as clínicas (tipos de documento, categorias e gatilhos de mensagem, sugestões de categoria de procedimento e unidades de estoque). Não há lista diferente por clínica — o que vale na plataforma vale para todas.
-- **Auditoria da plataforma**: criação/edição/suspensão/reativação/entrada em clínica, mudanças de plano e de módulos, criar/editar/ativar/desativar planos e itens de catálogo ficam registrados com quem fez e quando.
+- **Uso**: página no painel com o uso de cada módulo (agenda, pacientes, financeiro, estoque, documentos…) no período escolhido e no total, quantas clínicas têm o módulo e quantas o usaram, além de usuários ativos, último acesso e armazenamento. Dá para ver todas as clínicas juntas ou uma só; são apenas contagens, sem nenhum dado de paciente ou agenda.
+- **Reports**: central com os bugs e sugestões enviados por todas as clínicas (clínica, tipo, título, autor, data e página), com filtros por status, tipo, clínica e busca. No detalhe dá para **marcar em triagem**, **resolver** ou **reabrir**; cada mudança fica na auditoria da plataforma.
+- **Anúncios**: avise as clínicas sobre novidades e correções. A cada versão o painel já cria os rascunhos a partir destas notas (ou clique em **Gerar do release**); dá para editar título, texto e tipo (novidade ou correção), **enviar agora** ou **agendar** data e hora. O aviso chega no sino de notificações dos usuários das clínicas ativas.
+- **Auditoria da plataforma**: criação/edição/suspensão/reativação/entrada em clínica, mudanças de plano e de módulos, criar/editar/ativar/desativar planos e itens de catálogo, mudanças de status dos reports e criação, edição, agendamento e envio de anúncios ficam registrados com quem fez e quando.
 
 ### Correções
 

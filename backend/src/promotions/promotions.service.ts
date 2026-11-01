@@ -1,11 +1,18 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { DiscountType } from '@prisma/client';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { DiscountType, Prisma } from '@prisma/client';
 
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePromotionDto } from './dto/create-promotion.dto';
 import { UpdatePromotionDto } from './dto/update-promotion.dto';
 import { parseDateOnlyToUtcNoon } from '../common/utils/date-only.util';
 import { AuditLogService, AuditUser } from '../audit-log/audit-log.service';
+
+export interface PromotionQuote {
+  originalPrice: number;
+  discount: number;
+  finalPrice: number;
+  promotion: { id: string; name: string; discountType: DiscountType; discountValue: number } | null;
+}
 
 @Injectable()
 export class PromotionsService {
@@ -37,6 +44,11 @@ export class PromotionsService {
   }
 
   async create(dto: CreatePromotionDto, user?: AuditUser) {
+    this.assertComboRules(
+      dto.discountType as DiscountType,
+      dto.discountValue,
+      (dto.procedureIds?.length ?? 0) + (dto.packageIds?.length ?? 0),
+    );
     const created = await this.prisma.promotion.create({
       data: {
         name: dto.name,
@@ -61,8 +73,18 @@ export class PromotionsService {
   }
 
   async update(id: string, dto: UpdatePromotionDto, user?: AuditUser) {
-    const existing = await this.prisma.promotion.findUnique({ where: { id } });
+    const existing = await this.prisma.promotion.findUnique({
+      where: { id },
+      include: { _count: { select: { procedures: true, packages: true } } },
+    });
     if (!existing) throw new NotFoundException('Promoção não encontrada');
+    const { _count: linkCount, ...existingData } = existing;
+    this.assertComboRules(
+      (dto.discountType as DiscountType | undefined) ?? existing.discountType,
+      dto.discountValue ?? Number(existing.discountValue),
+      (dto.procedureIds?.length ?? linkCount.procedures) +
+        (dto.packageIds?.length ?? linkCount.packages),
+    );
 
     const updated = await this.prisma.$transactionWithRetry(async (tx) => {
       // Atualizar vínculos com procedimentos
@@ -100,7 +122,7 @@ export class PromotionsService {
         include: this.defaultInclude,
       });
     });
-    this.auditLog.logUpdate('Promotion', id, existing as unknown as Record<string, unknown>, updated as unknown as Record<string, unknown>, user).catch(() => undefined);
+    this.auditLog.logUpdate('Promotion', id, existingData as unknown as Record<string, unknown>, updated as unknown as Record<string, unknown>, user).catch(() => undefined);
     return updated;
   }
 
@@ -113,25 +135,61 @@ export class PromotionsService {
   }
 
   /**
-   * Busca promoção ativa para um procedimento em uma determinada data.
-   * Retorna a promoção com maior desconto se houver múltiplas.
+   * Melhor promoção ativa no dia para um procedimento avulso. Promoções sem procedimentos
+   * nem pacotes vinculados valem para todos os procedimentos (exceto combo, que exige vínculo).
+   * Pacotes não entram aqui: o desconto deles é aplicado na venda (`quoteForPackage`).
    */
-  async findActiveForProcedure(procedureId: string, date: Date) {
-    const promos = await this.prisma.promotion.findMany({
-      where: {
-        active: true,
-        startAt: { lte: date },
-        endAt: { gte: date },
-        procedures: { some: { procedureId } },
-      },
-      orderBy: { discountValue: 'desc' },
-      take: 1,
+  quoteForProcedure(procedureId: string, price: number, day: Date) {
+    return this.bestQuote(price, day, {
+      OR: [
+        { procedures: { some: { procedureId } } },
+        {
+          procedures: { none: {} },
+          packages: { none: {} },
+          discountType: { not: DiscountType.COMBO },
+        },
+      ],
     });
-    return promos[0] ?? null;
+  }
+
+  /** Melhor promoção ativa no dia para a venda de um pacote (só promoções vinculadas a ele). */
+  quoteForPackage(packageId: string, price: number, day: Date) {
+    return this.bestQuote(price, day, { packages: { some: { packageId } } });
   }
 
   /**
-   * Calcula o valor com desconto aplicado.
+   * `day` é o dia do calendário como meio-dia UTC, no mesmo formato de `startAt`/`endAt`.
+   * Entre várias promoções ativas, vence a que resulta no menor preço.
+   */
+  private async bestQuote(
+    price: number,
+    day: Date,
+    scope: Prisma.PromotionWhereInput,
+  ): Promise<PromotionQuote> {
+    const promos = await this.prisma.promotion.findMany({
+      where: { active: true, startAt: { lte: day }, endAt: { gte: day }, ...scope },
+      select: { id: true, name: true, discountType: true, discountValue: true },
+    });
+
+    let best: PromotionQuote = { originalPrice: price, discount: 0, finalPrice: price, promotion: null };
+    for (const promo of promos) {
+      const discountValue = Number(promo.discountValue);
+      const finalPrice = this.applyDiscount(price, promo.discountType, discountValue);
+      if (finalPrice < best.finalPrice) {
+        best = {
+          originalPrice: price,
+          discount: Math.round((price - finalPrice) * 100) / 100,
+          finalPrice,
+          promotion: { ...promo, discountValue },
+        };
+      }
+    }
+    return best;
+  }
+
+  /**
+   * Calcula o valor com desconto aplicado. Combo é preço fechado: `discountValue` é o valor
+   * final do procedimento/pacote na campanha (nunca acima do preço cheio).
    */
   applyDiscount(
     originalPrice: number,
@@ -141,6 +199,31 @@ export class PromotionsService {
     if (discountType === DiscountType.PERCENTAGE) {
       return Math.round(originalPrice * (1 - discountValue / 100) * 100) / 100;
     }
+    if (discountType === DiscountType.COMBO) {
+      return discountValue > 0 ? Math.min(originalPrice, discountValue) : originalPrice;
+    }
     return Math.max(0, Math.round((originalPrice - discountValue) * 100) / 100);
+  }
+
+  /** Rótulo curto do desconto para descrições de lançamentos. */
+  discountLabel(promotion: NonNullable<PromotionQuote['promotion']>): string {
+    const brl = `R$ ${promotion.discountValue.toFixed(2)}`;
+    if (promotion.discountType === DiscountType.PERCENTAGE) return `-${promotion.discountValue}%`;
+    if (promotion.discountType === DiscountType.COMBO) return `combo ${brl}`;
+    return `-${brl}`;
+  }
+
+  private assertComboRules(
+    discountType: DiscountType,
+    discountValue: number,
+    linkedCount: number,
+  ) {
+    if (discountType !== DiscountType.COMBO) return;
+    if (!(discountValue > 0)) {
+      throw new BadRequestException('Informe o preço do combo.');
+    }
+    if (linkedCount === 0) {
+      throw new BadRequestException('Combo precisa de procedimentos ou pacotes específicos.');
+    }
   }
 }

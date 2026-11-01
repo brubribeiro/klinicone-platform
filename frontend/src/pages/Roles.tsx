@@ -5,7 +5,6 @@ import {
   Button,
   ButtonBase,
   Card,
-  Chip,
   IconButton,
   Skeleton,
   Stack,
@@ -13,13 +12,13 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
+import AddIcon from '@mui/icons-material/Add';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { PageHeader } from '../components/PageHeader';
-import { AuroraIcon } from '../components/AuroraIcon';
 import { rolesApi } from '../api/roles';
 import { RoleFormDialog } from '../components/roles/RoleFormDialog';
 import { PermissionsMatrix } from '../components/roles/PermissionsMatrix';
@@ -250,26 +249,29 @@ export function Roles() {
                 />
               ))}
           {canCreate && (
-            <ButtonBase
+            <Button
+              variant="outlined"
+              fullWidth
+              startIcon={<AddIcon />}
               onClick={() => {
                 setEditing(null);
                 setFormOpen(true);
               }}
               sx={{
-                gap: 1,
                 height: 46,
                 borderRadius: '14px',
-                border: '1.5px dashed',
-                borderColor: 'divider',
-                color: 'text.secondary',
                 fontSize: fontSizes.sm,
                 fontWeight: 700,
-                '&:hover': { borderColor: 'primary.main', color: 'primary.dark' },
+                borderColor: 'divider',
+                color: 'text.primary',
+                '&:hover': {
+                  borderColor: 'primary.main',
+                  bgcolor: (t) => alpha(t.palette.primary.main, 0.06),
+                },
               }}
             >
-              <AuroraIcon name="plus" size={16} strokeWidth={2.2} />
               Novo grupo
-            </ButtonBase>
+            </Button>
           )}
         </Stack>
 
@@ -292,21 +294,37 @@ export function Roles() {
                   <Typography component="h3" sx={{ fontSize: fontSizes.xl, fontWeight: 700 }}>
                     Permissões — {selected.name}
                   </Typography>
-                  <Typography sx={{ fontSize: fontSizes.sm, color: 'text.secondary' }}>
-                    {selected.description || 'Sem descrição'}
-                  </Typography>
-                  <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap" sx={{ mt: 1.25 }}>
-                    <Chip
-                      size="small"
-                      variant="outlined"
-                      color="primary"
-                      label={`${selectedCount} de ${ALL_PERMISSIONS.length} permissões`}
-                    />
-                    <Chip size="small" variant="outlined" label={membersLabel(selected._count?.users ?? 0)} />
+                  {selected.description?.trim() ? (
+                    <Typography sx={{ mt: 0.35, fontSize: fontSizes.sm, color: 'text.secondary', lineHeight: 1.45 }}>
+                      {selected.description}
+                    </Typography>
+                  ) : null}
+                  <Typography
+                    component="p"
+                    sx={{
+                      mt: selected.description?.trim() ? 0.5 : 0.35,
+                      fontSize: fontSizes.xs,
+                      fontWeight: 600,
+                      color: 'text.disabled',
+                      lineHeight: 1.4,
+                    }}
+                  >
+                    {selectedCount} de {ALL_PERMISSIONS.length} permissões
+                    <Box component="span" aria-hidden sx={{ mx: 0.65 }}>
+                      ·
+                    </Box>
+                    {membersLabel(selected._count?.users ?? 0)}
                     {selected.restrictToOwnAppointments && (
-                      <Chip size="small" variant="outlined" color="warning" label="Só a própria agenda" />
+                      <>
+                        <Box component="span" aria-hidden sx={{ mx: 0.65 }}>
+                          ·
+                        </Box>
+                        <Box component="span" sx={{ color: 'warning.main', fontWeight: 700 }}>
+                          Só a própria agenda
+                        </Box>
+                      </>
                     )}
-                  </Stack>
+                  </Typography>
                 </>
               ) : (
                 <Skeleton variant="text" width={260} sx={{ fontSize: fontSizes['2xl'] }} />

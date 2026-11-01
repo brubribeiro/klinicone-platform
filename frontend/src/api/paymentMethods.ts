@@ -1,8 +1,10 @@
 import { api } from './client';
-import type { PaymentMethodEntry } from '../types';
+import type { PaymentMethodEntry, PaymentMethodKind } from '../types';
 
 export interface CreatePaymentMethodPayload {
   name: string;
+  kind?: PaymentMethodKind;
+  settlementDays?: number;
   feePercent?: number;
   active?: boolean;
 }

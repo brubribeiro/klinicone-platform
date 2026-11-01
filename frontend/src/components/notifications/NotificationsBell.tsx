@@ -229,7 +229,16 @@ export function NotificationsBell({ iconColor }: NotificationsBellProps) {
                       />
                     )}
                   </Stack>
-                  <Typography sx={{ fontSize: fontSizes.xs, color: 'text.secondary', fontWeight: 500, mt: 0.25 }}>
+                  <Typography
+                    sx={{
+                      fontSize: fontSizes.xs,
+                      color: 'text.secondary',
+                      fontWeight: 500,
+                      mt: 0.25,
+                      // Avisos da plataforma vêm em várias linhas (tópicos do release)
+                      ...(n.type === 'PLATFORM_ANNOUNCEMENT' ? { whiteSpace: 'pre-line' } : {}),
+                    }}
+                  >
                     {n.message}
                   </Typography>
                   <Typography sx={{ fontSize: fontSizes['2xs'], color: 'text.disabled', fontWeight: 600, mt: 0.5 }}>

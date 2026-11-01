@@ -50,6 +50,16 @@ export const NOTIFICATION_TYPES: {
     label: 'Manutenção de equipamento',
     description: 'Receba quando um equipamento estiver com manutenção próxima',
   },
+  {
+    type: 'PLATFORM_ANNOUNCEMENT',
+    label: 'Novidades da plataforma',
+    description: 'Receba avisos de novas funcionalidades e correções do sistema',
+  },
+  {
+    type: 'FEEDBACK_CLOSED',
+    label: 'Feedback concluído',
+    description: 'Receba quando um bug ou sugestão que você enviou for finalizado pela plataforma',
+  },
 ];
 
 export function labelForType(type: NotificationType): string {

@@ -5,6 +5,7 @@ export const PLATFORM_CATALOG_KINDS = [
   'message_trigger',
   'procedure_category',
   'inventory_unit',
+  'skincare_tag',
 ] as const;
 
 export type PlatformCatalogKind = (typeof PLATFORM_CATALOG_KINDS)[number];
@@ -15,6 +16,7 @@ export const PLATFORM_CATALOG_KIND_LABELS: Record<PlatformCatalogKind, string> =
   message_trigger: 'Gatilhos de mensagem',
   procedure_category: 'Categorias de procedimento',
   inventory_unit: 'Unidades de estoque',
+  skincare_tag: 'Características de skincare',
 };
 
 /** Valores iniciais = hardcodes que o front usava (seed idempotente; não sobrescreve edição). */
@@ -75,4 +77,11 @@ export const DEFAULT_PLATFORM_CATALOG: {
   { kind: 'inventory_unit', value: 'fr', label: 'Frasco (fr)', sortOrder: 8 },
   { kind: 'inventory_unit', value: 'tb', label: 'Tubo (tb)', sortOrder: 9 },
   { kind: 'inventory_unit', value: 'amp', label: 'Ampola (amp)', sortOrder: 10 },
+
+  // skincare_tag (rotinas / produtos — value persistido em SkincareProduct.tags e SkincareRule.avoidTags)
+  { kind: 'skincare_tag', value: 'acido', label: 'Ácidos (baixa concentração)', sortOrder: 0 },
+  { kind: 'skincare_tag', value: 'acido-alto', label: 'Ácidos em alta concentração', sortOrder: 1 },
+  { kind: 'skincare_tag', value: 'retinoide', label: 'Retinoides', sortOrder: 2 },
+  { kind: 'skincare_tag', value: 'fragrancia', label: 'Fragrância', sortOrder: 3 },
+  { kind: 'skincare_tag', value: 'oleo', label: 'Óleos comedogênicos', sortOrder: 4 },
 ];

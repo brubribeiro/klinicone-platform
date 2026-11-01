@@ -170,7 +170,7 @@ export function RecurringExpensesPage() {
       <HourlyCostCard activeFixedMonthly={activeFixedMonthly} activeVariableMonthly={activeVariableMonthly} />
 
       {/* Lista */}
-      <Card sx={{ borderRadius: '18px', overflow: 'hidden' }}>
+      <Card data-tour="expenses-list" sx={{ borderRadius: '18px', overflow: 'hidden' }}>
         <ListCardHeader
           breakpoint="lg"
           nowrapFrom="md"
@@ -225,7 +225,7 @@ export function RecurringExpensesPage() {
             }}
             placeholder="Buscar despesa, categoria..."
           />
-          <Button
+          <Button data-tour="expenses-generate"
             variant="outlined"
             startIcon={<AutorenewIcon />}
             onClick={() => generateMutation.mutate()}
@@ -234,7 +234,7 @@ export function RecurringExpensesPage() {
           >
             {generateMutation.isPending ? 'Gerando...' : 'Gerar lançamentos do mês'}
           </Button>
-          <Button
+          <Button data-tour="expenses-new"
             variant="contained"
             startIcon={<AddIcon />}
             onClick={() => {

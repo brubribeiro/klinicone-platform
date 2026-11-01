@@ -8,6 +8,7 @@ import { LegendSwatch } from './AgendaToolbar';
 export function AgendaStatusLegend() {
   return (
     <Box
+      data-tour="agenda-legend"
       sx={{
         display: 'flex',
         alignItems: 'center',

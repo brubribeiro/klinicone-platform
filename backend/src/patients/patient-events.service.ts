@@ -4,7 +4,7 @@ import { NotificationType } from '@prisma/client';
 import { AuditLogService, AuditUser } from '../audit-log/audit-log.service';
 import { NotificationsService } from '../notifications/notifications.service';
 
-type AuditedEntity = 'Patient' | 'PatientPhoto';
+type AuditedEntity = 'Patient' | 'PatientPhoto' | 'PatientMeasurement';
 
 const asRecord = (value: unknown) => value as Record<string, unknown>;
 

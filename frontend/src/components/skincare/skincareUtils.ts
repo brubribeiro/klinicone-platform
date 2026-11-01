@@ -1,4 +1,6 @@
+import { getCatalogItems } from '../../features/platformCatalog';
 import type {
+  PlatformCatalogOption,
   SkinAnswers,
   SkincareAvoided,
   SkincareGuideline,
@@ -8,7 +10,6 @@ import type {
   SkincareRule,
   SkincareRuleField,
   SkincareStep,
-  SkincareTag,
 } from '../../types';
 
 /** [chave, rótulo, descrição opcional] */
@@ -44,13 +45,27 @@ export const AGE_RANGES: Option[] = [
   ['55', '55+'],
 ];
 
-export const SKINCARE_TAGS: Option<SkincareTag>[] = [
+export const FALLBACK_SKINCARE_TAG_OPTIONS: Option[] = [
   ['acido', 'Ácidos (baixa concentração)'],
   ['acido-alto', 'Ácidos em alta concentração'],
   ['retinoide', 'Retinoides'],
   ['fragrancia', 'Fragrância'],
   ['oleo', 'Óleos comedogênicos'],
 ];
+
+/** Lista estática de fallback (testes e cache vazio). */
+export const SKINCARE_TAGS = FALLBACK_SKINCARE_TAG_OPTIONS;
+
+export function skincareTagsFromCatalog(items: PlatformCatalogOption[]): Option[] {
+  return items.map((i) => [i.value, i.label]);
+}
+
+/** Tags ativas do catálogo global (fallback = valores hardcoded originais). */
+export function skincareTagOptions(): readonly Option[] {
+  const items = getCatalogItems('skincare_tag');
+  if (!items.length) return FALLBACK_SKINCARE_TAG_OPTIONS;
+  return skincareTagsFromCatalog(items);
+}
 
 export const SKINCARE_MOMENTS: Option<SkincareMoment>[] = [
   ['manha', 'Manhã'],
@@ -176,6 +191,7 @@ export function generateRoutine(
   answers: SkinAnswers,
   products: SkincareProduct[],
   rules: SkincareRule[],
+  tagOptions: readonly Option[] = skincareTagOptions(),
 ): { items: SkincareRoutineItem[]; avoided: SkincareAvoided[]; guidelines: SkincareGuideline[] } {
   const byId = new Map(products.map((p) => [p.id, p]));
   const hits = rules.filter((r) => ruleMatches(r, answers));
@@ -204,7 +220,7 @@ export function generateRoutine(
         avoided.set(pid, {
           productId: pid,
           name: p.name,
-          reason: `${optionLabel(SKINCARE_TAGS, tag)} · ${avoidBy.get(tag)!.join(', ')}`,
+          reason: `${optionLabel(tagOptions, tag)} · ${avoidBy.get(tag)!.join(', ')}`,
         });
         continue;
       }

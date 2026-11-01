@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react';
+import { useEffect } from 'react';
 import {
   Alert,
   Box,
@@ -7,7 +7,6 @@ import {
   DialogActions,
   DialogContent,
   Grid,
-  InputAdornment,
   MenuItem,
   Stack,
   TextField,
@@ -24,7 +23,15 @@ import { inventoryApi, InventoryItemPayload } from '../../api/inventory';
 import { useAppToast } from '../../contexts/AppToastContext';
 import { getApiErrorMessage } from '../../utils/apiError';
 import { FormSection } from '../FormSection';
-import { DialogHeader, dialogActionsBorderSx, dialogPaperSx } from '../DialogCloseButton';
+import {
+  DialogHeader,
+  dialogActionsBorderSx,
+  dialogFormLayoutSx,
+  formDialogPaperSx,
+} from '../DialogCloseButton';
+import { fontSizes } from '../../theme/fontSizes';
+import { FieldAdornment } from '../FieldAdornment';
+import { LabeledField } from '../LabeledField';
 import { MoneyField } from '../MoneyField';
 import type { InventoryItem } from '../../types';
 import { usePlatformCatalog } from '../../hooks/usePlatformCatalog';
@@ -55,16 +62,32 @@ const empty: FormValues = {
   expiryNotifyDaysBefore: '',
 };
 
-const DIALOG_MAX_WIDTH = 900;
-const DIALOG_HEIGHT_DESKTOP = 650;
+const DIALOG_MAX_WIDTH = 860;
+const FORM_STACK_GAP = 1.5;
 
-function SubsectionLabel({ children }: { children: ReactNode }) {
-  return (
-    <Typography variant="body2" fontWeight={600} sx={{ mb: 1 }}>
-      {children}
-    </Typography>
-  );
-}
+const TWO_COLUMNS_SX = {
+  display: 'grid',
+  gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))' },
+  gap: FORM_STACK_GAP,
+} as const;
+
+const COMPACT_SECTION_SX = {
+  p: { xs: 1.5, sm: 1.75 },
+  alignSelf: 'flex-start',
+  width: '100%',
+} as const;
+
+const COMPACT_ALERT_SX = {
+  py: 0.5,
+  px: 1.25,
+  alignItems: 'flex-start',
+  '& .MuiAlert-icon': { py: 0.35, mr: 1 },
+  '& .MuiAlert-message': {
+    fontSize: fontSizes['2xs'],
+    lineHeight: 1.35,
+    py: 0.25,
+  },
+} as const;
 
 export function InventoryFormDialog({ open, onClose, item }: InventoryFormDialogProps) {
   const theme = useTheme();
@@ -123,33 +146,18 @@ export function InventoryFormDialog({ open, onClose, item }: InventoryFormDialog
       fullWidth
       fullScreen={isMobile}
       PaperProps={{
-        sx: {
-          ...dialogPaperSx(isMobile),
-          display: 'flex',
-          flexDirection: 'column',
-          width: '100%',
-          ...(isMobile
-            ? { height: '100%', maxHeight: '100dvh' }
-            : {
-                maxWidth: DIALOG_MAX_WIDTH,
-                height: DIALOG_HEIGHT_DESKTOP,
-                maxHeight: '94dvh',
-                overflow: 'hidden',
-              }),
-        },
+        sx: formDialogPaperSx(isMobile, {
+          maxWidth: DIALOG_MAX_WIDTH,
+          height: 'auto',
+          maxHeight: '88dvh',
+        }),
       }}
     >
       <Box
         component="form"
         noValidate
         onSubmit={handleSubmit((v) => mutation.mutate(v))}
-        sx={{
-          display: 'flex',
-          flexDirection: 'column',
-          flex: 1,
-          minHeight: 0,
-          ...(isMobile ? { height: '100%' } : {}),
-        }}
+        sx={dialogFormLayoutSx(isMobile)}
       >
         <DialogHeader
           onClose={onClose}
@@ -166,48 +174,72 @@ export function InventoryFormDialog({ open, onClose, item }: InventoryFormDialog
         />
 
         <DialogContent
-          dividers
           sx={{
             px: { xs: 2, sm: 3 },
-            py: { xs: 2, sm: 2.5 },
+            pb: { xs: 2, sm: 2.5 },
             flex: 1,
             minHeight: 0,
             overflow: 'auto',
-            display: 'flex',
-            flexDirection: 'column',
-            bgcolor: (t) => t.palette.background.default,
+            bgcolor: 'background.default',
+            '&.MuiDialogContent-root': { pt: { xs: 2, sm: 2.25 } },
           }}
         >
-          <Grid container spacing={2.5} alignItems="stretch">
+          <Grid container spacing={FORM_STACK_GAP} alignItems="flex-start">
             <Grid item xs={12} md={6}>
-              <FormSection title="Identificação" sx={{ height: '100%' }}>
-                <Stack spacing={2}>
+              <FormSection title="Identificação" sx={COMPACT_SECTION_SX}>
+                <Stack spacing={FORM_STACK_GAP}>
                   <Controller
                     name="name"
                     control={control}
                     rules={{ required: 'Nome é obrigatório' }}
                     render={({ field, fieldState }) => (
-                      <TextField
-                        {...field}
-                        label="Nome do produto"
-                        fullWidth
-                        required
-                        autoFocus={!item}
-                        error={!!fieldState.error}
-                        helperText={fieldState.error?.message}
-                      />
+                      <LabeledField label="Nome do produto" required>
+                        <TextField
+                          {...field}
+                          fullWidth
+                          autoFocus={!item}
+                          error={!!fieldState.error}
+                          helperText={fieldState.error?.message}
+                        />
+                      </LabeledField>
                     )}
                   />
-                  <Controller
-                    name="sku"
-                    control={control}
-                    render={({ field }) => <TextField {...field} label="SKU / Código" fullWidth />}
-                  />
+                  <Box sx={TWO_COLUMNS_SX}>
+                    <Controller
+                      name="sku"
+                      control={control}
+                      render={({ field }) => (
+                        <LabeledField label="SKU / Código">
+                          <TextField {...field} fullWidth />
+                        </LabeledField>
+                      )}
+                    />
+                    <Controller
+                      name="unit"
+                      control={control}
+                      render={({ field }) => (
+                        <LabeledField label="Unidade">
+                          <TextField {...field} select fullWidth>
+                            <MenuItem value="">
+                              <em>Nenhuma</em>
+                            </MenuItem>
+                            {unitOptions.map((opt) => (
+                              <MenuItem key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </MenuItem>
+                            ))}
+                          </TextField>
+                        </LabeledField>
+                      )}
+                    />
+                  </Box>
                   <Controller
                     name="description"
                     control={control}
                     render={({ field }) => (
-                      <TextField {...field} label="Descrição" fullWidth multiline minRows={3} />
+                      <LabeledField label="Descrição">
+                        <TextField {...field} fullWidth multiline minRows={2} maxRows={4} />
+                      </LabeledField>
                     )}
                   />
                 </Stack>
@@ -215,82 +247,66 @@ export function InventoryFormDialog({ open, onClose, item }: InventoryFormDialog
             </Grid>
 
             <Grid item xs={12} md={6}>
-              <FormSection title="Estoque e custo" sx={{ height: '100%' }}>
-                <Stack spacing={2}>
-                  <Box>
-                    <SubsectionLabel>Unidade de medida</SubsectionLabel>
-                    <Controller
-                      name="unit"
-                      control={control}
-                      render={({ field }) => (
-                        <TextField {...field} select label="Unidade" fullWidth>
-                          <MenuItem value="">
-                            <em>Nenhuma</em>
-                          </MenuItem>
-                          {unitOptions.map((opt) => (
-                            <MenuItem key={opt.value} value={opt.value}>
-                              {opt.label}
-                            </MenuItem>
-                          ))}
-                        </TextField>
-                      )}
-                    />
-                  </Box>
-
-                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+              <FormSection title="Estoque e custo" sx={COMPACT_SECTION_SX}>
+                <Stack spacing={FORM_STACK_GAP}>
+                  <Box sx={TWO_COLUMNS_SX}>
                     <Controller
                       name="minQuantity"
                       control={control}
                       render={({ field }) => (
-                        <TextField
-                          {...field}
-                          type="number"
-                          label="Estoque mínimo"
-                          fullWidth
-                          inputProps={{ inputMode: 'numeric', min: 0, step: 1 }}
-                          sx={{ flex: 1, minWidth: 0 }}
-                        />
+                        <LabeledField label="Estoque mínimo">
+                          <TextField
+                            {...field}
+                            type="number"
+                            fullWidth
+                            inputProps={{ inputMode: 'numeric', min: 0, step: 1 }}
+                          />
+                        </LabeledField>
                       )}
                     />
                     <Controller
                       name="costPrice"
                       control={control}
                       render={({ field }) => (
-                        <MoneyField {...field} label="Custo unitário" fullWidth sx={{ flex: 1, minWidth: 0 }} />
+                        <LabeledField label="Custo unitário">
+                          <MoneyField {...field} fullWidth />
+                        </LabeledField>
                       )}
                     />
-                  </Stack>
+                  </Box>
 
                   <Box>
-                    <SubsectionLabel>Validade</SubsectionLabel>
                     <Controller
                       name="expiryNotifyDaysBefore"
                       control={control}
                       render={({ field }) => (
-                        <TextField
-                          {...field}
-                          type="number"
-                          label="Notificar antes da validade"
-                          fullWidth
-                          inputProps={{ inputMode: 'numeric', min: 1 }}
-                          InputProps={{
-                            endAdornment: <InputAdornment position="end">dias</InputAdornment>,
-                          }}
-                        />
+                        <LabeledField label="Notificar antes da validade">
+                          <TextField
+                            {...field}
+                            type="number"
+                            fullWidth
+                            inputProps={{ inputMode: 'numeric', min: 1 }}
+                            InputProps={{
+                              endAdornment: <FieldAdornment>dias</FieldAdornment>,
+                            }}
+                          />
+                        </LabeledField>
                       )}
                     />
-                    <Typography variant="caption" color="text.secondary" sx={{ mt: 0.75, display: 'block' }}>
+                    <Typography sx={{ mt: 0.5, display: 'block', fontSize: fontSizes['2xs'], color: 'text.secondary' }}>
                       Deixe vazio para não receber alertas de validade.
                     </Typography>
                   </Box>
-
-                  <Alert severity="info" sx={{ py: 0.75 }}>
-                    {item
-                      ? 'Para alterar quantidade ou lote com validade, use a movimentação de entrada.'
-                      : 'O estoque inicial é zero. Após criar, registre uma entrada para adicionar quantidade.'}
-                  </Alert>
                 </Stack>
               </FormSection>
+            </Grid>
+
+            <Grid item xs={12}>
+              <Alert severity="info" sx={COMPACT_ALERT_SX}>
+                {item
+                  ? 'Para alterar quantidade ou lote com validade, use a movimentação de entrada.'
+                  : 'O estoque inicial é zero. Após criar, registre uma entrada para adicionar quantidade.'}
+              </Alert>
             </Grid>
 
             {mutation.isError && (

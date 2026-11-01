@@ -7,10 +7,12 @@ import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './jwt.strategy';
 import { UsersModule } from '../users/users.module';
+import { PrismaModule } from '../prisma/prisma.module';
 
 @Module({
   imports: [
     ConfigModule,
+    PrismaModule,
     UsersModule,
     PassportModule,
     JwtModule.registerAsync({
@@ -18,7 +20,10 @@ import { UsersModule } from '../users/users.module';
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
         secret: config.get<string>('JWT_SECRET'),
-        signOptions: { expiresIn: config.get<string>('JWT_EXPIRES_IN', '4h') },
+        signOptions: {
+          algorithm: 'HS256' as const,
+          expiresIn: config.get<string>('JWT_EXPIRES_IN', '4h'),
+        },
       }),
     }),
   ],

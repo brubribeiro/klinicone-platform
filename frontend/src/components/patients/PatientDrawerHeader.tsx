@@ -5,8 +5,17 @@ import { fontSizes } from '../../theme/fontSizes';
 import { maskPhone } from '../../utils/masks';
 import { patientInitials } from '../../utils/patientPhoto';
 import { ReliabilityBadge } from './ReliabilityBadge';
+import { usePatientRecordAccess } from './usePatientRecordAccess';
 
-export type PatientDrawerTab = 'notes' | 'general' | 'appointments' | 'packages' | 'anamnesis' | 'fotos';
+export type PatientDrawerTab =
+  | 'notes'
+  | 'general'
+  | 'appointments'
+  | 'packages'
+  | 'anamnesis'
+  | 'fotos'
+  | 'documents'
+  | 'finance';
 
 /** Identificação da paciente e abas em pílulas no topo da gaveta. */
 export function PatientDrawerHeader({
@@ -20,6 +29,8 @@ export function PatientDrawerHeader({
   tab: PatientDrawerTab;
   onTabChange: (tab: PatientDrawerTab) => void;
 }) {
+  const { showDocuments, showFinance } = usePatientRecordAccess();
+
   return (
     <>
       <Stack direction="row" spacing={2} alignItems="center" sx={{ pr: 6 }}>
@@ -86,6 +97,8 @@ export function PatientDrawerHeader({
             { id: 'anamnesis', label: 'Anamnese' },
             { id: 'appointments', label: 'Atendimentos' },
             { id: 'fotos', label: 'Fotos' },
+            ...(showDocuments ? [{ id: 'documents', label: 'Documentos' }] : []),
+            ...(showFinance ? [{ id: 'finance', label: 'Financeiro' }] : []),
           ] as { id: PatientDrawerTab; label: string }[]
         ).map((t) => {
           const active = tab === t.id;

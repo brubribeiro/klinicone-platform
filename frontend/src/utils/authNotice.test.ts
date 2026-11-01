@@ -10,7 +10,6 @@ const suspendedError = (message?: string) => ({
 describe('authNotice', () => {
   beforeEach(() => {
     sessionStorage.clear();
-    localStorage.clear();
     window.history.replaceState(null, '', '/painel/login');
   });
 
@@ -36,7 +35,6 @@ describe('authNotice', () => {
   });
 
   it('o interceptor do axios guarda o aviso quando a sessão cai por clínica suspensa', async () => {
-    localStorage.setItem('access_token', 'token');
     const handlers = (api.interceptors.response as unknown as {
       handlers: { rejected: (err: unknown) => Promise<unknown> }[];
     }).handlers;
@@ -44,7 +42,6 @@ describe('authNotice', () => {
 
     await expect(handlers[0].rejected(err)).rejects.toBe(err);
 
-    expect(localStorage.getItem('access_token')).toBeNull();
     expect(readAuthNotice()).toBe('Clínica X suspensa');
   });
 

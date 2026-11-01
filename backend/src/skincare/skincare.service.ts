@@ -3,7 +3,7 @@ import { Prisma } from '@prisma/client';
 
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditLogService, AuditUser } from '../audit-log/audit-log.service';
-import { SKINCARE_RULE_VALUES } from './skincare.constants';
+import { SKINCARE_RULE_VALUES, SKINCARE_TAGS_FALLBACK } from './skincare.constants';
 import {
   CreateSkincareProductDto,
   CreateSkincareRoutineDto,
@@ -35,6 +35,7 @@ export class SkincareService {
   }
 
   async createProduct(dto: CreateSkincareProductDto, user?: AuditUser) {
+    await this.assertSkincareTags(dto.tags);
     const created = await this.prisma.skincareProduct.create({
       data: {
         name: dto.name.trim(),
@@ -54,6 +55,7 @@ export class SkincareService {
   async updateProduct(id: string, dto: UpdateSkincareProductDto, user?: AuditUser) {
     const existing = await this.prisma.skincareProduct.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException('Produto não encontrado');
+    if (dto.tags !== undefined) await this.assertSkincareTags(dto.tags);
     const updated = await this.prisma.skincareProduct.update({
       where: { id },
       data: {
@@ -137,6 +139,7 @@ export class SkincareService {
     if (productIds.length === 0 && avoidTags.length === 0) {
       throw new BadRequestException('Inclua ao menos um produto ou restrição');
     }
+    await this.assertSkincareTags(avoidTags);
     if (dto.productIds?.length) {
       const found = await this.prisma.skincareProduct.count({ where: { id: { in: dto.productIds } } });
       if (found !== new Set(dto.productIds).size) throw new BadRequestException('Produto não encontrado');
@@ -218,5 +221,23 @@ export class SkincareService {
     await this.prisma.skincareRoutine.delete({ where: { id } });
     this.auditLog.logDelete('SkincareRoutine', id, existing as unknown as AuditRecord, user).catch(() => undefined);
     return { ok: true };
+  }
+
+  private async allowedSkincareTags(): Promise<Set<string>> {
+    const rows = await this.prisma.platformCatalogItem.findMany({
+      where: { kind: 'skincare_tag', active: true },
+      select: { value: true },
+    });
+    if (rows.length === 0) return new Set(SKINCARE_TAGS_FALLBACK);
+    return new Set(rows.map((r) => r.value));
+  }
+
+  private async assertSkincareTags(tags: string[] | undefined) {
+    if (!tags?.length) return;
+    const allowed = await this.allowedSkincareTags();
+    const invalid = [...new Set(tags)].filter((t) => !allowed.has(t));
+    if (invalid.length) {
+      throw new BadRequestException(`Característica inválida ou inativa: ${invalid.join(', ')}`);
+    }
   }
 }

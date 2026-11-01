@@ -12,11 +12,10 @@ const MAX_GOALS = 3;
 interface GoalsCardProps {
   /** Data (YYYY-MM-DD) usada para escolher as metas cujo período a contém. */
   at: string;
-  canCreate: boolean;
 }
 
 /** Card "Metas do mês" do dashboard, com as primeiras metas do período. */
-export function GoalsCard({ at, canCreate }: GoalsCardProps) {
+export function GoalsCard({ at }: GoalsCardProps) {
   const theme = useTheme();
   const { data: goals = [], isLoading } = useQuery({
     queryKey: ['goals', 'at', at],
@@ -41,16 +40,7 @@ export function GoalsCard({ at, canCreate }: GoalsCardProps) {
             ))}
           </Stack>
         ) : visible.length === 0 ? (
-          <DashboardEmptyState
-            message="Nenhuma meta definida para este período"
-            action={
-              canCreate && (
-                <Button size="small" component={RouterLink} to="/metas" sx={{ fontWeight: 700 }}>
-                  Definir metas
-                </Button>
-              )
-            }
-          />
+          <DashboardEmptyState message="Nenhuma meta definida para este período" />
         ) : (
           <Stack spacing={2}>
             {visible.map((g) => {

@@ -1,3 +1,5 @@
+import { darken, lighten, type Theme } from '@mui/material';
+
 import type { PendingCategory, PendingGroup, PendingItem, PendingRule } from '../../types';
 
 /** Traços do protótipo Aurora (viewBox 24). */
@@ -38,18 +40,47 @@ export function PendIcon({ name, size = 17, strokeWidth = 1.7 }: { name: PendIco
   );
 }
 
+/** Tokens da paleta do tema (`grupo.tom`), para seguir o Aurora teal e o modo escuro. */
 export const CATEGORY_META: Record<PendingCategory, { label: string; color: string; icon: PendIconName }> = {
-  ADMINISTRATIVE: { label: 'Administrativo', color: '#C4756A', icon: 'doc' },
-  FINANCE: { label: 'Financeiro', color: '#B8873D', icon: 'money' },
-  INVENTORY: { label: 'Estoque', color: '#D9902F', icon: 'box' },
-  OPERATIONAL: { label: 'Clínica/Operacional', color: '#8FA88C', icon: 'people' },
-  MAINTENANCE: { label: 'Manutenção', color: '#5BA8DE', icon: 'device' },
-  HEALTH_SURVEILLANCE: { label: 'Vigilância Sanitária', color: '#6C7FD4', icon: 'shield' },
-  MARKETING: { label: 'Marketing', color: '#9B7BD4', icon: 'megaphone' },
-  TEAM: { label: 'Equipe', color: '#D46B8A', icon: 'people' },
-  PATIENTS: { label: 'Pacientes', color: '#C4756A', icon: 'people' },
-  MANAGEMENT: { label: 'Gestão', color: '#B39BD4', icon: 'chart' },
+  ADMINISTRATIVE: { label: 'Administrativo', color: 'primary.main', icon: 'doc' },
+  FINANCE: { label: 'Financeiro', color: 'success.dark', icon: 'money' },
+  INVENTORY: { label: 'Estoque', color: 'warning.main', icon: 'box' },
+  OPERATIONAL: { label: 'Clínica/Operacional', color: 'warning.light', icon: 'people' },
+  MAINTENANCE: { label: 'Manutenção', color: 'info.main', icon: 'device' },
+  HEALTH_SURVEILLANCE: { label: 'Vigilância Sanitária', color: 'error.main', icon: 'shield' },
+  MARKETING: { label: 'Marketing', color: 'info.dark', icon: 'megaphone' },
+  TEAM: { label: 'Equipe', color: 'warning.dark', icon: 'people' },
+  PATIENTS: { label: 'Pacientes', color: 'success.main', icon: 'people' },
+  MANAGEMENT: { label: 'Gestão', color: 'secondary.main', icon: 'chart' },
 };
+
+/** Resolve um token `grupo.tom` da paleta para a cor do tema atual. */
+export function categoryColor(theme: Theme, category: PendingCategory): string {
+  const [group, shade] = CATEGORY_META[category].color.split('.');
+  return (theme.palette as unknown as Record<string, Record<string, string>>)[group][shade];
+}
+
+/** Fundo sólido suave a partir de uma cor (sem transparência). */
+export function softBg(theme: Theme, color: string, level = 0.88) {
+  return theme.palette.mode === 'dark' ? darken(color, level - 0.08) : lighten(color, level);
+}
+
+export type PendTone = 'error' | 'warning' | 'info' | 'success' | 'primary';
+
+/** Cores de um tom de status: fundos sólidos suaves (opacos), borda e texto do tema. */
+export function pendTone(theme: Theme, tone: PendTone) {
+  const { main, dark } = theme.palette[tone];
+  const soft = (light: number, deep: number) =>
+    theme.palette.mode === 'dark' ? darken(main, deep) : lighten(main, light);
+  return {
+    main,
+    text: dark,
+    tint: soft(0.92, 0.82),
+    statBg: soft(0.9, 0.8),
+    chipBg: soft(0.84, 0.7),
+    border: soft(0.6, 0.45),
+  };
+}
 
 export const CATEGORY_OPTIONS = (Object.keys(CATEGORY_META) as PendingCategory[]).map((value) => ({
   value,
@@ -60,38 +91,14 @@ export const GROUP_ORDER: PendingGroup[] = ['URGENT', 'OVERDUE', 'UPCOMING'];
 
 export const GROUP_META: Record<
   PendingGroup,
-  { label: string; chipLabel: string; color: string; tint: string; chipBg: string; statBg: string; icon: PendIconName }
+  { label: string; chipLabel: string; tone: PendTone; icon: PendIconName }
 > = {
-  URGENT: {
-    label: 'Urgentes',
-    chipLabel: 'Urgente',
-    color: '#D65A5A',
-    tint: 'rgba(214,90,90,.08)',
-    chipBg: 'rgba(214,90,90,.13)',
-    statBg: 'rgba(214,90,90,.09)',
-    icon: 'alert',
-  },
-  OVERDUE: {
-    label: 'Atrasadas',
-    chipLabel: 'Atrasada',
-    color: '#D9902F',
-    tint: 'rgba(217,144,47,.08)',
-    chipBg: 'rgba(217,144,47,.14)',
-    statBg: 'rgba(217,144,47,.09)',
-    icon: 'clock',
-  },
-  UPCOMING: {
-    label: 'Próximas',
-    chipLabel: 'Próxima',
-    color: '#C9A227',
-    tint: 'rgba(201,162,39,.07)',
-    chipBg: 'rgba(201,162,39,.14)',
-    statBg: 'rgba(201,162,39,.09)',
-    icon: 'calendar',
-  },
+  URGENT: { label: 'Urgentes', chipLabel: 'Urgente', tone: 'error', icon: 'alert' },
+  OVERDUE: { label: 'Atrasadas', chipLabel: 'Atrasada', tone: 'warning', icon: 'clock' },
+  UPCOMING: { label: 'Próximas', chipLabel: 'Próxima', tone: 'info', icon: 'calendar' },
 };
 
-export const RESOLVED_META = { label: 'Resolvidas', color: '#11A893', tint: 'rgba(17,168,147,.08)', statBg: 'rgba(17,168,147,.09)' };
+export const RESOLVED_META = { label: 'Resolvidas', tone: 'success' } as const satisfies { label: string; tone: PendTone };
 
 export const RULE_META: Record<
   PendingRule,

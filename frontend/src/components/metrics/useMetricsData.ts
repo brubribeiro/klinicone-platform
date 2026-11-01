@@ -34,7 +34,7 @@ export function useMetricsData(dateFrom: string, dateTo: string, canSeeFinance: 
     };
   }, [dateFrom, dateTo, datesValid]);
 
-  const { data, isPending, isFetching, error } = useQuery({
+  const { data, isPending, isFetching, isPlaceholderData, error } = useQuery({
     queryKey: ['metrics', dateFrom, dateTo],
     queryFn: () => metricsApi.get(dateFrom, dateTo),
     enabled: datesValid,
@@ -42,7 +42,7 @@ export function useMetricsData(dateFrom: string, dateTo: string, canSeeFinance: 
     placeholderData: keepPreviousData,
   });
 
-  const { data: previousData } = useQuery({
+  const { data: previousData, isPlaceholderData: previousPlaceholder } = useQuery({
     queryKey: ['metrics', previousRange?.from, previousRange?.to],
     queryFn: () => metricsApi.get(previousRange!.from, previousRange!.to),
     enabled: !!previousRange,
@@ -54,6 +54,7 @@ export function useMetricsData(dateFrom: string, dateTo: string, canSeeFinance: 
     data: financeEntries = [],
     isPending: financePending,
     isFetching: financeFetching,
+    isPlaceholderData: financePlaceholder,
   } = useQuery({
     queryKey: ['finance', fromIso, toIso, 'metrics'],
     queryFn: () => financeApi.list(fromIso!, toIso!),
@@ -69,7 +70,10 @@ export function useMetricsData(dateFrom: string, dateTo: string, canSeeFinance: 
     previousData,
     error,
     metricsLoading: isPending || (isFetching && !data),
+    /** Métricas (ou as do período anterior) ainda são do filtro anterior (keepPreviousData) enquanto o novo período carrega. */
+    metricsStale: isPlaceholderData || previousPlaceholder,
     financeEntries,
     financeLoading: financePending || (financeFetching && financeEntries.length === 0),
+    financeStale: financePlaceholder,
   };
 }

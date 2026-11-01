@@ -11,12 +11,14 @@ import { PackagesService } from '../packages/packages.service';
 import { AppointmentRulesService } from './appointment-rules.service';
 import { AppointmentMaterialsService } from './appointment-materials.service';
 import { AppointmentFinanceService } from './appointment-finance.service';
+import { parseDateOnlyToUtcNoon } from '../common/utils/date-only.util';
 import { AppointmentEventsService } from './appointment-events.service';
 import {
   appointmentRelationsInclude,
   assertOwnAppointmentAccess,
   computePackageSessionIndexes,
   isActive,
+  toApplicationMapData,
 } from './appointment.helpers';
 
 /** Campos que usuários restritos aos próprios agendamentos não podem alterar. */
@@ -107,6 +109,13 @@ export class AppointmentsService {
 
   getRecurrenceLimit(patientId: string, procedureId: string, excludeAppointmentId?: string) {
     return this.rules.getRecurrenceLimit(patientId, procedureId, excludeAppointmentId);
+  }
+
+  /** Valor cheio, desconto e valor final do procedimento no dia (YYYY-MM-DD), antes de concluir. */
+  promotionPreview(procedureId: string, date: string) {
+    const day = /^\d{4}-\d{2}-\d{2}$/.test(date ?? '') ? parseDateOnlyToUtcNoon(date) : undefined;
+    if (!day) throw new BadRequestException('Data inválida (use AAAA-MM-DD).');
+    return this.finance.previewPromotion(procedureId, day);
   }
 
   async create(dto: CreateAppointmentDto, user?: AuditUser) {
@@ -267,6 +276,9 @@ export class AppointmentsService {
           extraMaterials: extraItems ?? before.extraMaterials,
           referenceMonth: dto.referenceMonth,
           paymentMethodId: dto.paymentMethodId,
+          installments: dto.installments,
+          cardBrand: dto.cardBrand,
+          authorizationCode: dto.authorizationCode,
         });
       }
 
@@ -292,6 +304,7 @@ export class AppointmentsService {
           materialsDeducted: willDeduct,
           financeGenerated,
           patientPackageId: dto.patientPackageId === undefined ? undefined : dto.patientPackageId ?? null,
+          applicationMap: toApplicationMapData(dto.applicationMap),
         },
         include: appointmentRelationsInclude,
       });
@@ -306,8 +319,9 @@ export class AppointmentsService {
   }
 
   /** Inicia o atendimento: marca startedAt e muda status para IN_PROGRESS */
-  async start(id: string) {
+  async start(id: string, user?: AuthenticatedUser) {
     const appt = await this.findByIdOrThrow(id);
+    assertOwnAppointmentAccess(appt.professionalId, user);
     if (
       appt.status !== AppointmentStatus.SCHEDULED &&
       appt.status !== AppointmentStatus.CONFIRMED
@@ -323,8 +337,9 @@ export class AppointmentsService {
   }
 
   /** Finaliza o atendimento: marca finishedAt. A conclusão completa (COMPLETED) continua pelo update normal. */
-  async finish(id: string) {
+  async finish(id: string, user?: AuthenticatedUser) {
     const appt = await this.findByIdOrThrow(id);
+    assertOwnAppointmentAccess(appt.professionalId, user);
     if (appt.status !== AppointmentStatus.IN_PROGRESS) {
       throw new BadRequestException(
         'Só é possível finalizar atendimentos com status Em Atendimento.',
@@ -334,8 +349,9 @@ export class AppointmentsService {
   }
 
   /** Retoma o atendimento: limpa finishedAt para continuar o cronômetro */
-  async resume(id: string) {
+  async resume(id: string, user?: AuthenticatedUser) {
     const appt = await this.findByIdOrThrow(id);
+    assertOwnAppointmentAccess(appt.professionalId, user);
     if (appt.status !== AppointmentStatus.IN_PROGRESS) {
       throw new BadRequestException(
         'Só é possível retomar atendimentos com status Em Atendimento.',

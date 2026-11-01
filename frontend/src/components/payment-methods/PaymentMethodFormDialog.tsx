@@ -6,8 +6,8 @@ import {
   Dialog,
   DialogActions,
   DialogContent,
-  InputAdornment,
   MenuItem,
+  Stack,
   TextField,
   Typography,
   useMediaQuery,
@@ -21,11 +21,12 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { paymentMethodsApi, CreatePaymentMethodPayload } from '../../api/paymentMethods';
 import { useAppToast } from '../../contexts/AppToastContext';
 import { getApiErrorMessage } from '../../utils/apiError';
-import { DialogHeader, dialogActionsBorderSx, dialogPaperSx } from '../DialogCloseButton';
-import { FormSection } from '../FormSection';
+import { DialogHeader, dialogActionsBorderSx, dialogFormLayoutSx, formDialogPaperSx } from '../DialogCloseButton';
+import { FieldAdornment } from '../FieldAdornment';
 import { LabeledField } from '../LabeledField';
-import type { PaymentMethodEntry } from '../../types';
+import type { PaymentMethodEntry, PaymentMethodKind } from '../../types';
 import { fontSizes } from '../../theme/fontSizes';
+import { PAYMENT_METHOD_KIND_OPTIONS, settlementDaysLabel } from '../../utils/paymentMethodMeta';
 
 interface Props {
   open: boolean;
@@ -35,11 +36,34 @@ interface Props {
 
 interface FormValues {
   name: string;
+  kind: PaymentMethodKind;
+  settlementDays: number | '';
   feePercent: number | '';
   active: boolean;
 }
 
-const DIALOG_MAX_WIDTH = 760;
+const DIALOG_MAX_WIDTH = 600;
+const FORM_STACK_GAP = 1.5;
+
+const NAME_STATUS_SX = {
+  display: 'grid',
+  gridTemplateColumns: { xs: '1fr', sm: '2fr 1fr' },
+  gap: FORM_STACK_GAP,
+} as const;
+
+const TWO_COLUMNS_SX = {
+  display: 'grid',
+  gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))' },
+  gap: FORM_STACK_GAP,
+} as const;
+
+function Hint({ children }: { children: string }) {
+  return (
+    <Typography sx={{ display: 'block', fontSize: fontSizes['2xs'], color: 'text.secondary', lineHeight: 1.35 }}>
+      {children}
+    </Typography>
+  );
+}
 
 const brl = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 
@@ -50,10 +74,11 @@ export function PaymentMethodFormDialog({ open, onClose, editing }: Props) {
   const toast = useAppToast();
 
   const { control, handleSubmit, reset, watch } = useForm<FormValues>({
-    defaultValues: { name: '', feePercent: '', active: true },
+    defaultValues: { name: '', kind: 'OTHER', settlementDays: 0, feePercent: '', active: true },
   });
 
   const watchedFee = watch('feePercent');
+  const watchedSettlement = watch('settlementDays');
   const isActive = watch('active');
 
   useEffect(() => {
@@ -61,11 +86,13 @@ export function PaymentMethodFormDialog({ open, onClose, editing }: Props) {
     if (editing) {
       reset({
         name: editing.name,
+        kind: editing.kind ?? 'OTHER',
+        settlementDays: editing.settlementDays ?? 0,
         feePercent: Number(editing.feePercent),
         active: editing.active,
       });
     } else {
-      reset({ name: '', feePercent: '', active: true });
+      reset({ name: '', kind: 'OTHER', settlementDays: 0, feePercent: '', active: true });
     }
   }, [open, editing, reset]);
 
@@ -97,6 +124,8 @@ export function PaymentMethodFormDialog({ open, onClose, editing }: Props) {
   const onSubmit = (values: FormValues) => {
     const payload: CreatePaymentMethodPayload = {
       name: values.name.trim(),
+      kind: values.kind,
+      settlementDays: values.settlementDays === '' ? 0 : Number(values.settlementDays),
       feePercent: values.feePercent === '' ? 0 : Number(values.feePercent),
       active: values.active,
     };
@@ -134,32 +163,14 @@ export function PaymentMethodFormDialog({ open, onClose, editing }: Props) {
       fullWidth
       fullScreen={isMobile}
       PaperProps={{
-        sx: {
-          ...dialogPaperSx(isMobile),
-          display: 'flex',
-          flexDirection: 'column',
-          width: '100%',
-          ...(isMobile
-            ? { height: '100%', maxHeight: '100dvh' }
-            : {
-                maxWidth: DIALOG_MAX_WIDTH,
-                maxHeight: '94dvh',
-                overflow: 'hidden',
-              }),
-        },
+        sx: formDialogPaperSx(isMobile, { maxWidth: DIALOG_MAX_WIDTH, height: 'auto', maxHeight: '88dvh' }),
       }}
     >
       <Box
         component="form"
         noValidate
         onSubmit={handleSubmit(onSubmit)}
-        sx={{
-          display: 'flex',
-          flexDirection: 'column',
-          flex: 1,
-          minHeight: 0,
-          ...(isMobile ? { height: '100%' } : {}),
-        }}
+        sx={dialogFormLayoutSx(isMobile)}
       >
         <DialogHeader
           onClose={onClose}
@@ -180,139 +191,170 @@ export function PaymentMethodFormDialog({ open, onClose, editing }: Props) {
             flex: 1,
             minHeight: 0,
             overflow: 'auto',
-            bgcolor: 'background.default',
+            bgcolor: 'background.paper',
             '&.MuiDialogContent-root': { pt: { xs: 2.75, sm: 3 } },
           }}
         >
-          <Box
-            sx={{
-              display: 'grid',
-              gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
-              gap: 2.25,
-              alignItems: 'stretch',
-            }}
-          >
-            <FormSection title="Identificação" sx={{ height: '100%' }}>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.75 }}>
-                <Controller
-                  name="name"
-                  control={control}
-                  rules={{ required: 'Nome é obrigatório' }}
-                  render={({ field, fieldState }) => (
-                    <LabeledField label="Nome da forma de pagamento" required>
-                      <TextField
-                        {...field}
-                        placeholder="Ex.: Crédito à vista"
-                        error={!!fieldState.error}
-                        helperText={fieldState.error?.message ?? 'Como aparece na seleção de pagamentos'}
-                        fullWidth
-                        autoFocus={!editing}
-                      />
-                    </LabeledField>
-                  )}
-                />
-                <Controller
-                  name="active"
-                  control={control}
-                  render={({ field }) => (
-                    <LabeledField label="Status">
-                      <TextField
-                        select
-                        fullWidth
-                        value={field.value ? 'active' : 'inactive'}
-                        onChange={(e) => field.onChange(e.target.value === 'active')}
-                        helperText={
-                          isActive
-                            ? 'Disponível para novos lançamentos'
-                            : 'Fica oculta na seleção de novos lançamentos'
-                        }
-                      >
-                        <MenuItem value="active">Ativa</MenuItem>
-                        <MenuItem value="inactive">Inativa</MenuItem>
-                      </TextField>
-                    </LabeledField>
-                  )}
-                />
-              </Box>
-            </FormSection>
-
-            <FormSection title="Taxa da maquininha" sx={{ height: '100%' }}>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.75 }}>
-                <Controller
-                  name="feePercent"
-                  control={control}
-                  rules={{
-                    min: { value: 0, message: 'Não pode ser negativo' },
-                    max: { value: 100, message: 'Máximo 100%' },
-                  }}
-                  render={({ field, fieldState }) => (
-                    <LabeledField label="Percentual da operadora">
-                      <TextField
-                        {...field}
-                        type="number"
-                        placeholder="0"
-                        error={!!fieldState.error}
-                        helperText={
-                          fieldState.error?.message ??
-                          'Desconto aplicado automaticamente nos lançamentos financeiros'
-                        }
-                        fullWidth
-                        inputProps={{ inputMode: 'decimal', step: 0.01, min: 0, max: 100 }}
-                        InputProps={{
-                          endAdornment: <InputAdornment position="end">%</InputAdornment>,
-                        }}
-                      />
-                    </LabeledField>
-                  )}
-                />
-
-                {feePreview && (
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'flex-end',
-                      justifyContent: 'space-between',
-                      gap: 1.5,
-                      px: 1.75,
-                      py: 1.5,
-                      borderRadius: '12px',
-                      border: 1,
-                      borderColor: 'divider',
-                      bgcolor: 'grey.50',
-                    }}
-                  >
-                    <Box sx={{ lineHeight: 1 }}>
-                      <Typography
-                        sx={{
-                          fontSize: fontSizes['4xl'],
-                          fontWeight: 800,
-                          letterSpacing: '-0.5px',
-                          lineHeight: 1,
-                          color: feePreview.fee === 0 ? 'success.main' : 'text.primary',
-                        }}
-                      >
-                        {feePreview.feeLabel}
-                      </Typography>
-                      <Typography sx={{ fontSize: fontSizes['2xs'], color: 'text.disabled', fontWeight: 600, mt: 0.6 }}>
-                        taxa
-                      </Typography>
-                    </Box>
-                    <Box sx={{ textAlign: 'right', lineHeight: 1.2 }}>
-                      <Typography sx={{ fontSize: fontSizes.sm, fontWeight: 700 }}>
-                        {brl.format(feePreview.net)}
-                      </Typography>
-                      <Typography sx={{ fontSize: fontSizes['2xs'], color: 'text.disabled', fontWeight: 600 }}>
-                        líquido a cada {brl.format(feePreview.amount)}
-                      </Typography>
-                    </Box>
-                  </Box>
+          <Stack spacing={FORM_STACK_GAP}>
+            <Box sx={NAME_STATUS_SX}>
+              <Controller
+                name="name"
+                control={control}
+                rules={{ required: 'Nome é obrigatório' }}
+                render={({ field, fieldState }) => (
+                  <LabeledField label="Nome da forma de pagamento" required>
+                    <TextField
+                      {...field}
+                      placeholder="Ex.: Crédito à vista"
+                      error={!!fieldState.error}
+                      helperText={fieldState.error?.message}
+                      fullWidth
+                      autoFocus={!editing}
+                    />
+                    {!fieldState.error && <Hint>Como aparece na seleção de pagamentos</Hint>}
+                  </LabeledField>
                 )}
-              </Box>
-            </FormSection>
-          </Box>
+              />
+              <Controller
+                name="active"
+                control={control}
+                render={({ field }) => (
+                  <LabeledField label="Status">
+                    <TextField
+                      select
+                      fullWidth
+                      value={field.value ? 'active' : 'inactive'}
+                      onChange={(e) => field.onChange(e.target.value === 'active')}
+                    >
+                      <MenuItem value="active">Ativa</MenuItem>
+                      <MenuItem value="inactive">Inativa</MenuItem>
+                    </TextField>
+                    <Hint>{isActive ? 'Disponível nos lançamentos' : 'Oculta nos lançamentos'}</Hint>
+                  </LabeledField>
+                )}
+              />
+            </Box>
+
+            <Box sx={TWO_COLUMNS_SX}>
+              <Controller
+                name="kind"
+                control={control}
+                render={({ field }) => (
+                  <LabeledField label="Tipo">
+                    <TextField {...field} select fullWidth>
+                      {PAYMENT_METHOD_KIND_OPTIONS.map((opt) => (
+                        <MenuItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                    <Hint>Débito/crédito habilitam bandeira e NSU nos lançamentos</Hint>
+                  </LabeledField>
+                )}
+              />
+              <Controller
+                name="settlementDays"
+                control={control}
+                rules={{
+                  min: { value: 0, message: 'Não pode ser negativo' },
+                  max: { value: 365, message: 'Máximo 365 dias' },
+                }}
+                render={({ field, fieldState }) => (
+                  <LabeledField label="Prazo de recebimento (dias)">
+                    <TextField
+                      {...field}
+                      type="number"
+                      fullWidth
+                      error={!!fieldState.error}
+                      helperText={fieldState.error?.message}
+                      inputProps={{ min: 0, max: 365, step: 1 }}
+                    />
+                    {!fieldState.error && (
+                      <Hint>
+                        {settlementDaysLabel(
+                          watchedSettlement === '' ? 0 : Number(watchedSettlement),
+                        )}
+                      </Hint>
+                    )}
+                  </LabeledField>
+                )}
+              />
+            </Box>
+
+            <Box sx={TWO_COLUMNS_SX}>
+              <Controller
+                name="feePercent"
+                control={control}
+                rules={{
+                  min: { value: 0, message: 'Não pode ser negativo' },
+                  max: { value: 100, message: 'Máximo 100%' },
+                }}
+                render={({ field, fieldState }) => (
+                  <LabeledField label="Taxa da maquininha">
+                    <TextField
+                      {...field}
+                      type="number"
+                      placeholder="0"
+                      error={!!fieldState.error}
+                      helperText={fieldState.error?.message}
+                      fullWidth
+                      inputProps={{ inputMode: 'decimal', step: 0.01, min: 0, max: 100 }}
+                      InputProps={{
+                        endAdornment: <FieldAdornment>%</FieldAdornment>,
+                      }}
+                    />
+                    {!fieldState.error && <Hint>Descontada dos lançamentos financeiros</Hint>}
+                  </LabeledField>
+                )}
+              />
+
+              {feePreview && (
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'flex-end',
+                    justifyContent: 'space-between',
+                    gap: 1.5,
+                    px: 1.75,
+                    py: 1.25,
+                    borderRadius: '12px',
+                    border: 1,
+                    borderColor: 'divider',
+                    bgcolor: 'grey.50',
+                    alignSelf: 'flex-end',
+                  }}
+                >
+                  <Box sx={{ lineHeight: 1 }}>
+                    <Typography
+                      sx={{
+                        fontSize: fontSizes['4xl'],
+                        fontWeight: 800,
+                        letterSpacing: '-0.5px',
+                        lineHeight: 1,
+                        color: feePreview.fee === 0 ? 'success.main' : 'text.primary',
+                      }}
+                    >
+                      {feePreview.feeLabel}
+                    </Typography>
+                    <Typography sx={{ fontSize: fontSizes['2xs'], color: 'text.secondary', fontWeight: 600, mt: 0.6 }}>
+                      taxa
+                    </Typography>
+                  </Box>
+                  <Box sx={{ textAlign: 'right', lineHeight: 1.2 }}>
+                    <Typography sx={{ fontSize: fontSizes.sm, fontWeight: 700 }}>
+                      {brl.format(feePreview.net)}
+                    </Typography>
+                    <Typography sx={{ fontSize: fontSizes['2xs'], color: 'text.secondary', fontWeight: 600 }}>
+                      líquido a cada {brl.format(feePreview.amount)}
+                    </Typography>
+                  </Box>
+                </Box>
+              )}
+            </Box>
+          </Stack>
 
           {mutationError && (
-            <Alert severity="error" variant="outlined" sx={{ mt: 2.25 }}>
+            <Alert severity="error" variant="outlined" sx={{ mt: 1.5 }}>
               {(mutationError as { response?: { data?: { message?: string } } })?.response?.data?.message ??
                 'Erro ao salvar forma de pagamento'}
             </Alert>

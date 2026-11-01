@@ -2,6 +2,7 @@ import { ForbiddenException } from '@nestjs/common';
 import { AppointmentKind, AppointmentStatus, Prisma } from '@prisma/client';
 
 import { AuthenticatedUser } from '../common/decorators/current-user.decorator';
+import type { ApplicationMapDto } from './dto/application-map.dto';
 
 export type MaterialQuantity = { itemId: string; quantity: Prisma.Decimal };
 
@@ -19,6 +20,25 @@ export const appointmentRelationsInclude = {
     },
   },
 } as const;
+
+/** Snapshot do mapa de aplicação para gravar; sem pontos, apaga o mapa. */
+export function toApplicationMapData(
+  map: ApplicationMapDto | undefined,
+): Prisma.InputJsonValue | typeof Prisma.DbNull | undefined {
+  if (map === undefined) return undefined;
+  if (map.points.length === 0) return Prisma.DbNull;
+  return {
+    template: map.template,
+    points: map.points.map((p) => {
+      const note = p.note?.trim();
+      return {
+        x: Math.round(p.x * 10) / 10,
+        y: Math.round(p.y * 10) / 10,
+        ...(note ? { note } : {}),
+      };
+    }),
+  };
+}
 
 export function isActive(status: AppointmentStatus) {
   return (

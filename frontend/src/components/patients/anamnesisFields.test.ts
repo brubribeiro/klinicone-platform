@@ -103,6 +103,11 @@ describe('anamnesisFields', () => {
       expect(calcIMC(70, 175)).toBe(22.9);
     });
 
+    it('should accept decimal comma and height in meters (imported records)', () => {
+      expect(calcIMC('71', '1,73')).toBe(23.7);
+      expect(calcIMC('70,5', 175)).toBe(23);
+    });
+
     it('should return null for missing or invalid values', () => {
       expect(calcIMC(undefined, 175)).toBeNull();
       expect(calcIMC(70, undefined)).toBeNull();

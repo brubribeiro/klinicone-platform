@@ -37,7 +37,13 @@ import { PatientDetailDrawer } from '../patients/PatientDetailDrawer';
 import { SkinAnamnesisDialog } from '../skincare/SkinAnamnesisDialog';
 import { varsFromAppointment } from '../../utils/whatsapp';
 import { getApiErrorMessage } from '../../utils/apiError';
-import type { Appointment, Package, PaymentMethodEntry, Procedure } from '../../types';
+import type {
+  ApplicationMapPoint,
+  Appointment,
+  Package,
+  PaymentMethodEntry,
+  Procedure,
+} from '../../types';
 import {
   invalidateAppointmentListQueries,
   isAppointmentListQuery,
@@ -49,17 +55,20 @@ import {
   emptyFormValues,
   formatElapsed,
   kindOptions,
+  normalizeApplicationMapPoints,
   normalizeExtraMaterials,
   type ExtraMaterialRow,
   type FormValues,
   type SectionKey,
 } from './appointmentFormModel';
 import type { SectionState } from './AppointmentFormSection';
+import { ApplicationMapSection } from './ApplicationMapSection';
 import { AppointmentStatusSelect } from './AppointmentStatusSelect';
 import {
   AppointmentSummaryBar,
   AppointmentSummaryPanel,
   type AppointmentSummaryData,
+  type PromotionSummary,
 } from './AppointmentSummary';
 import { BatchSessionsDialog, type BatchTarget } from './BatchSessionsDialog';
 import { CompletePaymentDialog } from './CompletePaymentDialog';
@@ -85,7 +94,15 @@ interface AppointmentFormDialogProps {
   defaultPatientId?: string | null;
 }
 
-const SECTION_ORDER: SectionKey[] = ['patient', 'service', 'schedule', 'package', 'materials', 'notes'];
+const SECTION_ORDER: SectionKey[] = [
+  'patient',
+  'service',
+  'schedule',
+  'package',
+  'materials',
+  'applicationMap',
+  'notes',
+];
 
 const DEFAULT_EXPANDED: Record<SectionKey, boolean> = {
   patient: true,
@@ -93,6 +110,7 @@ const DEFAULT_EXPANDED: Record<SectionKey, boolean> = {
   schedule: true,
   package: false,
   materials: false,
+  applicationMap: false,
   notes: false,
 };
 
@@ -138,6 +156,8 @@ export function AppointmentFormDialog({
   const [batchTarget, setBatchTarget] = useState<BatchTarget | null>(null);
   /** Materiais extras como estavam ao abrir, para detectar alterações não salvas. */
   const initialExtrasRef = useRef('[]');
+  const [mapPoints, setMapPoints] = useState<ApplicationMapPoint[]>([]);
+  const [initialMapPoints, setInitialMapPoints] = useState<ApplicationMapPoint[]>([]);
   // Só habilita a busca de profissionais depois que o formulário foi inicializado
   // com os valores reais (reset), evitando uma requisição extra com o horário padrão.
   const [formInitialized, setFormInitialized] = useState(false);
@@ -202,6 +222,7 @@ export function AppointmentFormDialog({
       ...DEFAULT_EXPANDED,
       package: !!appointment?.patientPackageId,
       materials: !!appointment?.extraMaterials?.length,
+      applicationMap: appointment?.status === 'IN_PROGRESS' || !!appointment?.applicationMap?.points?.length,
       notes: !!(appointment?.notes?.trim() || appointment?.clinicalNotes?.trim()),
     });
     setFormInitialized(true);
@@ -221,6 +242,13 @@ export function AppointmentFormDialog({
       initialExtrasRef.current = '[]';
       setExtraMaterials([]);
     }
+  }, [open, appointment, appointmentDetail]);
+
+  useEffect(() => {
+    if (!open) return;
+    const points = (appointmentDetail ?? appointment)?.applicationMap?.points ?? [];
+    setMapPoints(points);
+    setInitialMapPoints(points);
   }, [open, appointment, appointmentDetail]);
 
   const selectedKind = watch('kind');
@@ -264,6 +292,13 @@ export function AppointmentFormDialog({
   }, [open, selectedKind, procedureOptions, getValues, setValue]);
 
   const selectedPatient = patients.find((p) => p.id === selectedPatientId);
+
+  // Mapa de aplicação: só ao editar; mantém visível se já houver pontos salvos
+  // mesmo que o procedimento tenha deixado de usar o mapa.
+  const showApplicationMap =
+    !!appointment &&
+    selectedKind === 'PROCEDURE' &&
+    (!!selectedProcedure?.applicationMap || initialMapPoints.length > 0);
 
   const { data: activePatientPackages = [] } = useQuery({
     queryKey: ['patient-packages-active', selectedPatientId],
@@ -349,13 +384,40 @@ export function AppointmentFormDialog({
     0,
   );
 
+  // Prévia da promoção do dia: só atendimento avulso que ainda não gerou receita
+  // (sessão de pacote usa o valor do pacote, com a promoção aplicada na venda).
+  const previewDate = /^\d{4}-\d{2}-\d{2}$/.test(selectedDate ?? '') ? selectedDate : '';
+  const promotionPreviewEnabled =
+    open &&
+    selectedKind === 'PROCEDURE' &&
+    !!selectedProcedureId &&
+    !!previewDate &&
+    !selectedPackageId &&
+    !appointment?.financeGenerated;
+  const { data: promotionQuote } = useQuery({
+    queryKey: ['promotion-preview', selectedProcedureId, previewDate],
+    queryFn: () => appointmentsApi.promotionPreview(selectedProcedureId, previewDate),
+    enabled: promotionPreviewEnabled,
+    staleTime: 60_000,
+  });
+  const promotionSummary: PromotionSummary | undefined =
+    promotionPreviewEnabled && promotionQuote?.promotion
+      ? {
+          name: promotionQuote.promotion.name,
+          originalPrice: promotionQuote.originalPrice,
+          discount: promotionQuote.discount,
+        }
+      : undefined;
+  const promotionFinalPrice = promotionSummary ? promotionQuote?.finalPrice : undefined;
+
   const paymentAmountOnComplete = useMemo(() => {
     if (selectedPatientPkg && selectedPackageId && !selectedPatientPkg.financeGenerated) {
       return Number(selectedPatientPkg.totalPaid);
     }
+    if (promotionFinalPrice !== undefined) return promotionFinalPrice;
     if (selectedProcedure?.price) return Number(selectedProcedure.price);
     return 0;
-  }, [selectedPatientPkg, selectedPackageId, selectedProcedure]);
+  }, [selectedPatientPkg, selectedPackageId, selectedProcedure, promotionFinalPrice]);
 
   // Mês de referência (competência) — relevante para agendamentos de meses passados
   const appointmentMonthKey = appointment ? dayjs(appointment.startAt).format('YYYY-MM') : '';
@@ -427,9 +489,16 @@ export function AppointmentFormDialog({
     [extraMaterials],
   );
 
+  const normalizedMapPoints = useMemo(() => normalizeApplicationMapPoints(mapPoints), [mapPoints]);
+  const mapChanged =
+    showApplicationMap &&
+    JSON.stringify(normalizedMapPoints) !==
+      JSON.stringify(normalizeApplicationMapPoints(initialMapPoints));
+
   const hasUnsavedChanges =
     isDirty ||
     JSON.stringify(normalizedExtraMaterials) !== initialExtrasRef.current ||
+    mapChanged ||
     selectedPackageId !== (appointment?.patientPackageId ?? '');
 
   const deleteMutation = useMutation({
@@ -468,10 +537,16 @@ export function AppointmentFormDialog({
       values,
       paymentMethodId,
       referenceMonth,
+      installments,
+      cardBrand,
+      authorizationCode,
     }: {
       values: FormValues;
       paymentMethodId?: string;
       referenceMonth?: string;
+      installments?: number;
+      cardBrand?: string;
+      authorizationCode?: string;
     }) => {
       const start = dayjs(`${values.date}T${values.startTime}`);
       if (!start.isValid()) {
@@ -499,9 +574,15 @@ export function AppointmentFormDialog({
         ...(values.clinicalNotes.trim() ? { clinicalNotes: values.clinicalNotes.trim() } : {}),
         ...(paymentMethodId ? { paymentMethodId } : {}),
         ...(referenceMonth ? { referenceMonth } : {}),
+        ...(installments ? { installments } : {}),
+        ...(cardBrand ? { cardBrand } : {}),
+        ...(authorizationCode ? { authorizationCode } : {}),
         ...(procedureId ? { procedureId } : {}),
         ...(selectedPackageId ? { patientPackageId: selectedPackageId } : {}),
         ...(normalizedExtraMaterials.length > 0 ? { extraMaterials: normalizedExtraMaterials } : {}),
+        ...(appointment && mapChanged
+          ? { applicationMap: { template: 'face' as const, points: normalizedMapPoints } }
+          : {}),
       };
       return appointment
         ? appointmentsApi.update(appointment.id, payload)
@@ -607,14 +688,23 @@ export function AppointmentFormDialog({
     toast.warning('Revise os campos destacados antes de salvar.');
   };
 
-  const confirmPaymentAndSave = async (paymentMethodId: string, referenceMonth: string) => {
+  const confirmPaymentAndSave = async (data: {
+    paymentMethodId: string;
+    referenceMonth: string;
+    installments?: number;
+    cardBrand?: string;
+    authorizationCode?: string;
+  }) => {
     if (!pendingFormValues) return;
     await timer.stopTimerIfRunning();
-    const ref = referenceMonth || appointmentMonthKey;
+    const ref = data.referenceMonth || appointmentMonthKey;
     mutation.mutate({
       values: pendingFormValues,
-      paymentMethodId: paymentMethodId || undefined,
+      paymentMethodId: data.paymentMethodId || undefined,
       referenceMonth: ref && ref !== currentMonthKey ? ref : undefined,
+      installments: data.installments,
+      cardBrand: data.cardBrand,
+      authorizationCode: data.authorizationCode,
     });
     setPendingFormValues(null);
   };
@@ -631,11 +721,13 @@ export function AppointmentFormDialog({
     schedule: errors.date || errors.startTime || !slotValid ? 'error' : 'complete',
     package: selectedPatientPkg ? 'complete' : 'pending',
     materials: materialsEnabled ? (stockBlocksSave ? 'error' : 'complete') : 'pending',
+    applicationMap: mapPoints.length > 0 ? 'complete' : 'pending',
     notes: notes.trim() || clinicalNotes.trim() ? 'complete' : 'pending',
   };
 
+  const visibleSections = SECTION_ORDER.filter((key) => key !== 'applicationMap' || showApplicationMap);
   const section = (key: SectionKey) => ({
-    step: SECTION_ORDER.indexOf(key) + 1,
+    step: visibleSections.indexOf(key) + 1,
     expanded: expanded[key],
     onToggle: () => setExpanded((prev) => ({ ...prev, [key]: !prev[key] })),
     state: sectionStates[key],
@@ -657,6 +749,7 @@ export function AppointmentFormDialog({
       ? `${selectedPatientPkg.package?.name ?? 'Pacote'} · ${selectedPatientPkg.sessionsUsed}/${selectedPatientPkg.sessionsTotal}`
       : 'Avulso',
     amount: paymentAmountOnComplete,
+    promotion: promotionSummary,
     status: appointment ? selectedStatus : undefined,
     blockingMessage,
     stockWarning: materialsEnabled && stockBlocksSave,
@@ -806,6 +899,13 @@ export function AppointmentFormDialog({
                   willDeductMaterials={willDeductMaterials}
                   materialsState={materialsState}
                 />
+                {showApplicationMap && (
+                  <ApplicationMapSection
+                    section={section('applicationMap')}
+                    points={mapPoints}
+                    setPoints={setMapPoints}
+                  />
+                )}
                 <NotesSection
                   section={section('notes')}
                   control={control}
@@ -1015,13 +1115,12 @@ export function AppointmentFormDialog({
         procedureName={selectedProcedure?.name}
         isPackage={!!(selectedPackageId && selectedPatientPkg)}
         amount={paymentAmountOnComplete}
+        promotion={promotionSummary}
         paymentMethods={paymentMethods}
         appointmentMonthKey={appointmentMonthKey}
         isPending={mutation.isPending}
         onCancel={() => setPendingFormValues(null)}
-        onConfirm={(paymentMethodId, referenceMonth) =>
-          void confirmPaymentAndSave(paymentMethodId, referenceMonth)
-        }
+        onConfirm={(data) => void confirmPaymentAndSave(data)}
       />
 
       <ReturnAppointmentDialog

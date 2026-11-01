@@ -56,6 +56,15 @@ export class AppointmentsController {
   }
 
   @RequirePermissions('appointments:view')
+  @Get('promotion-preview')
+  promotionPreview(
+    @Query('procedureId', ParseUUIDPipe) procedureId: string,
+    @Query('date') date: string,
+  ) {
+    return this.appts.promotionPreview(procedureId, date);
+  }
+
+  @RequirePermissions('appointments:view')
   @Get(':id')
   findOne(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthenticatedUser) {
     return this.appts.findOne(id, user);
@@ -75,20 +84,20 @@ export class AppointmentsController {
 
   @RequirePermissions('appointments:edit')
   @Patch(':id/start')
-  start(@Param('id', ParseUUIDPipe) id: string) {
-    return this.appts.start(id);
+  start(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.appts.start(id, user);
   }
 
   @RequirePermissions('appointments:edit')
   @Patch(':id/finish')
-  finish(@Param('id', ParseUUIDPipe) id: string) {
-    return this.appts.finish(id);
+  finish(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.appts.finish(id, user);
   }
 
   @RequirePermissions('appointments:edit')
   @Patch(':id/resume')
-  resume(@Param('id', ParseUUIDPipe) id: string) {
-    return this.appts.resume(id);
+  resume(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.appts.resume(id, user);
   }
 
   @RequirePermissions('appointments:edit')

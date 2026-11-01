@@ -23,7 +23,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { inventoryApi } from '../../api/inventory';
 import { useAppToast } from '../../contexts/AppToastContext';
 import { getApiErrorMessage } from '../../utils/apiError';
-import { DialogHeader, dialogActionsBorderSx, dialogPaperSx } from '../DialogCloseButton';
+import {
+  DialogHeader,
+  dialogActionsBorderSx,
+  dialogFormLayoutSx,
+  formDialogPaperSx,
+} from '../DialogCloseButton';
 import { MoneyField } from '../MoneyField';
 import { dateOnlyToApiIso } from '../../utils/dateOnly';
 import { fontSizes } from '../../theme/fontSizes';
@@ -46,7 +51,6 @@ interface BulkPurchaseDialogProps {
 }
 
 const DIALOG_MAX_WIDTH = 1180;
-const DIALOG_HEIGHT_DESKTOP = 820;
 
 const LABEL_SX = { fontSize: fontSizes.sm, fontWeight: 700, mb: 0.9 } as const;
 
@@ -147,23 +151,17 @@ export function BulkPurchaseDialog({ open, onClose }: BulkPurchaseDialogProps) {
       fullWidth
       fullScreen={isMobile}
       PaperProps={{
-        sx: {
-          ...dialogPaperSx(isMobile),
-          overflow: 'hidden',
-          width: '100%',
-          display: 'flex',
-          flexDirection: 'column',
-          ...(isMobile
-            ? { height: '100%', maxHeight: '100dvh' }
-            : { maxWidth: DIALOG_MAX_WIDTH, height: DIALOG_HEIGHT_DESKTOP, maxHeight: '96dvh' }),
-        },
+        sx: formDialogPaperSx(isMobile, {
+          maxWidth: DIALOG_MAX_WIDTH,
+          height: 'min(86dvh, 720px)',
+        }),
       }}
     >
       <Box
         component="form"
         noValidate
         onSubmit={handleSubmit((v) => mutation.mutate(v))}
-        sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}
+        sx={dialogFormLayoutSx(isMobile)}
       >
         <DialogHeader
           onClose={onClose}
@@ -174,169 +172,200 @@ export function BulkPurchaseDialog({ open, onClose }: BulkPurchaseDialogProps) {
         />
 
         <DialogContent
-          dividers
           sx={{
             flex: 1,
             minHeight: 0,
-            overflow: 'auto',
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
             px: { xs: 2, sm: 3 },
-            py: { xs: 2, sm: 2.5 },
+            pb: { xs: 2, sm: 2.5 },
+            '&.MuiDialogContent-root': { pt: { xs: 2, sm: 2.25 } },
           }}
         >
-          <Stack spacing={2.25}>
-            <Box>
-              <Typography sx={LABEL_SX}>Descrição da compra</Typography>
-              <Controller
-                name="reason"
-                control={control}
-                render={({ field }) => (
-                  <TextField
-                    {...field}
-                    fullWidth
-                    placeholder="Opcional — ex.: fornecedor, nº da nota fiscal"
-                    inputProps={{ 'aria-label': 'Descrição da compra' }}
-                    sx={{ '& .MuiOutlinedInput-root': { bgcolor: 'grey.50' } }}
-                  />
-                )}
-              />
-            </Box>
+          <Box sx={{ flexShrink: 0, mb: 2 }}>
+            <Typography sx={LABEL_SX}>Descrição da compra</Typography>
+            <Controller
+              name="reason"
+              control={control}
+              render={({ field }) => (
+                <TextField
+                  {...field}
+                  fullWidth
+                  placeholder="Opcional — ex.: fornecedor, nº da nota fiscal"
+                  inputProps={{ 'aria-label': 'Descrição da compra' }}
+                  sx={{ '& .MuiOutlinedInput-root': { bgcolor: 'grey.50' } }}
+                />
+              )}
+            />
+          </Box>
 
-            <Box>
-              <Stack
-                direction={{ xs: 'column', sm: 'row' }}
-                alignItems={{ xs: 'flex-start', sm: 'center' }}
-                justifyContent="space-between"
-                spacing={1}
-                sx={{ mb: 1.25 }}
+          <Box
+            sx={{
+              flex: 1,
+              minHeight: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              mb: 2,
+            }}
+          >
+            <Stack
+              direction={{ xs: 'column', sm: 'row' }}
+              alignItems={{ xs: 'flex-start', sm: 'center' }}
+              justifyContent="space-between"
+              spacing={1}
+              sx={{ flexShrink: 0, mb: 1.25 }}
+            >
+              <Typography
+                sx={{ fontSize: fontSizes.sm, fontWeight: 800, color: 'text.disabled', letterSpacing: '0.6px' }}
               >
-                <Typography
-                  sx={{ fontSize: fontSizes.sm, fontWeight: 800, color: 'text.disabled', letterSpacing: '0.6px' }}
+                ITENS DA COMPRA · {fields.length}
+              </Typography>
+              <Stack direction="row" spacing={1}>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  startIcon={<PostAddOutlinedIcon />}
+                  onClick={() => append(emptyLine('new'))}
+                  sx={{ height: 34, borderRadius: '10px', borderColor: 'divider', color: 'text.primary', fontSize: fontSizes.xs }}
                 >
-                  ITENS DA COMPRA · {fields.length}
-                </Typography>
-                <Stack direction="row" spacing={1}>
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    startIcon={<PostAddOutlinedIcon />}
-                    onClick={() => append(emptyLine('new'))}
-                    sx={{ height: 34, borderRadius: '10px', borderColor: 'divider', color: 'text.primary', fontSize: fontSizes.xs }}
-                  >
-                    Cadastrar produto
-                  </Button>
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    startIcon={<AddIcon />}
-                    onClick={() => append(emptyLine())}
-                    sx={{
-                      height: 34,
-                      borderRadius: '10px',
-                      fontSize: fontSizes.xs,
-                      bgcolor: (t) => alpha(t.palette.primary.main, 0.08),
-                    }}
-                  >
-                    Adicionar linha
-                  </Button>
-                </Stack>
+                  Cadastrar produto
+                </Button>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  startIcon={<AddIcon />}
+                  onClick={() => append(emptyLine())}
+                  sx={{
+                    height: 34,
+                    borderRadius: '10px',
+                    fontSize: fontSizes.xs,
+                    bgcolor: (t) => alpha(t.palette.primary.main, 0.08),
+                  }}
+                >
+                  Adicionar linha
+                </Button>
               </Stack>
-
-              <Box sx={{ border: 1, borderColor: 'divider', borderRadius: '14px', overflowX: 'auto' }}>
-                <Box sx={{ minWidth: 980 }}>
-                  <ListTableHeader
-                    columns={BULK_LINE_COLUMNS}
-                    sx={{ gap: 0.9, px: 1.5, py: 1.25, fontSize: fontSizes['3xs'], letterSpacing: '0.3px', alignItems: 'center' }}
-                  >
-                    <span>Produto</span>
-                    <span>Validade do lote</span>
-                    <span>Unidade</span>
-                    <Box component="span" sx={{ textAlign: 'center' }}>Qtd</Box>
-                    <Box component="span" sx={{ textAlign: 'center' }}>Est. mín</Box>
-                    <Box component="span" sx={{ textAlign: 'right' }}>Valor un.</Box>
-                    <Box component="span" sx={{ textAlign: 'right' }}>Frete rat.</Box>
-                    <Box component="span" sx={{ textAlign: 'right' }}>Custo final</Box>
-                    <span />
-                  </ListTableHeader>
-
-                  {fields.map((f, index) => (
-                    <BulkPurchaseLineRow
-                      key={f.id}
-                      control={control}
-                      index={index}
-                      // useWatch lags one render behind append(); the new row has no totals yet
-                      line={watchedLines[index] ?? f}
-                      totals={lineTotals[index] ?? { freightShare: 0, unitCost: 0 }}
-                      items={items}
-                      isLast={index === fields.length - 1}
-                      canRemove={fields.length > 1}
-                      onRemove={() => remove(index)}
-                    />
-                  ))}
-                </Box>
-              </Box>
-
-              <Stack
-                direction="row"
-                spacing={1}
-                alignItems="center"
-                sx={{
-                  mt: 1.25,
-                  px: 1.75,
-                  py: 1.4,
-                  bgcolor: 'grey.50',
-                  border: 1,
-                  borderColor: 'grey.100',
-                  borderRadius: '11px',
-                }}
-              >
-                <InfoOutlinedIcon sx={{ fontSize: 16, color: 'primary.main', flexShrink: 0 }} />
-                <Typography sx={{ fontSize: fontSizes['2xs'], color: 'text.secondary', lineHeight: 1.4 }}>
-                  Selecione um produto cadastrado em cada linha — a compra gera uma{' '}
-                  <Box component="b" sx={{ color: 'success.main' }}>movimentação de entrada</Box> no item. Para um
-                  produto que ainda não existe, use{' '}
-                  <Box component="b" sx={{ color: 'text.primary' }}>Cadastrar produto</Box>: ele é criado ao
-                  confirmar a compra.
-                </Typography>
-              </Stack>
-            </Box>
+            </Stack>
 
             <Box
               sx={{
-                display: 'grid',
-                gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
-                gap: 2,
-                alignItems: 'start',
+                flex: 1,
+                minHeight: 0,
+                border: 1,
+                borderColor: 'divider',
+                borderRadius: '14px',
+                overflow: 'auto',
               }}
             >
-              <Box>
-                <Typography sx={LABEL_SX}>Frete da compra</Typography>
-                <Controller
-                  name="freight"
-                  control={control}
-                  render={({ field }) => (
-                    <MoneyField
-                      {...field}
-                      fullWidth
-                      inputProps={{ 'aria-label': 'Frete da compra' }}
-                      sx={{ '& .MuiOutlinedInput-root': { bgcolor: 'grey.50', fontWeight: 700 } }}
-                    />
-                  )}
-                />
-                <Typography sx={{ fontSize: fontSizes['2xs'], color: 'text.secondary', mt: 0.75 }}>
-                  Opcional. Diluído proporcionalmente ao valor de cada item.
-                </Typography>
-              </Box>
+              <Box sx={{ minWidth: 980 }}>
+                <ListTableHeader
+                  columns={BULK_LINE_COLUMNS}
+                  sx={{
+                    gap: 0.9,
+                    px: 1.5,
+                    py: 1.25,
+                    fontSize: fontSizes['3xs'],
+                    letterSpacing: '0.3px',
+                    alignItems: 'center',
+                    position: 'sticky',
+                    top: 0,
+                    zIndex: 1,
+                    borderBottom: 1,
+                    borderColor: 'divider',
+                  }}
+                >
+                  <span>Produto</span>
+                  <span>Validade do lote</span>
+                  <span>Unidade</span>
+                  <Box component="span" sx={{ textAlign: 'center' }}>Qtd</Box>
+                  <Box component="span" sx={{ textAlign: 'center' }}>Est. mín</Box>
+                  <Box component="span" sx={{ textAlign: 'right' }}>Valor un.</Box>
+                  <Box component="span" sx={{ textAlign: 'right' }}>Frete rat.</Box>
+                  <Box component="span" sx={{ textAlign: 'right' }}>Custo final</Box>
+                  <span />
+                </ListTableHeader>
 
-              <BulkPurchaseTotals productsTotal={productsTotal} freight={freight} grandTotal={grandTotal} />
+                {fields.map((f, index) => (
+                  <BulkPurchaseLineRow
+                    key={f.id}
+                    control={control}
+                    index={index}
+                    // useWatch lags one render behind append(); the new row has no totals yet
+                    line={watchedLines[index] ?? f}
+                    totals={lineTotals[index] ?? { freightShare: 0, unitCost: 0 }}
+                    items={items}
+                    isLast={index === fields.length - 1}
+                    canRemove={fields.length > 1}
+                    onRemove={() => remove(index)}
+                  />
+                ))}
+              </Box>
             </Box>
 
-            {mutation.isError && (
-              <Alert severity="error" variant="outlined">
-                {(mutation.error as { response?: { data?: { message?: string } } })?.response?.data
-                  ?.message ?? 'Erro ao registrar compra em lote'}
-              </Alert>
-            )}
-          </Stack>
+            <Stack
+              direction="row"
+              spacing={1}
+              alignItems="center"
+              sx={{
+                flexShrink: 0,
+                mt: 1.25,
+                px: 1.75,
+                py: 1.4,
+                bgcolor: 'grey.50',
+                border: 1,
+                borderColor: 'grey.100',
+                borderRadius: '11px',
+              }}
+            >
+              <InfoOutlinedIcon sx={{ fontSize: 16, color: 'primary.main', flexShrink: 0 }} />
+              <Typography sx={{ fontSize: fontSizes['2xs'], color: 'text.secondary', lineHeight: 1.4 }}>
+                Selecione um produto cadastrado em cada linha — a compra gera uma{' '}
+                <Box component="b" sx={{ color: 'success.main' }}>movimentação de entrada</Box> no item. Para um
+                produto que ainda não existe, use{' '}
+                <Box component="b" sx={{ color: 'text.primary' }}>Cadastrar produto</Box>: ele é criado ao
+                confirmar a compra.
+              </Typography>
+            </Stack>
+          </Box>
+
+          <Box
+            sx={{
+              flexShrink: 0,
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
+              gap: 2,
+              alignItems: 'start',
+            }}
+          >
+            <Box>
+              <Typography sx={LABEL_SX}>Frete da compra</Typography>
+              <Controller
+                name="freight"
+                control={control}
+                render={({ field }) => (
+                  <MoneyField
+                    {...field}
+                    fullWidth
+                    inputProps={{ 'aria-label': 'Frete da compra' }}
+                    sx={{ '& .MuiOutlinedInput-root': { bgcolor: 'grey.50', fontWeight: 700 } }}
+                  />
+                )}
+              />
+              <Typography sx={{ fontSize: fontSizes['2xs'], color: 'text.secondary', mt: 0.75 }}>
+                Opcional. Diluído proporcionalmente ao valor de cada item.
+              </Typography>
+            </Box>
+
+            <BulkPurchaseTotals productsTotal={productsTotal} freight={freight} grandTotal={grandTotal} />
+          </Box>
+
+          {mutation.isError && (
+            <Alert severity="error" variant="outlined" sx={{ flexShrink: 0, mt: 2 }}>
+              {(mutation.error as { response?: { data?: { message?: string } } })?.response?.data
+                ?.message ?? 'Erro ao registrar compra em lote'}
+            </Alert>
+          )}
         </DialogContent>
 
         <DialogActions sx={{ ...dialogActionsBorderSx, flexShrink: 0 }}>

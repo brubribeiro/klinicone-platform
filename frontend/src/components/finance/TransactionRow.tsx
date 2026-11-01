@@ -8,6 +8,7 @@ import { fontSizes } from '../../theme/fontSizes';
 import { brl } from '../../utils/money';
 import { RowActionButton } from '../RowActionButton';
 import { FinancePill } from './FinanceKpiCard';
+import { formatInstallmentsLabel } from '../../utils/paymentMethodMeta';
 
 const EXPENSE_TYPE_LABEL: Record<ExpenseType, string> = {
   FIXED: 'Fixa',
@@ -40,9 +41,16 @@ export function TransactionRow({ entry, onEdit, onDelete, onToggleInvoice }: Tra
     : null;
   const meta = [entry.category || typeLabel, ...details, dateLabel].filter(Boolean).join(' · ');
 
+  const cardMeta = [
+    formatInstallmentsLabel(entry.installments),
+    entry.cardBrand,
+    entry.authorizationCode ? `NSU ${entry.authorizationCode}` : null,
+  ].filter(Boolean);
+
   const tooltip = [
     typeLabel,
     [...details, entry.recurringExpenseId ? 'Recorrente' : null].filter(Boolean).join(' · ') || null,
+    cardMeta.length ? cardMeta.join(' · ') : null,
     entry.appointment?.procedure?.name ? `Procedimento: ${entry.appointment.procedure.name}` : null,
   ]
     .filter(Boolean)
@@ -100,6 +108,9 @@ export function TransactionRow({ entry, onEdit, onDelete, onToggleInvoice }: Tra
             }}
           >
             {entry.paymentMethod.name}
+            {formatInstallmentsLabel(entry.installments)
+              ? ` · ${formatInstallmentsLabel(entry.installments)}`
+              : ''}
           </Box>
         )}
       </Stack>

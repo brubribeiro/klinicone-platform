@@ -2,6 +2,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
+import type { Request } from 'express';
 
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtPayload } from './auth.service';
@@ -10,6 +11,7 @@ import { effectivePermissions, SYSTEM_ADMIN_ROLE_NAME } from '../common/permissi
 import { featuresFromTenant } from '../common/platform-features';
 import { TenantContext } from '../tenancy/tenant-context';
 import { assertTenantActive } from '../tenancy/tenant-status';
+import { extractAccessToken } from './auth-cookies';
 
 const LAST_ACCESS_INTERVAL_MS = 5 * 60 * 1000;
 
@@ -24,9 +26,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     private readonly prisma: PrismaService,
   ) {
     super({
-      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+      jwtFromRequest: ExtractJwt.fromExtractors([
+        (req: Request) => extractAccessToken(req),
+      ]),
       ignoreExpiration: false,
       secretOrKey: config.get<string>('JWT_SECRET'),
+      algorithms: ['HS256'],
     });
   }
 
@@ -41,6 +46,36 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     );
     if (!user || !user.active) {
       throw new UnauthorizedException('Usuário inativo ou inexistente.');
+    }
+
+    const canChoosePanel = !!(user.isSuperAdmin && user.tenantId);
+
+    // Login dual: token provisório até POST /auth/select-panel.
+    if (payload.panelSelectionPending) {
+      if (!canChoosePanel) {
+        throw new UnauthorizedException('Sessão inválida. Entre novamente.');
+      }
+      return {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        tenantId: null,
+        isSuperAdmin: true,
+        canChoosePanel: true,
+        panelSelectionPending: true,
+        active: user.active,
+        roleId: null,
+        roleName: '',
+        permissions: [],
+        restrictToOwnAppointments: false,
+        providesAppointments: false,
+        features: [],
+        tokenVersion: user.tokenVersion,
+      };
+    }
+
+    if (typeof payload.tv !== 'number' || payload.tv !== user.tokenVersion) {
+      throw new UnauthorizedException('Sessão encerrada. Entre novamente.');
     }
 
     // Super-admin "entrando como" uma clínica (painel admin): age como administrador dela.
@@ -63,11 +98,33 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         restrictToOwnAppointments: false,
         providesAppointments: false,
         features: featuresFromTenant(tenant),
+        tokenVersion: user.tokenVersion,
         impersonatorId: user.id,
       };
     }
 
-    // Token anterior ao multi-tenant (sem tenantId) ou de outra clínica: exige novo login.
+    // Super-admin no painel da plataforma (tenantId null no token; no banco pode ter clínica própria).
+    if (user.isSuperAdmin && payload.tenantId === null && !payload.impersonatorId) {
+      await this.touchLastAccess(user.id, user.lastAccessAt);
+      return {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        tenantId: null,
+        isSuperAdmin: true,
+        canChoosePanel,
+        active: user.active,
+        roleId: null,
+        roleName: SYSTEM_ADMIN_ROLE_NAME,
+        permissions: effectivePermissions(SYSTEM_ADMIN_ROLE_NAME, []),
+        restrictToOwnAppointments: false,
+        providesAppointments: false,
+        features: [],
+        tokenVersion: user.tokenVersion,
+      };
+    }
+
+    // Sessão da clínica (usuário comum ou super-admin dual no painel da clínica).
     if (payload.tenantId === undefined || payload.tenantId !== user.tenantId) {
       throw new UnauthorizedException('Sessão inválida. Entre novamente.');
     }
@@ -81,6 +138,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       email: user.email,
       tenantId: user.tenantId,
       isSuperAdmin: user.isSuperAdmin,
+      canChoosePanel,
       active: user.active,
       roleId: user.roleId,
       roleName: user.role?.name ?? '',
@@ -88,6 +146,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       restrictToOwnAppointments: user.role?.restrictToOwnAppointments ?? false,
       providesAppointments: user.providesAppointments,
       features: featuresFromTenant(user.tenant),
+      tokenVersion: user.tokenVersion,
       ...(payload.impersonatorId ? { impersonatorId: payload.impersonatorId } : {}),
     };
   }

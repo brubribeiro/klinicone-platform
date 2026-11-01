@@ -1,14 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Box, Button, MenuItem, Select } from '@mui/material';
 import type { Theme } from '@mui/material/styles';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { skincareApi, type SkincareProductPayload, type SkincareRulePayload } from '../../api/skincare';
 import { useAppToast } from '../../contexts/AppToastContext';
+import { usePlatformCatalog } from '../../hooks/usePlatformCatalog';
 import { getApiErrorMessage } from '../../utils/apiError';
 import type { SkincareProduct, SkincareRule, SkincareRuleField } from '../../types';
-import { RULE_FIELDS, SKINCARE_MOMENTS, SKINCARE_STEPS, SKINCARE_TAGS, optionLabel, ruleValueOptions } from './skincareUtils';
-import { BUTTON_SX, Field, INPUT_SX, PRIMARY_BUTTON_SX, SkinModal, TEXT_SOFT, TextInput, ToggleChip } from './skincareUi';
+import { RULE_FIELDS, SKINCARE_MOMENTS, SKINCARE_STEPS, optionLabel, ruleValueOptions, skincareTagsFromCatalog } from './skincareUtils';
+import { BUTTON_SX, Field, INPUT_SX, PRIMARY_BUTTON_SX, SkinModal, SkincareMultiSelect, TextInput, ToggleChip } from './skincareUi';
 
 const SELECT_SX = {
   ...INPUT_SX,
@@ -46,10 +47,19 @@ const EMPTY_PRODUCT: SkincareProductPayload = {
   note: '',
 };
 
+function useSkincareTagSelectOptions() {
+  const tagCatalog = usePlatformCatalog('skincare_tag');
+  return useMemo(
+    () => skincareTagsFromCatalog(tagCatalog).map(([value, label]) => ({ value, label })),
+    [tagCatalog],
+  );
+}
+
 export function SkincareProductDialog({ open, onClose, editing }: { open: boolean; onClose: () => void; editing: SkincareProduct | null }) {
   const queryClient = useQueryClient();
   const toast = useAppToast();
   const [form, setForm] = useState<SkincareProductPayload>(EMPTY_PRODUCT);
+  const tagSelectOptions = useSkincareTagSelectOptions();
 
   useEffect(() => {
     if (!open) return;
@@ -125,14 +135,13 @@ export function SkincareProductDialog({ open, onClose, editing }: { open: boolea
           ))}
         </Box>
       </Field>
-      <Field label="Características" hint="usadas pelas restrições das regras">
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-          {SKINCARE_TAGS.map(([v, label]) => (
-            <ToggleChip key={v} selected={form.tags.includes(v)} onClick={() => set('tags', toggle(form.tags, v))}>
-              {label}
-            </ToggleChip>
-          ))}
-        </Box>
+      <Field label="Características" hint="gerenciadas em /admin/catalogos">
+        <SkincareMultiSelect
+          options={tagSelectOptions}
+          value={form.tags}
+          onChange={(tags) => set('tags', tags)}
+          placeholder="Buscar características…"
+        />
       </Field>
       <Field label="Como usar">
         <TextInput multiline minRows={2} value={form.howTo ?? ''} onChange={(e) => set('howTo', e.target.value)} placeholder="Ex.: 3 a 4 gotas no rosto seco, antes do hidratante." />
@@ -158,6 +167,17 @@ export function SkincareRuleDialog({
   const queryClient = useQueryClient();
   const toast = useAppToast();
   const [form, setForm] = useState<SkincareRulePayload>({ field: 'pele', value: 'normal', productIds: [], avoidTags: [], note: '' });
+  const tagSelectOptions = useSkincareTagSelectOptions();
+
+  const productSelectOptions = useMemo(
+    () =>
+      products.map((p) => ({
+        value: p.id,
+        label: p.name,
+        hint: optionLabel(SKINCARE_STEPS, p.step),
+      })),
+    [products],
+  );
 
   useEffect(() => {
     if (!open) return;
@@ -200,7 +220,8 @@ export function SkincareRuleDialog({
               const field = e.target.value as SkincareRuleField;
               setForm((f) => ({ ...f, field, value: ruleValueOptions(field)[0][0] }));
             }}
-            sx={SELECT_SX} MenuProps={SELECT_MENU_PROPS}
+            sx={SELECT_SX}
+            MenuProps={SELECT_MENU_PROPS}
           >
             {RULE_FIELDS.map(([v, label]) => (
               <MenuItem key={v} value={v}>
@@ -220,28 +241,20 @@ export function SkincareRuleDialog({
         </Field>
       </Box>
       <Field label="Produtos incluídos">
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.875 }}>
-          {products.map((p) => {
-            const selected = form.productIds.includes(p.id);
-            return (
-              <ToggleChip key={p.id} compact selected={selected} onClick={() => setForm((f) => ({ ...f, productIds: toggle(f.productIds, p.id) }))}>
-                {p.name}
-                <Box component="span" sx={{ fontWeight: 600, color: selected ? '#4E9A90' : TEXT_SOFT }}>
-                  · {optionLabel(SKINCARE_STEPS, p.step)}
-                </Box>
-              </ToggleChip>
-            );
-          })}
-        </Box>
+        <SkincareMultiSelect
+          options={productSelectOptions}
+          value={form.productIds}
+          onChange={(productIds) => setForm((f) => ({ ...f, productIds }))}
+          placeholder={products.length ? 'Buscar produtos…' : 'Cadastre produtos na aba Produtos'}
+        />
       </Field>
       <Field label="Evitar produtos com">
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.875 }}>
-          {SKINCARE_TAGS.map(([v, label]) => (
-            <ToggleChip key={v} compact tone="danger" selected={form.avoidTags.includes(v)} onClick={() => setForm((f) => ({ ...f, avoidTags: toggle(f.avoidTags, v) }))}>
-              {label}
-            </ToggleChip>
-          ))}
-        </Box>
+        <SkincareMultiSelect
+          options={tagSelectOptions}
+          value={form.avoidTags}
+          onChange={(avoidTags) => setForm((f) => ({ ...f, avoidTags }))}
+          placeholder="Buscar características…"
+        />
       </Field>
       <Field label="Orientação para a paciente" hint="opcional">
         <TextInput value={form.note ?? ''} onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))} placeholder="Ex.: introduzir um ativo novo por vez" />

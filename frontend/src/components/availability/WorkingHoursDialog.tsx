@@ -1,8 +1,8 @@
+import { useMemo } from 'react';
 import {
   Alert,
   Box,
   Button,
-  Chip,
   CircularProgress,
   Dialog,
   DialogActions,
@@ -19,6 +19,7 @@ import {
 import { AuroraIcon } from '../AuroraIcon';
 import { DialogHeader, dialogActionsBorderSx } from '../DialogCloseButton';
 import { LabeledField } from '../LabeledField';
+import { AvailabilityShortcutToggles } from './AvailabilityShortcutToggles';
 import { fontSizes } from '../../theme/fontSizes';
 import {
   AVAILABILITY_DIALOG_CONTENT_SX,
@@ -27,12 +28,14 @@ import {
   DEFAULT_DAY,
   WEEK_ORDER,
   WEEK_PRESETS,
-  availabilityDialogPaperSx,
+  workingHoursDialogPaperSx,
   type DayScheduleEdit,
   type Professional,
 } from './availabilityConfig';
-import { apiMessageOf, formatMinutes, toMinutes } from './availabilityUtils';
+import { apiMessageOf, detectWeekPreset, formatMinutes, toMinutes } from './availabilityUtils';
 import { useWorkingHoursForm } from './useWorkingHoursForm';
+
+const TIME_SLOT_MIN_WIDTH = 232;
 
 export function WorkingHoursDialog({
   professional,
@@ -47,6 +50,8 @@ export function WorkingHoursDialog({
   const { weekSchedule, hoursLoading, saveWeekMutation, updateDay, applyPreset, openDaysCount, weekHasInvalidHours } =
     useWorkingHoursForm(professional, onClose);
 
+  const activePreset = useMemo(() => detectWeekPreset(weekSchedule), [weekSchedule]);
+
   return (
     <Dialog
       open={open}
@@ -54,7 +59,7 @@ export function WorkingHoursDialog({
       maxWidth={false}
       fullWidth
       fullScreen={isMobile}
-      PaperProps={{ sx: availabilityDialogPaperSx(isMobile) }}
+      PaperProps={{ sx: workingHoursDialogPaperSx(isMobile) }}
     >
       <DialogHeader
         onClose={onClose}
@@ -64,21 +69,16 @@ export function WorkingHoursDialog({
         icon={<AuroraIcon name="clock" size={20} />}
       />
       <DialogContent sx={AVAILABILITY_DIALOG_CONTENT_SX}>
-        <Stack spacing={2}>
+        <Stack spacing={1.5}>
           <LabeledField label="Atalhos">
-            <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
-              {WEEK_PRESETS.map((preset) => (
-                <Chip
-                  key={preset.label}
-                  label={preset.label}
-                  size="small"
-                  variant="outlined"
-                  clickable
-                  onClick={() => applyPreset(preset.days)}
-                  sx={{ fontWeight: 600 }}
-                />
-              ))}
-            </Stack>
+            <AvailabilityShortcutToggles
+              options={WEEK_PRESETS.map((p) => ({ label: p.label, value: p.label }))}
+              value={activePreset ?? ''}
+              onChange={(val) => {
+                const preset = WEEK_PRESETS.find((p) => p.label === val);
+                if (preset) applyPreset(preset.days);
+              }}
+            />
           </LabeledField>
 
           <Box
@@ -116,14 +116,12 @@ export function WorkingHoursDialog({
           </Box>
 
           <Typography sx={{ fontSize: fontSizes.xs, color: 'text.secondary' }}>
-            {openDaysCount} {openDaysCount === 1 ? 'dia' : 'dias'} com atendimento · dias desligados ficam
-            fechados para agendamento.
+            {openDaysCount} {openDaysCount === 1 ? 'dia' : 'dias'} com atendimento · dias desligados ficam fechados para
+            agendamento.
           </Typography>
 
           {weekHasInvalidHours && (
-            <Alert severity="warning">
-              O horário de início deve ser anterior ao de término em cada dia aberto.
-            </Alert>
+            <Alert severity="warning">O horário de início deve ser anterior ao de término em cada dia aberto.</Alert>
           )}
           {saveWeekMutation.isError && (
             <Alert severity="error" variant="outlined">
@@ -159,26 +157,28 @@ function WorkingDayRow({
 }) {
   const invalidHours = state.works && state.startTime >= state.endTime;
   return (
-    <Stack
-      direction="row"
-      alignItems="center"
-      flexWrap={{ xs: 'wrap', sm: 'nowrap' }}
-      useFlexGap
+    <Box
       sx={{
         ...CARD_ROW_SX,
-        px: { xs: 1.5, sm: 2 },
-        py: 1.25,
+        display: 'grid',
+        gridTemplateColumns: {
+          xs: 'minmax(0, 1fr) auto',
+          sm: `minmax(108px, 140px) 48px minmax(${TIME_SLOT_MIN_WIDTH}px, 1fr)`,
+        },
+        alignItems: 'center',
         columnGap: 1.5,
         rowGap: 1,
+        px: { xs: 1.5, sm: 2 },
+        py: 0.75,
         bgcolor: state.works ? 'transparent' : 'grey.50',
       }}
     >
-      <Box sx={{ flex: 1, minWidth: 72, lineHeight: 1.3 }}>
+      <Box sx={{ minWidth: 0, lineHeight: 1.3 }}>
         <Typography
           sx={{
             fontSize: fontSizes.md,
             fontWeight: 700,
-            lineHeight: 'inherit',
+            lineHeight: 1.35,
             color: state.works ? 'text.primary' : 'text.secondary',
           }}
         >
@@ -187,7 +187,7 @@ function WorkingDayRow({
         <Typography
           sx={{
             fontSize: fontSizes.xs,
-            lineHeight: 'inherit',
+            lineHeight: 1.35,
             color: invalidHours ? 'error.main' : 'text.secondary',
           }}
         >
@@ -198,42 +198,50 @@ function WorkingDayRow({
               : `${formatMinutes(toMinutes(state.endTime) - toMinutes(state.startTime))} de atendimento`}
         </Typography>
       </Box>
+
       <Switch
-        size="small"
         checked={state.works}
         onChange={(e) => onChange({ works: e.target.checked })}
         inputProps={{ 'aria-label': `Atende ${DAYS[day].toLowerCase()}` }}
+        sx={{ justifySelf: { xs: 'end', sm: 'center' } }}
       />
-      <Stack
-        direction="row"
-        alignItems="center"
-        spacing={0.75}
-        sx={{ width: { xs: '100%', sm: 'auto' }, flex: { sm: '0 1 272px' }, minWidth: { sm: 210 } }}
+
+      <Box
+        sx={{
+          gridColumn: { xs: '1 / -1', sm: 'auto' },
+          minHeight: 40,
+          minWidth: { sm: TIME_SLOT_MIN_WIDTH },
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: { xs: 'stretch', sm: state.works ? 'flex-start' : 'center' },
+          gap: 0.75,
+        }}
       >
         {state.works ? (
           <>
             <TextField
               type="time"
+              size="small"
               value={state.startTime}
               onChange={(e) => onChange({ startTime: e.target.value })}
               inputProps={{ 'aria-label': `${DAYS[day]} das` }}
               error={invalidHours}
-              fullWidth
+              sx={{ flex: 1, minWidth: 0 }}
             />
-            <Typography sx={{ fontSize: fontSizes.sm, color: 'text.disabled' }}>–</Typography>
+            <Typography sx={{ fontSize: fontSizes.sm, color: 'text.disabled', flexShrink: 0 }}>–</Typography>
             <TextField
               type="time"
+              size="small"
               value={state.endTime}
               onChange={(e) => onChange({ endTime: e.target.value })}
               inputProps={{ 'aria-label': `${DAYS[day]} até` }}
               error={invalidHours}
-              fullWidth
+              sx={{ flex: 1, minWidth: 0 }}
             />
           </>
         ) : (
           <Typography
             sx={{
-              display: { xs: 'none', sm: 'block' },
               width: '100%',
               textAlign: 'center',
               fontSize: fontSizes.sm,
@@ -244,7 +252,7 @@ function WorkingDayRow({
             Fechado
           </Typography>
         )}
-      </Stack>
-    </Stack>
+      </Box>
+    </Box>
   );
 }

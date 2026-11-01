@@ -34,6 +34,7 @@ describe('AppointmentsService', () => {
     materialsDeducted: false,
     financeGenerated: false,
     patientPackageId: null,
+    sessionIndex: null,
     patient: { name: 'João' },
     procedure: { name: 'Botox' },
     professional: { id: 'user-1', name: 'Dra. Ana' },
@@ -94,8 +95,8 @@ describe('AppointmentsService', () => {
     };
 
     promotionsService = {
-      findActiveForProcedure: jest.fn().mockResolvedValue(null),
-      applyDiscount: jest.fn().mockReturnValue(700),
+      quoteForProcedure: jest.fn().mockResolvedValue({ promotion: null }),
+      discountLabel: jest.fn().mockReturnValue('-10%'),
     };
 
     auditLog = {
@@ -236,6 +237,11 @@ describe('AppointmentsService', () => {
         }),
       );
     });
+
+    it('should forbid restricted user starting another professional appointment', async () => {
+      const user = { id: 'user-2', restrictToOwnAppointments: true };
+      await expect(service.start('appt-1', user as any)).rejects.toThrow(ForbiddenException);
+    });
   });
 
   describe('finish', () => {
@@ -253,6 +259,12 @@ describe('AppointmentsService', () => {
         }),
       );
     });
+
+    it('should forbid restricted user finishing another professional appointment', async () => {
+      prisma.appointment.findUnique.mockResolvedValue({ ...mockAppointment, status: 'IN_PROGRESS' });
+      const user = { id: 'user-2', restrictToOwnAppointments: true };
+      await expect(service.finish('appt-1', user as any)).rejects.toThrow(ForbiddenException);
+    });
   });
 
   describe('resume', () => {
@@ -264,6 +276,12 @@ describe('AppointmentsService', () => {
           data: expect.objectContaining({ finishedAt: null }),
         }),
       );
+    });
+
+    it('should forbid restricted user resuming another professional appointment', async () => {
+      prisma.appointment.findUnique.mockResolvedValue({ ...mockAppointment, status: 'IN_PROGRESS' });
+      const user = { id: 'user-2', restrictToOwnAppointments: true };
+      await expect(service.resume('appt-1', user as any)).rejects.toThrow(ForbiddenException);
     });
   });
 

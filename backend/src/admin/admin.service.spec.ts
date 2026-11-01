@@ -84,6 +84,7 @@ describe('AdminService', () => {
       expect(result).toEqual([
         {
           ...tenant,
+          specialties: [],
           metrics: { activeUsers: 3, patients: 40, appointmentsThisMonth: 12, lastAccessAt },
         },
       ]);
