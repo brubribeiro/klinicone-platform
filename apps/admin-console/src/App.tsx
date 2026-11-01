@@ -1,16 +1,16 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 
 import { SuperAdminRoute } from '../../../frontend/src/components/SuperAdminRoute';
-import { AdminLayout } from '../../../frontend/src/components/admin/AdminLayout';
-import { AdminAnnouncements } from '../../../frontend/src/pages/admin/AdminAnnouncements';
-import { AdminAudit } from '../../../frontend/src/pages/admin/AdminAudit';
-import { AdminCatalogs } from '../../../frontend/src/pages/admin/AdminCatalogs';
-import { AdminFeedback } from '../../../frontend/src/pages/admin/AdminFeedback';
-import { AdminObservability } from '../../../frontend/src/pages/admin/AdminObservability';
-import { AdminPlans } from '../../../frontend/src/pages/admin/AdminPlans';
-import { AdminTenantDetail } from '../../../frontend/src/pages/admin/AdminTenantDetail';
-import { AdminTenants } from '../../../frontend/src/pages/admin/AdminTenants';
-import { AdminUsage } from '../../../frontend/src/pages/admin/AdminUsage';
+import { AdminLayout } from './components/AdminLayout';
+import { AdminAnnouncements } from './pages/AdminAnnouncements';
+import { AdminAudit } from './pages/AdminAudit';
+import { AdminCatalogs } from './pages/AdminCatalogs';
+import { AdminFeedback } from './pages/AdminFeedback';
+import { AdminObservability } from './pages/AdminObservability';
+import { AdminPlans } from './pages/AdminPlans';
+import { AdminTenantDetail } from './pages/AdminTenantDetail';
+import { AdminTenants } from './pages/AdminTenants';
+import { AdminUsage } from './pages/AdminUsage';
 import { ChoosePanel } from '../../../frontend/src/pages/ChoosePanel';
 import { Login } from '../../../frontend/src/pages/Login';
 

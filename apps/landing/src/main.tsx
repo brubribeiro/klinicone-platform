@@ -4,7 +4,7 @@ import { CssBaseline } from '@mui/material';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import { ColorModeProvider } from '../../../frontend/src/contexts/ColorModeContext';
-import { Landing } from '../../../frontend/src/pages/Landing';
+import { Landing } from './pages/Landing';
 
 const queryClient = new QueryClient({
   defaultOptions: {
