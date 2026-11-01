@@ -128,7 +128,9 @@ export function ServiceSection({
                 options={procedureOptions}
                 getOptionLabel={(p) => p.name}
                 isOptionEqualToValue={(a, b) => a.id === b.id}
-                value={procedureOptions.filter((p) => field.value.includes(p.id))}
+                value={field.value
+                  .map((id) => procedureOptions.find((p) => p.id === id))
+                  .filter((p): p is Procedure => !!p)}
                 onChange={(_, value) => field.onChange(value.map((p) => p.id))}
                 disabled={selectedKind !== 'PROCEDURE'}
                 renderTags={(value, getTagProps) =>
