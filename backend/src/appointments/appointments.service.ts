@@ -427,9 +427,10 @@ export class AppointmentsService {
       if (!appt) throw new NotFoundException('Agendamento não encontrado');
 
       if (appt.materialsDeducted) {
+        const procedureIds = await loadAppointmentProcedureIds(tx, appt.id, appt.procedureId);
         await this.materials.returnAllForAppointment(
           tx,
-          appt,
+          { id: appt.id, procedureIds },
           'Devolução por exclusão do agendamento',
           'Devolução de materiais extras por exclusão do agendamento',
         );
