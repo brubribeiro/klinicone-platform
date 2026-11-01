@@ -9,6 +9,13 @@ alwaysApply: true
 
 - Arquivo **`VERSION`** na raiz do repositório (`MAJOR.MINOR.PATCH`).
 - **Nunca** manter versões diferentes em `frontend/package.json` e `backend/package.json`.
+- `VERSION` da raiz é **só** do painel da clínica (`frontend/`) e do backend (incluindo `backend/src/admin/`).
+
+## Apps com versão própria (`apps/landing`, `apps/admin-console`)
+
+- Fonte da verdade: `apps/<app>/VERSION`; sync com `npm run version:sync:landing` / `npm run version:sync:admin` (só atualiza o `package.json` do app).
+- Mudança só nesses apps **não** bumpa o `VERSION` da raiz, não roda `npm run version:sync` e não entra no `RELEASE_NOTES.md` das clínicas.
+- A versão do app chega à UI por `__APP_VERSION__` (definido no `vite.config.ts` do app a partir do `VERSION` dele).
 
 ## Quando atualizar
 

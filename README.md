@@ -49,6 +49,9 @@ mila-barreto-platform/
 │       ├── contexts/       AuthContext (login/logout)
 │       ├── components/     Layout, PrivateRoute, PageHeader
 │       └── pages/          Login, Dashboard + 5 módulos
+├── apps/
+│   ├── landing/            Site público (/) — VERSION própria
+│   └── admin-console/      Console super-admin — VERSION própria
 ├── docker-compose.yml      PostgreSQL + Adminer
 └── README.md
 ```
@@ -111,6 +114,32 @@ O painel **não** tem login por e-mail/senha. O fluxo é:
 - `npm run dev` - dev server
 - `npm run build` - build de produção (gera `dist/`)
 - `npm run preview` - servir build
+
+## Apps, versões e deploy (Vercel)
+
+O front é um monorepo npm (`workspaces` no `package.json` da raiz) com três apps Vite, cada um com deploy e versão próprios:
+
+| App | Pasta | Versão | Sync da versão | Dev |
+|-----|-------|--------|----------------|-----|
+| Painel da clínica (`/painel`) | `frontend/` | `VERSION` da raiz (junto com o backend) | `npm run version:sync` | `npm run dev:clinic` (5174) |
+| Landing pública (`/`) | `apps/landing/` | `apps/landing/VERSION` | `npm run version:sync:landing` | `npm run dev:landing` (5173) |
+| Console super-admin | `apps/admin-console/` | `apps/admin-console/VERSION` | `npm run version:sync:admin` | `npm run dev:admin` (5175) |
+
+`npm run dev` na raiz sobe backend + os três apps. A versão de cada app aparece no próprio app (rodapé da landing; login e escolha de painel do console admin; login da clínica).
+
+**Versões:** mudança só em `apps/landing` ou `apps/admin-console` **não** bumpa o `VERSION` da raiz nem entra no `RELEASE_NOTES.md` das clínicas — se for o caso, bumpe só o `VERSION` do app e rode o sync dele. O `npm run version:sync` da raiz atualiza só raiz, `frontend/` e `backend/`. O backend do console (`backend/src/admin/`) continua versionando com o backend (`VERSION` da raiz).
+
+**Código compartilhado:** `apps/*` importam tema, contextos, API e páginas comuns (login, escolher painel) de `frontend/src`. O que é só do console fica em `apps/admin-console/src`; o que é só da landing, em `apps/landing/src`. Mexer em código compartilhado de `frontend/src` é mudança do painel (versão da raiz) e reconstrói os apps que o importam.
+
+**Vercel — três projetos**, mesmo repositório, um por app:
+
+| Projeto | Root Directory | Build | Output |
+|---------|----------------|-------|--------|
+| Painel da clínica | `frontend` | `npm run build` | `dist` |
+| Landing | `apps/landing` | `npm run build` | `dist` |
+| Console admin | `apps/admin-console` | `npm run build` | `dist` |
+
+Em cada projeto deixe ligado **Include files outside the Root Directory** (os apps importam de `frontend/src` e de `scripts/`). O `vercel.json` de cada app define o **Ignored Build Step** (`ignoreCommand`), que tem precedência sobre o campo da tela: `scripts/vercel-ignore-build.mjs` compara o commit com o último deploy (`VERCEL_GIT_PREVIOUS_SHA`, ou `HEAD^`) e só constrói se mudou a pasta do app, um arquivo de fora que o código dele importa, `package.json`/`package-lock.json` da raiz ou, no painel, o `VERSION` da raiz. Assim o painel não reconstrói por mudança em `apps/*`, e landing/admin não reconstroem por mudança no painel que não usam. Para construir só certas branches (ex.: produção), defina `VERCEL_BUILD_BRANCHES=main,master` nas variáveis do projeto. Variáveis de URL entre apps: `VITE_CLINIC_APP_URL` e `VITE_ADMIN_CONSOLE_URL` (ver `.env.example` de cada app).
 
 ## Modelos de dados (resumo)
 

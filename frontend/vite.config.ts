@@ -1,31 +1,20 @@
 /// <reference types="vitest" />
 import { readFileSync } from 'fs';
-import { defineConfig, type Connect } from 'vite';
+import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 
+import { apiDevProxy } from '../scripts/vite-api-proxy';
+
 const appVersion = readFileSync(path.resolve(__dirname, '../VERSION'), 'utf8').trim();
 
-// Landing pública na raiz: serve o mesmo index.html em `/` sem redirecionar para /painel
-// (no Vercel, `/` já cai no index.html; main.tsx escolhe landing ou painel pelo path).
-const landingAtRoot: Connect.NextHandleFunction = (req, _res, next) => {
-  if (req.url === '/' || req.url?.startsWith('/?')) req.url = `/painel/${req.url.slice(1)}`;
-  next();
-};
-
+/** Painel da clínica — servido em `/painel` (deploy separado da landing e do console admin). */
 export default defineConfig({
   base: '/painel',
   define: {
     __APP_VERSION__: JSON.stringify(appVersion),
   },
-  plugins: [
-    react(),
-    {
-      name: 'landing-at-root',
-      configureServer: (server) => void server.middlewares.use(landingAtRoot),
-      configurePreviewServer: (server) => void server.middlewares.use(landingAtRoot),
-    },
-  ],
+  plugins: [react()],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
@@ -38,18 +27,12 @@ export default defineConfig({
     css: false,
   },
   server: {
-    port: 5173,
+    port: 5174,
     allowedHosts: true,
     hmr: {
       host: 'localhost',
       protocol: 'ws',
     },
-    proxy: {
-      '/api': {
-        target: 'http://localhost:3333',
-        changeOrigin: true,
-        secure: false
-      },
-    },
+    ...apiDevProxy,
   },
 });

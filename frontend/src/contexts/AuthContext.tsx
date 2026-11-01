@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { api } from '../api/client';
 import type { User } from '../types';
+import { adminConsoleUrl, clinicPanelUrl } from '../utils/appUrls';
 import { appPath } from '../utils/appPath';
 
 type LoginResult = { needsPanelSelection?: boolean };
@@ -82,9 +83,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       return;
     }
-    window.location.href = appPath(
-      wasSuperAdmin && tenantId ? `/admin/clinicas/${tenantId}` : '/',
-    );
+    window.location.href =
+      wasSuperAdmin && tenantId ? adminConsoleUrl(`/clinicas/${tenantId}`) : clinicPanelUrl('/');
   }
 
   async function logout() {

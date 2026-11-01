@@ -16,7 +16,7 @@ import TrendingUpOutlinedIcon from '@mui/icons-material/TrendingUpOutlined';
 import { useQuery } from '@tanstack/react-query';
 
 import { tenantPlanApi } from '../api/tenantPlan';
-import { formatBytes } from '../components/admin/adminUi';
+import { formatBytes } from '../utils/formatBytes';
 import { FeedbackReportDialog } from '../components/feedback/FeedbackReportDialog';
 import { PLATFORM_FEATURE_LABELS, formatPlanPrice, isPlatformFeature } from '../features/platformFeatures';
 import { getApiErrorMessage } from '../utils/apiError';
