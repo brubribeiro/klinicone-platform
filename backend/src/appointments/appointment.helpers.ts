@@ -9,6 +9,10 @@ export type MaterialQuantity = { itemId: string; quantity: Prisma.Decimal };
 export const appointmentRelationsInclude = {
   patient: true,
   procedure: true,
+  appointmentProcedures: {
+    orderBy: { sortOrder: 'asc' as const },
+    include: { procedure: true },
+  },
   professional: { select: { id: true, name: true } },
   extraMaterials: { include: { item: true } },
   patientPackage: {
@@ -68,8 +72,11 @@ const APPOINTMENT_KIND_LABEL: Record<AppointmentKind, string> = {
 
 export function appointmentServiceLabel(appt: {
   procedure?: { name: string } | null;
+  appointmentProcedures?: { procedure: { name: string } }[];
   kind: AppointmentKind;
 }): string {
+  const names = appt.appointmentProcedures?.map((row) => row.procedure.name).filter(Boolean) ?? [];
+  if (names.length > 0) return names.join(' + ');
   return appt.procedure?.name ?? APPOINTMENT_KIND_LABEL[appt.kind] ?? appt.kind;
 }
 

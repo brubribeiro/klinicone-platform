@@ -1,6 +1,14 @@
 import dayjs from 'dayjs';
 
-import type { ApplicationMapPoint, AppointmentKind, AppointmentStatus } from '../../types';
+import type { ApplicationMapPoint, AppointmentKind, AppointmentStatus, Procedure } from '../../types';
+
+export function totalProcedureDurationMinutes(procedures: Procedure[], procedureIds: string[]): number {
+  if (procedureIds.length === 0) return 60;
+  return procedureIds.reduce(
+    (sum, id) => sum + (procedures.find((p) => p.id === id)?.durationMinutes ?? 60),
+    0,
+  );
+}
 
 export interface ExtraMaterialRow {
   itemId: string;
@@ -9,7 +17,8 @@ export interface ExtraMaterialRow {
 
 export interface FormValues {
   patientId: string;
-  procedureId: string;
+  /** IDs dos procedimentos no mesmo agendamento (duração somada). */
+  procedureIds: string[];
   professionalId: string;
   date: string;
   startTime: string;
@@ -21,7 +30,7 @@ export interface FormValues {
 
 export const emptyFormValues: FormValues = {
   patientId: '',
-  procedureId: '',
+  procedureIds: [],
   professionalId: '',
   date: dayjs().format('YYYY-MM-DD'),
   startTime: '09:00',

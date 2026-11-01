@@ -10,6 +10,7 @@ import type {
 export interface AppointmentPayload {
   patientId: string;
   procedureId?: string;
+  procedureIds?: string[];
   professionalId: string;
   startAt: string;
   endAt: string;

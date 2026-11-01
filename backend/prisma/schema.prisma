@@ -70,6 +70,7 @@ model Tenant {
   promotionProcedures     PromotionProcedure[]
   promotionPackages       PromotionPackage[]
   appointments            Appointment[]
+  appointmentProcedures   AppointmentProcedure[]
   appointmentMaterials    AppointmentMaterial[]
   paymentMethods          PaymentMethod[]
   financialEntries        FinancialEntry[]
@@ -727,7 +728,8 @@ model Procedure {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  appointments     Appointment[]
+  appointments            Appointment[]
+  appointmentProcedures   AppointmentProcedure[]
   materials        ProcedureMaterial[]
   equipments       ProcedureEquipment[]
   messageTemplates MessageTemplate[]
@@ -1010,10 +1012,11 @@ model Appointment {
   promotion      Promotion?      @relation(fields: [promotionId], references: [id])
 
   financialEntries  FinancialEntry[]
-  extraMaterials    AppointmentMaterial[]
-  photos            PatientPhoto[]
-  measurements      PatientMeasurement[]
-  messageDispatches MessageDispatch[]
+  extraMaterials        AppointmentMaterial[]
+  appointmentProcedures AppointmentProcedure[]
+  photos                PatientPhoto[]
+  measurements          PatientMeasurement[]
+  messageDispatches     MessageDispatch[]
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
@@ -1022,6 +1025,25 @@ model Appointment {
   @@index([patientPackageId])
   @@index([tenantId])
   @@map("appointments")
+}
+
+// Procedimentos realizados no mesmo agendamento (duração somada no horário).
+model AppointmentProcedure {
+  id            String @id @default(uuid())
+  tenantId      String @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  appointmentId String
+  procedureId   String
+  sortOrder     Int    @default(0)
+
+  appointment Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  procedure   Procedure   @relation(fields: [procedureId], references: [id], onDelete: Restrict)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@unique([appointmentId, procedureId])
+  @@index([tenantId])
+  @@index([procedureId])
+  @@map("appointment_procedures")
 }
 
 // Materiais extras utilizados em um agendamento específico (além do previsto no procedimento).

@@ -46,6 +46,7 @@ describe('AppointmentsService', () => {
       appointment: {
         findMany: jest.fn().mockResolvedValue([mockAppointment]),
         findUnique: jest.fn().mockResolvedValue(mockAppointment),
+        findUniqueOrThrow: jest.fn().mockResolvedValue(mockAppointment),
         findFirst: jest.fn().mockResolvedValue(null),
         create: jest.fn().mockResolvedValue(mockAppointment),
         update: jest.fn().mockResolvedValue(mockAppointment),
@@ -59,6 +60,12 @@ describe('AppointmentsService', () => {
       },
       procedure: {
         findUnique: jest.fn().mockResolvedValue({ id: 'proc-1', active: true, recurrenceDays: 0 }),
+        findMany: jest.fn().mockResolvedValue([{ id: 'proc-1', active: true }]),
+      },
+      appointmentProcedure: {
+        findMany: jest.fn().mockResolvedValue([]),
+        deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+        createMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
       procedureMaterial: {
         findMany: jest.fn().mockResolvedValue([]),
@@ -207,6 +214,7 @@ describe('AppointmentsService', () => {
       prisma.patient.findUnique.mockResolvedValue({ id: 'patient-1' });
       prisma.user.findUnique.mockResolvedValue({ id: 'user-1' });
       prisma.procedure.findUnique.mockResolvedValue(null);
+      prisma.procedure.findMany.mockResolvedValue([]);
 
       await expect(
         service.create({

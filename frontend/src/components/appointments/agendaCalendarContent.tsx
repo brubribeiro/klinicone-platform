@@ -4,6 +4,7 @@ import type { DayHeaderContentArg, EventContentArg } from '@fullcalendar/core';
 import { AuroraIcon } from '../AuroraIcon';
 import type { Appointment } from '../../types';
 import { fontSizes } from '../../theme/fontSizes';
+import { appointmentProcedureLabel } from '../../utils/appointmentProcedures';
 
 /** Cabeçalho dos dias: só o dia da semana no mês; dia da semana + número (hoje destacado) nas demais visões. */
 export function renderAgendaDayHeader(arg: DayHeaderContentArg) {
@@ -72,6 +73,8 @@ export function renderAgendaDayHeader(arg: DayHeaderContentArg) {
 /** Conteúdo dos eventos: agendamentos com barra de categoria e bolinha de status; feriados e bloqueios só com o título. */
 export function renderAgendaEventContent(arg: EventContentArg, theme: Theme) {
   const appt = arg.event.extendedProps.appointment as Appointment | undefined;
+  const procedureLabel =
+    appt && (appt.procedure || appt.appointmentProcedures?.length) ? appointmentProcedureLabel(appt) : '';
   const isMonth = arg.view.type === 'dayGridMonth';
   const barColor = arg.event.borderColor || theme.palette.primary.main;
   const statusColor = (arg.event.extendedProps.statusColor as string) || barColor;
@@ -175,7 +178,7 @@ export function renderAgendaEventContent(arg: EventContentArg, theme: Theme) {
               </Box>
             </Box>
           ) : (
-            appt.procedure?.name && (
+            procedureLabel && (
               <Box
                 sx={{
                   fontSize: fontSizes['3xs'],
@@ -185,7 +188,7 @@ export function renderAgendaEventContent(arg: EventContentArg, theme: Theme) {
                   textOverflow: 'ellipsis',
                 }}
               >
-                {appt.procedure.name}
+                {procedureLabel}
               </Box>
             )
           )}

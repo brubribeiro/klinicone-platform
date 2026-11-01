@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditLogService, AuditUser } from '../audit-log/audit-log.service';
 import { PromotionsService } from '../promotions/promotions.service';
@@ -341,13 +342,14 @@ export class PackagesService {
     return updated;
   }
 
-  // Chamado pelo módulo de appointments ao completar/cancelar agendamento
-  async incrementSession(patientPackageId: string) {
-    const pp = await this.findPatientPackage(patientPackageId);
+  // Chamado pelo módulo de appointments ao completar/cancelar agendamento. Recebe a transação
+  // do agendamento: fora dela, o update esperaria o lock que a própria transação segura.
+  async incrementSession(patientPackageId: string, tx: Prisma.TransactionClient = this.prisma) {
+    const pp = await this.findPatientPackageForSession(tx, patientPackageId);
     const newUsed = pp.sessionsUsed + 1;
     const isCompleted = newUsed >= pp.sessionsTotal;
 
-    return this.prisma.patientPackage.update({
+    return tx.patientPackage.update({
       where: { id: patientPackageId },
       data: {
         sessionsUsed: newUsed,
@@ -356,16 +358,22 @@ export class PackagesService {
     });
   }
 
-  async decrementSession(patientPackageId: string) {
-    const pp = await this.findPatientPackage(patientPackageId);
+  async decrementSession(patientPackageId: string, tx: Prisma.TransactionClient = this.prisma) {
+    const pp = await this.findPatientPackageForSession(tx, patientPackageId);
     if (pp.sessionsUsed <= 0) return pp;
 
-    return this.prisma.patientPackage.update({
+    return tx.patientPackage.update({
       where: { id: patientPackageId },
       data: {
         sessionsUsed: pp.sessionsUsed - 1,
         status: 'ACTIVE', // reativa se estava COMPLETED
       },
     });
+  }
+
+  private async findPatientPackageForSession(tx: Prisma.TransactionClient, id: string) {
+    const pp = await tx.patientPackage.findUnique({ where: { id } });
+    if (!pp) throw new NotFoundException('Pacote do paciente não encontrado');
+    return pp;
   }
 }
