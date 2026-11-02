@@ -23,7 +23,7 @@ import { useAppDialog } from '../../contexts/AppDialogContext';
 import { useAppToast } from '../../contexts/AppToastContext';
 import { getApiErrorMessage } from '../../utils/apiError';
 import { AuroraIcon } from '../AuroraIcon';
-import { DialogHeader, dialogActionsBorderSx, dialogPaperSx } from '../DialogCloseButton';
+import { DialogHeader, dialogActionsBorderSx, dialogPaperSx, formSwitchLabelSx } from '../DialogCloseButton';
 import { LabeledField } from '../LabeledField';
 import type { PendingCategory, PendingItem } from '../../types';
 import { CATEGORY_OPTIONS } from './pendenciasUtils';
@@ -249,6 +249,7 @@ export function PendingTaskDialog({ open, onClose, editing, canDelete }: Props) 
               control={control}
               render={({ field }) => (
                 <FormControlLabel
+                  sx={formSwitchLabelSx}
                   control={<Switch checked={field.value} onChange={(e) => field.onChange(e.target.checked)} />}
                   label="Marcar como urgente"
                 />
