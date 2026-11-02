@@ -15,52 +15,74 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 
 import { fontSizes } from '../../theme/fontSizes';
 import type { Appointment, InventoryItem, Procedure } from '../../types';
+import { appointmentProcedureIds, selectedProcedures as selectedProceduresById } from '../../utils/appointmentProcedures';
 import type { ExtraMaterialRow } from './appointmentFormModel';
 import { AppointmentFormSection } from './AppointmentFormSection';
 import type { SectionControl } from './PatientSection';
 
-/** Estoque efetivo (devolvendo o que este agendamento já baixou) e necessidade total por item. */
+/** Soma os materiais dos procedimentos por item (um item usado por dois procedimentos conta as duas vezes). */
+export function sumProcedureMaterials(procedures: Procedure[]) {
+  const map = new Map<string, { itemId: string; quantity: number; item?: InventoryItem }>();
+  for (const procedure of procedures) {
+    for (const m of procedure.materials ?? []) {
+      const prev = map.get(m.itemId);
+      map.set(m.itemId, {
+        itemId: m.itemId,
+        quantity: (prev?.quantity ?? 0) + Number(m.quantity),
+        item: m.item ?? prev?.item,
+      });
+    }
+  }
+  return [...map.values()];
+}
+
+/**
+ * Estoque por item. Na edição, devolve o que este agendamento já baixou: os materiais dos
+ * procedimentos salvos (não dos selecionados agora) e os extras.
+ */
+export function availableStock(
+  inventory: InventoryItem[],
+  appointmentSource: Appointment | null | undefined,
+  procedureOptions: Procedure[],
+) {
+  const map = new Map<string, number>();
+  for (const item of inventory) {
+    map.set(item.id, Number(item.quantity));
+  }
+  if (appointmentSource?.materialsDeducted) {
+    const deducted = sumProcedureMaterials(
+      selectedProceduresById(procedureOptions, appointmentProcedureIds(appointmentSource)),
+    );
+    for (const m of deducted) {
+      map.set(m.itemId, (map.get(m.itemId) ?? 0) + Number(m.quantity));
+    }
+    for (const m of appointmentSource.extraMaterials ?? []) {
+      map.set(m.itemId, (map.get(m.itemId) ?? 0) + Number(m.quantity));
+    }
+  }
+  return map;
+}
+
+/** Estoque efetivo (ver availableStock) e necessidade total por item. */
 export function useAppointmentMaterials({
   inventory,
   appointmentSource,
+  procedureOptions,
   selectedProcedures,
   extraMaterials,
 }: {
   inventory: InventoryItem[];
   appointmentSource?: Appointment | null;
+  procedureOptions: Procedure[];
   selectedProcedures: Procedure[];
   extraMaterials: ExtraMaterialRow[];
 }) {
-  const materials = useMemo(() => {
-    const map = new Map<string, { itemId: string; quantity: number; item?: InventoryItem }>();
-    for (const procedure of selectedProcedures) {
-      for (const m of procedure.materials ?? []) {
-        const prev = map.get(m.itemId);
-        map.set(m.itemId, {
-          itemId: m.itemId,
-          quantity: (prev?.quantity ?? 0) + Number(m.quantity),
-          item: m.item ?? prev?.item,
-        });
-      }
-    }
-    return [...map.values()];
-  }, [selectedProcedures]);
+  const materials = useMemo(() => sumProcedureMaterials(selectedProcedures), [selectedProcedures]);
 
-  const effectiveAvailable = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const item of inventory) {
-      map.set(item.id, Number(item.quantity));
-    }
-    if (appointmentSource?.materialsDeducted) {
-      for (const m of materials) {
-        map.set(m.itemId, (map.get(m.itemId) ?? 0) + Number(m.quantity));
-      }
-      for (const m of appointmentSource.extraMaterials ?? []) {
-        map.set(m.itemId, (map.get(m.itemId) ?? 0) + Number(m.quantity));
-      }
-    }
-    return map;
-  }, [inventory, appointmentSource, materials]);
+  const effectiveAvailable = useMemo(
+    () => availableStock(inventory, appointmentSource, procedureOptions),
+    [inventory, appointmentSource, procedureOptions],
+  );
 
   const totalMaterialNeed = useMemo(() => {
     const map = new Map<string, number>();

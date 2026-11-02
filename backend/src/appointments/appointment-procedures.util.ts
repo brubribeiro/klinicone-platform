@@ -47,6 +47,34 @@ export async function syncAppointmentProcedureRows(
   });
 }
 
+type LegacyProcedureSource<P> = {
+  id: string;
+  procedureId: string | null;
+  procedure?: P | null;
+  appointmentProcedures?: { procedureId: string; sortOrder: number; procedure: P }[];
+};
+
+/**
+ * Agendamentos gravados só com o procedureId legado (sem linhas em appointment_procedures)
+ * saem com o procedimento como único item, para o painel listar e editar igual aos novos.
+ */
+export function withLegacyProcedureRow<P, T extends LegacyProcedureSource<P>>(appt: T): T {
+  if (appt.appointmentProcedures === undefined || appt.appointmentProcedures.length > 0) return appt;
+  if (!appt.procedureId || !appt.procedure) return appt;
+  return {
+    ...appt,
+    appointmentProcedures: [
+      {
+        id: `legacy-${appt.id}`,
+        appointmentId: appt.id,
+        procedureId: appt.procedureId,
+        sortOrder: 0,
+        procedure: appt.procedure,
+      },
+    ],
+  };
+}
+
 export async function loadAppointmentProcedureIds(
   tx: Prisma.TransactionClient,
   appointmentId: string,

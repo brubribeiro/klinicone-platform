@@ -82,6 +82,43 @@ describe('FinanceService', () => {
     });
   });
 
+  describe('list', () => {
+    it('attributes material cost to the procedure of each income of a multi-procedure booking', async () => {
+      const appointment = {
+        procedureId: 'proc-1',
+        procedure: { id: 'proc-1', name: 'Limpeza' },
+        appointmentProcedures: [
+          { procedure: { id: 'proc-1', name: 'Limpeza' } },
+          { procedure: { id: 'proc-2', name: 'Peeling' } },
+        ],
+      };
+      const income = (id: string, description: string, amount: number) => ({
+        ...mockEntry,
+        id,
+        description,
+        amount,
+        appointment,
+      });
+      prisma.financialEntry.findMany.mockResolvedValue([
+        income('e-1', 'Limpeza - Ana', 200),
+        income('e-2', 'Peeling - Ana', 300),
+        income('e-3', 'Pacote - Limpeza + Peeling - Ana', 900),
+      ]);
+      prisma.procedure.findMany.mockResolvedValue([
+        { id: 'proc-1', durationMinutes: 60, materials: [{ quantity: 2, item: { costPrice: 10 } }] },
+        { id: 'proc-2', durationMinutes: 30, materials: [{ quantity: 1, item: { costPrice: 50 } }] },
+      ]);
+
+      const result = await service.list();
+
+      expect(result.map((e) => [e.id, e.materialCost])).toEqual([
+        ['e-1', 20],
+        ['e-2', 50],
+        ['e-3', 70],
+      ]);
+    });
+  });
+
   describe('summary', () => {
     it('should compute balance from income and expense', async () => {
       prisma.financialEntry.aggregate

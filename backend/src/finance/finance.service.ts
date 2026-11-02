@@ -5,6 +5,18 @@ import { UpdateFinancialEntryDto } from './dto/update-financial-entry.dto';
 import { parseDateOnlyToUtcNoon } from '../common/utils/date-only.util';
 import { AuditLogService, AuditUser } from '../audit-log/audit-log.service';
 
+/**
+ * Procedimentos de uma receita de agendamento. A conclusão lança uma receita por procedimento
+ * avulso ("<procedimento> - <paciente>"); a de pacote, ou com descrição editada, conta todos.
+ */
+export function incomeEntryProcedureIds(
+  description: string,
+  procedures: { id: string; name: string }[],
+): string[] {
+  const own = procedures.find((p) => description.startsWith(`${p.name} - `));
+  return own ? [own.id] : procedures.map((p) => p.id);
+}
+
 @Injectable()
 export class FinanceService {
   constructor(private readonly prisma: PrismaService, private readonly auditLog: AuditLogService) {}
@@ -56,21 +68,33 @@ export class FinanceService {
       include: {
         patient: true,
         appointment: {
-          include: { procedure: true },
+          include: {
+            procedure: true,
+            appointmentProcedures: { orderBy: { sortOrder: 'asc' }, include: { procedure: true } },
+          },
         },
         paymentMethod: true,
       },
       orderBy: [{ paidAt: 'desc' }, { dueDate: 'desc' }, { createdAt: 'desc' }],
     });
 
+    const entryProcedureIds = new Map(
+      entries
+        .filter((e) => e.type === 'INCOME' && e.appointment)
+        .map((e) => {
+          const rows = e.appointment!.appointmentProcedures;
+          const procedures =
+            rows.length > 0
+              ? rows.map((row) => row.procedure)
+              : e.appointment!.procedure
+                ? [e.appointment!.procedure]
+                : [];
+          return [e.id, incomeEntryProcedureIds(e.description, procedures)] as const;
+        }),
+    );
+
     // Coleta IDs de procedimentos únicos das receitas vinculadas a agendamentos
-    const procedureIds = [
-      ...new Set(
-        entries
-          .filter((e) => e.type === 'INCOME' && e.appointment?.procedureId)
-          .map((e) => e.appointment!.procedureId!)
-      ),
-    ];
+    const procedureIds = [...new Set([...entryProcedureIds.values()].flat())];
 
     // Busca custo base dos procedimentos (soma qty * costPrice dos materiais)
     const costMap = new Map<string, number>();
@@ -140,19 +164,18 @@ export class FinanceService {
     }
 
     return entries.map((entry) => {
+      const ids = entryProcedureIds.get(entry.id) ?? [];
+      const costs = ids.map((id) => costMap.get(id)).filter((c): c is number => c != null);
       const materialCost =
-        entry.type === 'INCOME' && entry.appointment?.procedureId
-          ? costMap.get(entry.appointment.procedureId) ?? null
-          : null;
+        costs.length > 0 ? Math.round(costs.reduce((sum, c) => sum + c, 0) * 100) / 100 : null;
 
       let profitMargin: number | null = null;
       if (entry.type === 'INCOME') {
         const price = Number(entry.amount);
         const feeCost = price * (maxFeePercent / 100);
         const matCost = materialCost ?? 0;
-        const duration = entry.appointment?.procedureId
-          ? durationMap.get(entry.appointment.procedureId) ?? 60
-          : 60;
+        const duration =
+          ids.length > 0 ? ids.reduce((sum, id) => sum + (durationMap.get(id) ?? 60), 0) : 60;
         const fixedShare = hourlyCost * (duration / 60);
         profitMargin = price > 0
           ? Math.round(((price - feeCost - matCost - fixedShare) / price) * 10000) / 100

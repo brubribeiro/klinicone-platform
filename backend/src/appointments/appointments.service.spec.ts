@@ -169,6 +169,61 @@ describe('AppointmentsService', () => {
       const result = await service.findOne('appt-1', user as any);
       expect(result).toEqual(mockAppointment);
     });
+
+    it('includes the procedure rows and falls back to the legacy procedureId when there are none', async () => {
+      prisma.appointment.findUnique.mockResolvedValue({ ...mockAppointment, appointmentProcedures: [] });
+
+      const result: any = await service.findOne('appt-1');
+
+      expect(prisma.appointment.findUnique).toHaveBeenCalledWith(
+        expect.objectContaining({
+          include: expect.objectContaining({ appointmentProcedures: expect.anything() }),
+        }),
+      );
+      expect(result.appointmentProcedures).toEqual([
+        expect.objectContaining({ procedureId: 'proc-1', sortOrder: 0, procedure: { name: 'Botox' } }),
+      ]);
+    });
+  });
+
+  describe('legacy single-procedure appointments', () => {
+    const legacy = { ...mockAppointment, appointmentProcedures: [] };
+    const multi = {
+      ...mockAppointment,
+      id: 'appt-2',
+      appointmentProcedures: [
+        { procedureId: 'proc-1', sortOrder: 0, procedure: { name: 'Botox' } },
+        { procedureId: 'proc-2', sortOrder: 1, procedure: { name: 'Peeling' } },
+      ],
+    };
+
+    it('list returns the legacy procedure as the only row and keeps existing rows', async () => {
+      prisma.appointment.findMany.mockResolvedValue([legacy, multi]);
+
+      const [first, second]: any[] = await service.list();
+
+      expect(first.appointmentProcedures.map((r: any) => r.procedureId)).toEqual(['proc-1']);
+      expect(second.appointmentProcedures.map((r: any) => r.procedureId)).toEqual(['proc-1', 'proc-2']);
+    });
+
+    it('pending returns the legacy procedure as the only row', async () => {
+      prisma.appointment.findMany.mockResolvedValue([legacy]);
+
+      const [appt]: any[] = await service.pending();
+
+      expect(appt.appointmentProcedures).toHaveLength(1);
+      expect(appt.appointmentProcedures[0].procedureId).toBe('proc-1');
+    });
+
+    it('leaves appointments without a procedure untouched', async () => {
+      prisma.appointment.findMany.mockResolvedValue([
+        { ...legacy, kind: 'EVALUATION', procedureId: null, procedure: null },
+      ]);
+
+      const [appt]: any[] = await service.list();
+
+      expect(appt.appointmentProcedures).toEqual([]);
+    });
   });
 
   describe('create', () => {

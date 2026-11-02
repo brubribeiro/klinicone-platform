@@ -7,6 +7,7 @@ import { PromotionsService } from '../promotions/promotions.service';
 describe('AppointmentFinanceService', () => {
   let service: AppointmentFinanceService;
   let tx: any;
+  let prisma: any;
   let promotions: any;
 
   const input = {
@@ -42,6 +43,10 @@ describe('AppointmentFinanceService', () => {
       },
       appointment: { update: jest.fn().mockResolvedValue({}) },
     };
+    prisma = {
+      appointment: { findMany: jest.fn().mockResolvedValue([]) },
+      $transactionWithRetry: jest.fn((fn: (client: unknown) => unknown) => fn(tx)),
+    };
     promotions = {
       quoteForProcedure: jest.fn().mockResolvedValue({
         originalPrice: 200,
@@ -55,7 +60,7 @@ describe('AppointmentFinanceService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AppointmentFinanceService,
-        { provide: PrismaService, useValue: {} },
+        { provide: PrismaService, useValue: prisma },
         { provide: PromotionsService, useValue: promotions },
       ],
     }).compile();
@@ -163,5 +168,73 @@ describe('AppointmentFinanceService', () => {
 
     const entries = tx.financialEntry.create.mock.calls.map((c: any) => c[0].data);
     expect(entries.map((e: any) => [e.category, Number(e.amount)])).toEqual([['Atendimentos', 300]]);
+  });
+
+  describe('backfill', () => {
+    const completed = {
+      id: 'appt-1',
+      patientId: 'patient-1',
+      patientPackageId: null,
+      startAt: new Date('2025-12-01T13:00:00.000Z'),
+      updatedAt: new Date('2025-12-01T15:00:00.000Z'),
+      patient: { name: 'Ana' },
+      procedure: { id: 'proc-1', name: 'Limpeza', price: 200 },
+      appointmentProcedures: [] as unknown[],
+    };
+
+    it('bills every procedure of the booking', async () => {
+      prisma.appointment.findMany.mockResolvedValue([
+        {
+          ...completed,
+          appointmentProcedures: [
+            { procedure: { id: 'proc-1', name: 'Limpeza', price: 200 } },
+            { procedure: { id: 'proc-2', name: 'Peeling', price: 300 } },
+          ],
+        },
+      ]);
+
+      await service.backfill();
+
+      const entries = tx.financialEntry.create.mock.calls.map((c: any) => c[0].data);
+      expect(entries.map((e: any) => [e.description, Number(e.amount)])).toEqual([
+        ['Limpeza - Ana', 200],
+        ['Peeling - Ana', 300],
+      ]);
+      expect(tx.appointment.update).toHaveBeenCalledWith({
+        where: { id: 'appt-1' },
+        data: { financeGenerated: true },
+      });
+    });
+
+    it('falls back to the legacy procedure when the booking has no procedure rows', async () => {
+      prisma.appointment.findMany.mockResolvedValue([completed]);
+
+      await service.backfill();
+
+      const entries = tx.financialEntry.create.mock.calls.map((c: any) => c[0].data);
+      expect(entries.map((e: any) => [e.description, Number(e.amount)])).toEqual([['Limpeza - Ana', 200]]);
+    });
+
+    it('charges the package for covered procedures and the rest as standalone', async () => {
+      prisma.appointment.findMany.mockResolvedValue([
+        {
+          ...completed,
+          patientPackageId: 'pp-1',
+          appointmentProcedures: [
+            { procedure: { id: 'proc-1', name: 'Limpeza', price: 200 } },
+            { procedure: { id: 'proc-2', name: 'Peeling', price: 300 } },
+          ],
+        },
+      ]);
+
+      await service.backfill();
+
+      const entries = tx.financialEntry.create.mock.calls.map((c: any) => c[0].data);
+      expect(entries.map((e: any) => [e.category, e.description, Number(e.amount)])).toEqual([
+        ['Pacotes', 'Pacote - Limpeza - Ana', 900],
+        ['Atendimentos', 'Peeling - Ana', 300],
+      ]);
+      expect(tx.patientPackage.update).toHaveBeenCalled();
+    });
   });
 });

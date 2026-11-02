@@ -23,6 +23,11 @@ import {
   isDateBeforeRecurrenceEarliest,
 } from '../../utils/appointmentRecurrence';
 import type { Appointment, Procedure } from '../../types';
+import {
+  resolveReturnProcedures,
+  returnRecurrenceDays,
+  totalDurationMinutes,
+} from '../../utils/appointmentProcedures';
 import { DialogHeader } from '../DialogCloseButton';
 import { invalidateAppointmentListQueries } from './appointmentCache';
 
@@ -30,13 +35,13 @@ import { invalidateAppointmentListQueries } from './appointmentCache';
 export function ReturnAppointmentDialog({
   pendingReturn,
   procedures,
-  fallbackProcedure,
+  fallbackProcedures,
   onClose,
 }: {
   /** Atendimento concluído; o diálogo fica aberto enquanto estiver definido. */
   pendingReturn: Appointment | null;
   procedures: Procedure[];
-  fallbackProcedure?: Procedure;
+  fallbackProcedures: Procedure[];
   onClose: () => void;
 }) {
   const queryClient = useQueryClient();
@@ -46,19 +51,21 @@ export function ReturnAppointmentDialog({
   const [returnStartTime, setReturnStartTime] = useState('');
   const [returnCreateError, setReturnCreateError] = useState<string | null>(null);
 
-  const pendingReturnProcedure = useMemo(() => {
-    if (!pendingReturn) return undefined;
-    return (
-      pendingReturn.procedure ??
-      procedures.find((p) => p.id === pendingReturn.procedureId) ??
-      fallbackProcedure
-    );
-  }, [pendingReturn, procedures, fallbackProcedure]);
+  // O retorno repete todos os procedimentos do atendimento concluído.
+  const returnProcedures = useMemo(
+    () => (pendingReturn ? resolveReturnProcedures(pendingReturn, procedures, fallbackProcedures) : []),
+    [pendingReturn, procedures, fallbackProcedures],
+  );
+  const returnProcedureIds = returnProcedures.map((p) => p.id);
+  const recurrenceDays = returnRecurrenceDays(returnProcedures);
+  const durationMinutes = returnProcedures.length
+    ? totalDurationMinutes(returnProcedures, returnProcedureIds)
+    : 60;
 
   const returnMinDate = useMemo(() => {
-    if (!pendingReturn || !pendingReturnProcedure?.recurrenceDays) return null;
-    return computeEarliestRecurrenceDate(pendingReturn.startAt, pendingReturnProcedure.recurrenceDays);
-  }, [pendingReturn, pendingReturnProcedure]);
+    if (!pendingReturn || !recurrenceDays) return null;
+    return computeEarliestRecurrenceDate(pendingReturn.startAt, recurrenceDays);
+  }, [pendingReturn, recurrenceDays]);
 
   const returnDateTooEarly =
     !!returnMinDate && !!returnDate && isDateBeforeRecurrenceEarliest(returnDate, returnMinDate);
@@ -73,9 +80,9 @@ export function ReturnAppointmentDialog({
   const returnSlotEnd = useMemo(
     () =>
       returnDateTime?.isValid()
-        ? returnDateTime.add(pendingReturnProcedure?.durationMinutes ?? 60, 'minute')
+        ? returnDateTime.add(durationMinutes, 'minute')
         : null,
-    [returnDateTime, pendingReturnProcedure?.durationMinutes],
+    [returnDateTime, durationMinutes],
   );
 
   const returnSlotValid =
@@ -86,7 +93,7 @@ export function ReturnAppointmentDialog({
       'return-available-professionals',
       returnDate,
       returnStartTime,
-      pendingReturnProcedure?.durationMinutes ?? 60,
+      durationMinutes,
     ],
     queryFn: () =>
       availabilityApi.listAvailableProfessionals(
@@ -109,23 +116,17 @@ export function ReturnAppointmentDialog({
       setReturnCreateError(null);
       return;
     }
-    const procedure =
-      pendingReturn.procedure ?? procedures.find((p) => p.id === pendingReturn.procedureId);
-    const suggested = procedure?.recurrenceDays
-      ? dayjs(pendingReturn.startAt).add(procedure.recurrenceDays, 'day')
-      : dayjs(pendingReturn.startAt).add(7, 'day');
+    const suggested = dayjs(pendingReturn.startAt).add(recurrenceDays ?? 7, 'day');
     setReturnDate(suggested.format('YYYY-MM-DD'));
     setReturnStartTime(suggested.format('HH:mm'));
     setReturnCreateError(null);
-  }, [pendingReturn, procedures]);
+  }, [pendingReturn, recurrenceDays]);
 
   const createReturnMutation = useMutation({
     mutationFn: async () => {
       if (!pendingReturn || !returnDate || !returnStartTime) return;
-      const procedureForReturn = pendingReturnProcedure;
       const professionalId = pendingReturn.professionalId ?? pendingReturn.professional?.id;
-      const procedureId = pendingReturn.procedureId ?? pendingReturn.procedure?.id;
-      if (!professionalId || !procedureId) {
+      if (!professionalId || returnProcedureIds.length === 0) {
         throw new Error('Dados do atendimento incompletos para agendar o retorno.');
       }
       const returnStart = dayjs(`${returnDate}T${returnStartTime}`);
@@ -137,16 +138,16 @@ export function ReturnAppointmentDialog({
           `Retorno só pode ser agendado a partir de ${formatRecurrenceEarliestLabel(returnMinDate)}.`,
         );
       }
-      const durationMinutes = procedureForReturn?.durationMinutes ?? 60;
       return appointmentsApi.create({
         patientId: pendingReturn.patientId,
-        procedureId,
+        procedureIds: returnProcedureIds,
+        procedureId: returnProcedureIds[0],
         professionalId,
         startAt: returnStart.toISOString(),
         endAt: returnStart.add(durationMinutes, 'minute').toISOString(),
         status: 'SCHEDULED',
         kind: 'RETURN',
-        notes: procedureForReturn?.recurrenceDays
+        notes: recurrenceDays
           ? 'Retorno automático sugerido'
           : 'Retorno agendado manualmente',
       });
@@ -173,9 +174,9 @@ export function ReturnAppointmentDialog({
       />
       <DialogContent>
         <Stack spacing={2} sx={{ pt: 0.5 }}>
-          {pendingReturn && pendingReturnProcedure?.recurrenceDays ? (
+          {pendingReturn && recurrenceDays ? (
             <Typography variant="body2">
-              Intervalo de retorno: <strong>{pendingReturnProcedure.recurrenceDays} dias</strong>.
+              Intervalo de retorno: <strong>{recurrenceDays} dias</strong>.
               {returnMinDate ? (
                 <>
                   {' '}
@@ -186,7 +187,8 @@ export function ReturnAppointmentDialog({
             </Typography>
           ) : pendingReturn ? (
             <Typography variant="body2" color="text.secondary">
-              Este procedimento não tem intervalo de retorno cadastrado. Escolha manualmente a data
+              {returnProcedures.length > 1 ? 'Estes procedimentos não têm' : 'Este procedimento não tem'}{' '}
+              intervalo de retorno cadastrado. Escolha manualmente a data
               e o horário do retorno.
             </Typography>
           ) : null}
@@ -236,10 +238,11 @@ export function ReturnAppointmentDialog({
             required
             InputLabelProps={{ shrink: true }}
           />
-          {returnDateTime?.isValid() && pendingReturnProcedure && (
+          {returnDateTime?.isValid() && returnProcedures.length > 0 && (
             <Typography variant="caption" color="text.secondary">
-              Duração estimada: {pendingReturnProcedure.durationMinutes} min · mesmo profissional e
-              procedimento do atendimento concluído.
+              {returnProcedures.map((p) => p.name).join(' + ')} · {durationMinutes} min · mesmo
+              profissional e {returnProcedures.length > 1 ? 'procedimentos' : 'procedimento'} do
+              atendimento concluído.
             </Typography>
           )}
         </Stack>

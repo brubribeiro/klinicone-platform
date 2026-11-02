@@ -21,12 +21,16 @@ export function appointmentProcedureIds(appointment: {
 
 export function appointmentProcedureLabel(appointment: {
   kind: Appointment['kind'];
-  procedure?: Procedure | null;
-  appointmentProcedures?: AppointmentProcedureRow[];
+  procedure?: Pick<Procedure, 'name'> | null;
+  appointmentProcedures?: { sortOrder?: number; procedure?: Pick<Procedure, 'name'> }[];
 }): string {
-  const joinNames = appointment.appointmentProcedures?.map((row) => row.procedure?.name).filter(Boolean) ?? [];
-  // Sem itens na tabela de junção (agendamento legado/seed), vale o procedimento principal.
-  const names = joinNames.length > 0 ? joinNames : appointment.procedure?.name ? [appointment.procedure.name] : [];
+  const fromJoin = (appointment.appointmentProcedures ?? [])
+    .slice()
+    .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+    .map((row) => row.procedure?.name)
+    .filter(Boolean);
+  const names =
+    fromJoin.length > 0 ? fromJoin : appointment.procedure?.name ? [appointment.procedure.name] : [];
   if (names.length > 0) return names.join(' + ');
   if (appointment.kind === 'EVALUATION') return 'Avaliação';
   if (appointment.kind === 'RETURN') return 'Retorno';
@@ -45,4 +49,26 @@ export function selectedProcedures(procedures: Procedure[], procedureIds: string
   return procedureIds
     .map((id) => procedures.find((p) => p.id === id))
     .filter((p): p is Procedure => !!p);
+}
+
+/** Procedimentos do atendimento concluído, na ordem dele (catálogo, depois os embutidos no agendamento). */
+export function resolveReturnProcedures(
+  appointment: Appointment,
+  catalog: Procedure[],
+  fallback: Procedure[],
+): Procedure[] {
+  const embedded = [
+    ...(appointment.appointmentProcedures ?? []).map((row) => row.procedure),
+    appointment.procedure,
+    ...fallback,
+  ].filter((p): p is Procedure => !!p);
+  return appointmentProcedureIds(appointment)
+    .map((id) => catalog.find((p) => p.id === id) ?? embedded.find((p) => p.id === id))
+    .filter((p): p is Procedure => !!p);
+}
+
+/** O backend valida o intervalo de cada procedimento: vale o maior deles. */
+export function returnRecurrenceDays(procedures: Procedure[]): number | null {
+  const days = procedures.map((p) => p.recurrenceDays ?? 0).filter((d) => d > 0);
+  return days.length ? Math.max(...days) : null;
 }

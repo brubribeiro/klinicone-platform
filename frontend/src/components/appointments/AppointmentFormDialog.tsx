@@ -55,11 +55,13 @@ import {
   snapshotAppointmentLists,
 } from './appointmentCache';
 import {
+  appointmentToFormValues,
   emptyFormValues,
   formatElapsed,
   kindOptions,
   normalizeApplicationMapPoints,
   normalizeExtraMaterials,
+  reconcileProcedureIds,
   type ExtraMaterialRow,
   totalProcedureDurationMinutes,
   type FormValues,
@@ -182,7 +184,7 @@ export function AppointmentFormDialog({
     queryFn: () => patientsApi.list(),
     enabled: open,
   });
-  const { data: procedures = [] } = useQuery({
+  const { data: procedures = [], isSuccess: proceduresLoaded } = useQuery({
     queryKey: ['procedures'],
     queryFn: () => proceduresApi.list(),
     enabled: open,
@@ -200,17 +202,7 @@ export function AppointmentFormDialog({
       return;
     }
     if (appointment) {
-      reset({
-        patientId: appointment.patientId,
-        procedureIds: appointmentProcedureIds(appointment),
-        professionalId: appointment.professionalId ?? '',
-        date: dayjs(appointment.startAt).format('YYYY-MM-DD'),
-        startTime: dayjs(appointment.startAt).format('HH:mm'),
-        status: appointment.status,
-        kind: appointment.kind ?? 'PROCEDURE',
-        notes: appointment.notes ?? '',
-        clinicalNotes: appointment.clinicalNotes ?? '',
-      });
+      reset(appointmentToFormValues(appointment));
     } else {
       const start = defaultStart ?? new Date();
       const isMidnight = start.getHours() === 0 && start.getMinutes() === 0;
@@ -288,18 +280,21 @@ export function AppointmentFormDialog({
   const selectedProcedure = selectedProcedures[0];
   const totalDurationMinutes = totalProcedureDurationMinutes(procedureOptions, selectedProcedureIds);
 
+  // Lê o tipo com getValues: ao abrir outro agendamento, o reset roda no mesmo commit e
+  // selectedKind ainda é o do agendamento aberto antes (apagaria os procedimentos).
   useEffect(() => {
     if (!open) return;
-    if (selectedKind !== 'PROCEDURE') {
-      setValue('procedureIds', []);
-      return;
-    }
     const currentIds = getValues('procedureIds');
-    const filtered = currentIds.filter((id) => procedureOptions.some((procedure) => procedure.id === id));
-    if (filtered.length !== currentIds.length) {
-      setValue('procedureIds', filtered);
+    const nextIds = reconcileProcedureIds(
+      getValues('kind'),
+      currentIds,
+      procedureOptions,
+      proceduresLoaded,
+    );
+    if (nextIds.length !== currentIds.length) {
+      setValue('procedureIds', nextIds);
     }
-  }, [open, selectedKind, procedureOptions, getValues, setValue]);
+  }, [open, selectedKind, procedureOptions, proceduresLoaded, getValues, setValue]);
 
   const selectedPatient = patients.find((p) => p.id === selectedPatientId);
 
@@ -510,6 +505,7 @@ export function AppointmentFormDialog({
   const materialsState = useAppointmentMaterials({
     inventory,
     appointmentSource: appointmentDetail ?? appointment,
+    procedureOptions,
     selectedProcedures,
     extraMaterials,
   });
@@ -1174,7 +1170,7 @@ export function AppointmentFormDialog({
       <ReturnAppointmentDialog
         pendingReturn={pendingReturn}
         procedures={procedures}
-        fallbackProcedure={selectedProcedure}
+        fallbackProcedures={selectedProcedures}
         onClose={() => {
           setPendingReturn(null);
           onClose();
