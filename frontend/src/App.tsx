@@ -28,6 +28,8 @@ import { SkincareRoutines } from './pages/SkincareRoutines';
 import { Promotions } from './pages/Promotions';
 import { PaymentMethods } from './pages/PaymentMethods';
 import { MyPlan } from './pages/MyPlan';
+import { AnamnesisQuestions } from './pages/AnamnesisQuestions';
+import { PublicAnamnesis } from './pages/PublicAnamnesis';
 import { Layout } from './components/Layout';
 import { PrivateRoute } from './components/PrivateRoute';
 import { AdminRoute } from './components/AdminRoute';
@@ -40,6 +42,7 @@ export default function App() {
       <Route path="/escolher-painel" element={<ChoosePanel />} />
       <Route path="/termos" element={<TermsOfUse />} />
       <Route path="/privacidade" element={<PrivacyPolicy />} />
+      <Route path="/anamnese/:token" element={<PublicAnamnesis />} />
       <Route
         element={
           <PrivateRoute>
@@ -167,6 +170,14 @@ export default function App() {
           element={
             <AdminRoute>
               <MyPlan />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/perguntas-anamnese"
+          element={
+            <AdminRoute>
+              <AnamnesisQuestions />
             </AdminRoute>
           }
         />

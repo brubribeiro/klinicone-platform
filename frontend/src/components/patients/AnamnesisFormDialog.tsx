@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useMemo, type ReactNode } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import {
   Alert,
@@ -32,15 +32,17 @@ import { DialogHeader, dialogActionsBorderSx } from '../DialogCloseButton';
 import { FieldAdornment } from '../FieldAdornment';
 import { FormSection } from '../FormSection';
 import { LabeledField } from '../LabeledField';
+import { useAnamnesisQuestions } from '../../hooks/useAnamnesisQuestions';
 import {
-  ANAMNESIS_MULTILINE_KEYS,
-  ANAMNESIS_SECTIONS,
+  MEASUREMENTS_SECTION,
+  anamnesisSections,
   calcIMC,
   createEmptyAnamnesis,
   imcClassificacao,
   imcColor,
   mergeAnamnesis,
   type AnamnesisFieldDef,
+  type AnamnesisFormValue,
 } from './anamnesisFields';
 import { fontSizes } from '../../theme/fontSizes';
 
@@ -50,7 +52,9 @@ interface AnamnesisFormDialogProps {
   patientId: string | null;
 }
 
-type FormValues = Record<string, string | boolean | number>;
+type FormValues = Record<string, AnamnesisFormValue>;
+
+const fieldLabel = (f: AnamnesisFieldDef) => (f.required ? `${f.label} *` : f.label);
 
 const DIALOG_WIDTH = 920;
 const DIALOG_HEIGHT_DESKTOP = 820;
@@ -82,17 +86,22 @@ export function AnamnesisFormDialog({ open, onClose, patientId }: AnamnesisFormD
     enabled: open && !!patientId,
   });
 
+  const { data: questions, isLoading: questionsLoading } = useAnamnesisQuestions('GENERAL', open);
+  const sections = useMemo(() => anamnesisSections(questions ?? []), [questions]);
+
   const { control, handleSubmit, reset, watch } = useForm<FormValues>({
     defaultValues: createEmptyAnamnesis(),
   });
 
   useEffect(() => {
-    if (open && patient) {
-      reset(mergeAnamnesis(patient.anamnesis));
-    } else if (open && !patientId) {
-      reset(createEmptyAnamnesis());
+    if (!open || !questions) return;
+    if (patient) {
+      // Respostas de perguntas desativadas ou movidas seguem no objeto e voltam intactas ao salvar.
+      reset(mergeAnamnesis(patient.anamnesis, sections));
+    } else if (!patientId) {
+      reset(createEmptyAnamnesis(sections));
     }
-  }, [open, patient, patientId, reset]);
+  }, [open, patient, patientId, questions, sections, reset]);
 
   const mutation = useMutation({
     mutationFn: (values: FormValues) => patientsApi.updateAnamnesis(patientId!, values),
@@ -125,7 +134,7 @@ export function AnamnesisFormDialog({ open, onClose, patientId }: AnamnesisFormD
             render={({ field }) => (
               <Box sx={ANAMNESIS_SWITCH_ROW_SX}>
                 <Typography sx={{ fontSize: fontSizes.sm, fontWeight: 600, lineHeight: 1.35 }}>
-                  {fieldDef.label}
+                  {fieldLabel(fieldDef)}
                 </Typography>
                 <Switch
                   checked={!!field.value}
@@ -148,7 +157,7 @@ export function AnamnesisFormDialog({ open, onClose, patientId }: AnamnesisFormD
             name={fieldDef.key}
             control={control}
             render={({ field }) => (
-              <LabeledField label={fieldDef.label}>
+              <LabeledField label={fieldLabel(fieldDef)}>
                 <TextField
                   {...field}
                   fullWidth
@@ -175,6 +184,48 @@ export function AnamnesisFormDialog({ open, onClose, patientId }: AnamnesisFormD
       );
     }
 
+    if (fieldDef.type === 'multiselect') {
+      return (
+        <Grid item xs={12} sm={gridSm} key={fieldDef.key}>
+          <Controller
+            name={fieldDef.key}
+            control={control}
+            render={({ field }) => (
+              <LabeledField label={fieldLabel(fieldDef)}>
+                <TextField
+                  {...field}
+                  select
+                  fullWidth
+                  size="small"
+                  value={Array.isArray(field.value) ? field.value : []}
+                  SelectProps={{
+                    multiple: true,
+                    displayEmpty: true,
+                    MenuProps: { sx: { zIndex: (t) => t.zIndex.modal + 3 } },
+                    renderValue: (val) =>
+                      (val as string[]).length ? (
+                        (val as string[]).join(', ')
+                      ) : (
+                        <Typography component="span" variant="body2" sx={{ color: 'text.disabled' }}>
+                          Não informado
+                        </Typography>
+                      ),
+                  }}
+                  sx={FIELD_SX}
+                >
+                  {fieldDef.options!.map((opt) => (
+                    <MenuItem key={opt} value={opt}>
+                      {opt}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </LabeledField>
+            )}
+          />
+        </Grid>
+      );
+    }
+
     if (fieldDef.type === 'select') {
       return (
         <Grid item xs={12} sm={gridSm} key={fieldDef.key}>
@@ -182,7 +233,7 @@ export function AnamnesisFormDialog({ open, onClose, patientId }: AnamnesisFormD
             name={fieldDef.key}
             control={control}
             render={({ field }) => (
-              <LabeledField label={fieldDef.label}>
+              <LabeledField label={fieldLabel(fieldDef)}>
                 <TextField
                   {...field}
                   select
@@ -219,7 +270,7 @@ export function AnamnesisFormDialog({ open, onClose, patientId }: AnamnesisFormD
       );
     }
 
-    const multiline = fieldDef.fullWidth || ANAMNESIS_MULTILINE_KEYS.has(fieldDef.key);
+    const multiline = fieldDef.fullWidth;
 
     return (
       <Grid item xs={12} sm={gridSm} key={fieldDef.key}>
@@ -227,7 +278,7 @@ export function AnamnesisFormDialog({ open, onClose, patientId }: AnamnesisFormD
           name={fieldDef.key}
           control={control}
           render={({ field }) => (
-            <LabeledField label={fieldDef.label}>
+            <LabeledField label={fieldLabel(fieldDef)}>
               <TextField
                 {...field}
                 fullWidth
@@ -292,13 +343,13 @@ export function AnamnesisFormDialog({ open, onClose, patientId }: AnamnesisFormD
             bgcolor: 'background.paper',
           }}
         >
-          {isLoading && !patient ? (
+          {(isLoading && !patient) || questionsLoading ? (
             <Box display="flex" justifyContent="center" py={8}>
               <CircularProgress />
             </Box>
           ) : (
               <Stack spacing={2} sx={{ mt: { xs: 1, sm: 1.5 } }}>
-                {ANAMNESIS_SECTIONS.map((section) => {
+                {sections.map((section) => {
                   const inputs = section.fields.filter((f) => f.type !== 'boolean');
                   const toggles = section.fields.filter((f) => f.type === 'boolean');
                   return (
@@ -308,7 +359,7 @@ export function AnamnesisFormDialog({ open, onClose, patientId }: AnamnesisFormD
                           {inputs.map(renderField)}
                         </Grid>
                       )}
-                      {section.title === 'Medidas corporais' && (
+                      {section.title === MEASUREMENTS_SECTION && (
                         <Typography sx={{ mt: 1.25, fontSize: fontSizes.xs, color: 'text.secondary' }}>
                           IMC:{' '}
                           {imcVal != null ? (
@@ -359,7 +410,7 @@ export function AnamnesisFormDialog({ open, onClose, patientId }: AnamnesisFormD
           <Button
             type="submit"
             variant="contained"
-            disabled={mutation.isPending || isLoading || !patient}
+            disabled={mutation.isPending || isLoading || !patient || !questions}
             sx={{ boxShadow: (t) => `0 6px 16px -6px ${t.palette.primary.main}` }}
           >
             {mutation.isPending ? 'Salvando…' : 'Salvar anamnese'}

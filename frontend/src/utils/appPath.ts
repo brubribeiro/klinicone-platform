@@ -9,3 +9,8 @@ export function appPath(path: string): string {
 export function isLoginPath(): boolean {
   return window.location.pathname === appPath('/login');
 }
+
+/** Páginas abertas sem login (ex.: anamnese pela paciente): um 401 do /auth/me não leva ao login. */
+export function isPublicPath(): boolean {
+  return window.location.pathname.startsWith(appPath('/anamnese/'));
+}

@@ -83,6 +83,8 @@ model Tenant {
   skincareProducts        SkincareProduct[]
   skincareRules           SkincareRule[]
   skincareRoutines        SkincareRoutine[]
+  anamnesisQuestions      AnamnesisQuestion[]
+  anamnesisLinks          AnamnesisLink[]
   feedbackReports         FeedbackReport[]
   platformAuditLogs       PlatformAuditLog[]
   apiRequestErrors        ApiRequestError[]
@@ -644,11 +646,73 @@ model Patient {
   skincareRoutines  SkincareRoutine[]
   measurements      PatientMeasurement[]
   messageDispatches MessageDispatch[]
+  anamnesisLinks    AnamnesisLink[]
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
   @@index([tenantId])
   @@map("patients")
+}
+
+// Perguntas da anamnese, por clínica. GENERAL = ficha da paciente (Patient.anamnesis);
+// SKIN = anamnese de pele (SkincareRoutine.answers). A chave é a das respostas salvas e não muda.
+enum AnamnesisKind {
+  GENERAL
+  SKIN
+}
+
+enum AnamnesisQuestionType {
+  TEXT
+  BOOLEAN
+  SINGLE_CHOICE
+  MULTIPLE_CHOICE
+  NUMBER
+}
+
+model AnamnesisQuestion {
+  id        String                @id @default(uuid())
+  tenantId  String                @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  kind      AnamnesisKind
+  key       String
+  label     String
+  type      AnamnesisQuestionType
+  options   String[]              @default([])
+  section   String? // agrupamento no formulário (ex.: "Saúde geral")
+  placeholder String?
+  required  Boolean               @default(false)
+  sortOrder Int                   @default(0)
+  active    Boolean               @default(true)
+  // Pergunta usada por regra do sistema (peso/altura, perguntas que geram a rotina): só texto e ordem editáveis
+  system    Boolean               @default(false)
+  createdAt DateTime              @default(now())
+  updatedAt DateTime              @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@unique([tenantId, kind, key])
+  @@index([tenantId])
+  @@map("anamnesis_questions")
+}
+
+// Link público para a paciente preencher a anamnese geral. Guarda só o hash do token.
+model AnamnesisLink {
+  id          String    @id @default(uuid())
+  tenantId    String    @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  patientId   String
+  tokenHash   String    @unique
+  expiresAt   DateTime
+  usedAt      DateTime?
+  revokedAt   DateTime?
+  createdById String?
+  createdAt   DateTime  @default(now())
+
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@index([patientId])
+  @@index([tenantId])
+  @@map("anamnesis_links")
 }
 
 // Fotos "antes e depois" do paciente (armazenadas comprimidas no R2).

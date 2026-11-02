@@ -1,29 +1,56 @@
 import { describe, it, expect } from 'vitest';
 
+import type { AnamnesisQuestion } from '../../types';
 import {
   ANAMNESIS_MULTILINE_KEYS,
-  ANAMNESIS_SECTIONS,
+  anamnesisSections,
   calcIMC,
   createEmptyAnamnesis,
+  formatAnswer,
   hasAnamnesisData,
   imcClassificacao,
   mergeAnamnesis,
 } from './anamnesisFields';
 
+const q = (key: string, type: AnamnesisQuestion['type'], section: string | null, extra: Partial<AnamnesisQuestion> = {}): AnamnesisQuestion => ({
+  id: key,
+  kind: 'GENERAL',
+  key,
+  label: key,
+  type,
+  options: [],
+  section,
+  placeholder: null,
+  required: false,
+  sortOrder: 0,
+  active: true,
+  system: false,
+  ...extra,
+});
+
+const QUESTIONS: AnamnesisQuestion[] = [
+  q('peso', 'NUMBER', 'Medidas corporais'),
+  q('gestante', 'BOOLEAN', 'Saúde geral'),
+  q('tabagismo', 'SINGLE_CHOICE', 'Saúde geral', { options: ['Não', 'Sim'] }),
+  q('queixaPrincipal', 'TEXT', 'Queixas e expectativas'),
+  q('acneAtiva', 'BOOLEAN', 'Pele e estética', { active: false }),
+  q('alergias', 'MULTIPLE_CHOICE', null, { options: ['Látex', 'Metais'] }),
+];
+
 describe('anamnesisFields', () => {
-  describe('ANAMNESIS_SECTIONS', () => {
-    it('should define all expected sections', () => {
-      expect(ANAMNESIS_SECTIONS.map((section) => section.title)).toEqual([
-        'Medidas corporais',
-        'Saúde geral',
-        'Pele e estética',
-        'Queixas e expectativas',
-      ]);
+  describe('anamnesisSections', () => {
+    const sections = anamnesisSections(QUESTIONS);
+
+    it('groups active questions by section in the registered order', () => {
+      expect(sections.map((s) => s.title)).toEqual(['Medidas corporais', 'Saúde geral', 'Queixas e expectativas', 'Outras perguntas']);
+      expect(sections[1].fields.map((f) => f.key)).toEqual(['gestante', 'tabagismo']);
     });
 
-    it('should use unique field keys across sections', () => {
-      const keys = ANAMNESIS_SECTIONS.flatMap((section) => section.fields.map((field) => field.key));
-      expect(new Set(keys).size).toBe(keys.length);
+    it('skips inactive questions and maps types', () => {
+      const fields = sections.flatMap((s) => s.fields);
+      expect(fields.some((f) => f.key === 'acneAtiva')).toBe(false);
+      expect(fields.find((f) => f.key === 'alergias')?.type).toBe('multiselect');
+      expect(fields.find((f) => f.key === 'peso')?.suffix).toBe('kg');
     });
   });
 
@@ -36,39 +63,19 @@ describe('anamnesisFields', () => {
   });
 
   describe('createEmptyAnamnesis', () => {
-    it('should initialize booleans as false and text/select as empty string', () => {
-      const empty = createEmptyAnamnesis();
-
-      expect(empty.gestante).toBe(false);
-      expect(empty.acneAtiva).toBe(false);
-      expect(empty.doencasCronicas).toBe('');
-      expect(empty.tabagismo).toBe('');
-      expect(empty.queixaPrincipal).toBe('');
-    });
-
-    it('should include every field defined in sections', () => {
-      const empty = createEmptyAnamnesis();
-      const expectedKeys = ANAMNESIS_SECTIONS.flatMap((section) =>
-        section.fields.map((field) => field.key),
-      );
-
-      expect(Object.keys(empty).sort()).toEqual(expectedKeys.sort());
+    it('initializes booleans as false, multiple choice as [] and the rest as empty string', () => {
+      const empty = createEmptyAnamnesis(anamnesisSections(QUESTIONS));
+      expect(empty).toEqual({ peso: '', gestante: false, tabagismo: '', queixaPrincipal: '', alergias: [] });
     });
   });
 
   describe('mergeAnamnesis', () => {
-    it('should merge existing values over defaults', () => {
-      const merged = mergeAnamnesis({
-        gestante: true,
-        queixaPrincipal: 'Manchas na face',
-        tabagismo: 'Não',
-      });
-
+    it('keeps saved answers of questions that are no longer active', () => {
+      const merged = mergeAnamnesis({ gestante: true, acneAtiva: true, tipoPele: 'Oleosa' }, anamnesisSections(QUESTIONS));
       expect(merged.gestante).toBe(true);
-      expect(merged.queixaPrincipal).toBe('Manchas na face');
-      expect(merged.tabagismo).toBe('Não');
-      expect(merged.lactante).toBe(false);
-      expect(merged.medicamentosEmUso).toBe('');
+      expect(merged.acneAtiva).toBe(true);
+      expect(merged.tipoPele).toBe('Oleosa');
+      expect(merged.tabagismo).toBe('');
     });
 
     it('should return empty defaults when existing is null or undefined', () => {
@@ -77,12 +84,20 @@ describe('anamnesisFields', () => {
     });
   });
 
+  describe('formatAnswer', () => {
+    it('formats booleans, lists and units', () => {
+      expect(formatAnswer(undefined, true)).toBe('Sim');
+      expect(formatAnswer(undefined, ['Látex', 'Metais'])).toBe('Látex, Metais');
+      expect(formatAnswer({ type: 'number', suffix: 'kg' }, 61.5)).toBe('61.5 kg');
+    });
+  });
+
   describe('hasAnamnesisData', () => {
     it('should return false for empty, null or all-default values', () => {
       expect(hasAnamnesisData(null)).toBe(false);
       expect(hasAnamnesisData(undefined)).toBe(false);
       expect(hasAnamnesisData({})).toBe(false);
-      expect(hasAnamnesisData(createEmptyAnamnesis())).toBe(false);
+      expect(hasAnamnesisData(createEmptyAnamnesis(anamnesisSections(QUESTIONS)))).toBe(false);
       expect(hasAnamnesisData({ gestante: false, doencasCronicas: '' })).toBe(false);
     });
 

@@ -23,5 +23,6 @@ import { CompressionService } from '../documents/compression.service';
     CompressionService,
   ],
   controllers: [PatientsController, PatientMeasurementsController],
+  exports: [PatientMeasurementsService],
 })
 export class PatientsModule {}

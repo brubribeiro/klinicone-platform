@@ -1,15 +1,18 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Box, Button, MenuItem, Select, Skeleton, Typography } from '@mui/material';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 
+import { patientsApi } from '../../api/patients';
 import { skincareApi } from '../../api/skincare';
 import { useAppToast } from '../../contexts/AppToastContext';
 import { usePermissions } from '../../contexts/usePermissions';
+import { useAnamnesisQuestions } from '../../hooks/useAnamnesisQuestions';
 import { usePlatformCatalog } from '../../hooks/usePlatformCatalog';
 import { fontSizes } from '../../theme/fontSizes';
 import { getApiErrorMessage } from '../../utils/apiError';
-import type { SkinAnswers, SkincareAvoided, SkincareGuideline, SkincareMoment, SkincareRoutine, SkincareRoutineItem, SkincareStep } from '../../types';
+import type { AnamnesisAnswerValue, SkinAnswers, SkincareAvoided, SkincareGuideline, SkincareMoment, SkincareRoutine, SkincareRoutineItem, SkincareStep } from '../../types';
+import { QuestionField, answerText, missingRequired } from '../anamnesis/QuestionField';
 import { SendRoutineDialog } from './SendRoutineDialog';
 import {
   AGE_RANGES,
@@ -19,7 +22,8 @@ import {
   SKINCARE_MOMENTS,
   SKIN_CONDITIONS,
   SKIN_TYPES,
-  canAdvance,
+  buildSkinWizardSteps,
+  canAdvanceCore,
   conditionsText,
   darkCirclesText,
   emptySkinAnswers,
@@ -30,6 +34,8 @@ import {
   productToItem,
   slotLabel,
   toggleCondition,
+  type SkinCoreKey,
+  type SkinWizardStep,
 } from './skincareUtils';
 import {
   BUTTON_SX,
@@ -62,23 +68,24 @@ interface SkinAnamnesisWizardProps {
   onSaved?: (routine: SkincareRoutine) => void;
 }
 
-const STEP_TITLES = [
-  'Dados da paciente',
-  'Qual é o tipo de pele?',
-  'Está em tratamento de alguma afecção de pele?',
-  'Tem olheiras?',
-  'Qual é a faixa etária?',
-  'Revise as respostas',
-];
-const STEP_SUBTITLES = [
-  'Identifique a paciente e a data da consulta.',
-  'Escolha a opção que melhor descreve a pele hoje.',
-  'Selecione todas as que se aplicam.',
-  'Se sim, indique o tipo predominante.',
-  'Usada para ajustar os ativos de prevenção e renovação.',
-  'Confira tudo antes de gerar a rotina. Use Editar para corrigir uma resposta.',
-];
-const STEP_EYEBROWS = ['Identificação', 'Pergunta 1 de 4', 'Pergunta 2 de 4', 'Pergunta 3 de 4', 'Pergunta 4 de 4', 'Revisão'];
+const DEFAULT_CORE_TITLES: Record<SkinCoreKey, string> = {
+  pele: 'Qual é o tipo de pele?',
+  afec: 'Está em tratamento de alguma afecção de pele?',
+  olheira: 'Tem olheiras?',
+  idade: 'Qual é a faixa etária?',
+};
+const CORE_SUBTITLES: Record<SkinCoreKey, string> = {
+  pele: 'Escolha a opção que melhor descreve a pele hoje.',
+  afec: 'Selecione todas as que se aplicam.',
+  olheira: 'Se sim, indique o tipo predominante.',
+  idade: 'Usada para ajustar os ativos de prevenção e renovação.',
+};
+const CORE_REVIEW_LABELS: Record<SkinCoreKey, string> = {
+  pele: 'Tipo de pele',
+  afec: 'Afecções',
+  olheira: 'Olheiras',
+  idade: 'Faixa etária',
+};
 
 const optionGrid = (min: number) => ({
   display: 'grid',
@@ -116,6 +123,40 @@ export function SkinAnamnesisWizard({ patient, routine, onSaved }: SkinAnamnesis
     queryFn: skincareApi.listRules,
     staleTime: 60_000,
   });
+  const { data: questions } = useAnamnesisQuestions('SKIN');
+  const steps = useMemo(() => buildSkinWizardSteps(questions, DEFAULT_CORE_TITLES), [questions]);
+  const reviewStep = steps.length - 1;
+  const current = steps[Math.min(step, reviewStep)];
+  const questionSteps = steps.filter((st) => st.kind === 'core' || st.kind === 'extra');
+  const extraQuestions = useMemo(() => steps.flatMap((st) => (st.kind === 'extra' ? st.questions : [])), [steps]);
+
+  // Anamnese nova: perguntas da clínica vêm preenchidas com a última rotina ou, nas que saíram da
+  // anamnese geral (mesma chave), com a resposta antiga da ficha.
+  const { data: previousRoutines } = useQuery({
+    queryKey: ['skincare', 'routines', patient.id],
+    queryFn: () => skincareApi.listRoutines(patient.id),
+    enabled: !routine,
+  });
+  const { data: patientRecord } = useQuery({
+    queryKey: ['patient', patient.id],
+    queryFn: () => patientsApi.findOne(patient.id),
+    enabled: !routine && has('patients:view'),
+    retry: false,
+  });
+  const prefilled = useRef(!!routine);
+  useEffect(() => {
+    if (prefilled.current || !questions || !previousRoutines || (has('patients:view') && !patientRecord)) return;
+    prefilled.current = true;
+    const legacy = (patientRecord?.anamnesis ?? {}) as Record<string, AnamnesisAnswerValue>;
+    const last = previousRoutines[0]?.answers.extra ?? {};
+    const extra: Record<string, AnamnesisAnswerValue> = {};
+    for (const q of questions) {
+      const value = last[q.key] ?? legacy[q.key];
+      if (value !== undefined && value !== '' && q.active && !q.system) extra[q.key] = value;
+    }
+    if (Object.keys(extra).length) setAnswers((a) => ({ ...a, extra: { ...extra, ...a.extra } }));
+  }, [questions, previousRoutines, patientRecord, has]);
+
   const tagCatalog = usePlatformCatalog('skincare_tag');
   const tagOptions = useMemo(() => skincareTagsFromCatalog(tagCatalog), [tagCatalog]);
   const catalogLoading = productsLoading || rulesLoading;
@@ -138,7 +179,16 @@ export function SkinAnamnesisWizard({ patient, routine, onSaved }: SkinAnamnesis
   });
 
   const setAns = <K extends keyof SkinAnswers>(key: K, value: SkinAnswers[K]) => setAnswers((a) => ({ ...a, [key]: value }));
-  const canNext = canAdvance(step, answers, true, consultDate) && (step !== 5 || !catalogLoading);
+  const setExtra = (key: string, value: AnamnesisAnswerValue) =>
+    setAnswers((a) => ({ ...a, extra: { ...a.extra, [key]: value } }));
+  const canNext =
+    current.kind === 'patient'
+      ? !!consultDate
+      : current.kind === 'core'
+        ? canAdvanceCore(current.key, answers)
+        : current.kind === 'extra'
+          ? missingRequired(current.questions, answers.extra ?? {}).length === 0
+          : !catalogLoading;
 
   const generate = () => {
     const result = generateRoutine(answers, products, rules, tagOptions);
@@ -152,9 +202,9 @@ export function SkinAnamnesisWizard({ patient, routine, onSaved }: SkinAnamnesis
 
   const next = () => {
     if (!canNext) return;
-    if (step === 5) return generate();
+    if (current.kind === 'review') return generate();
     if (fromReview) {
-      setStep(5);
+      setStep(reviewStep);
       setFromReview(false);
       return;
     }
@@ -162,7 +212,7 @@ export function SkinAnamnesisWizard({ patient, routine, onSaved }: SkinAnamnesis
   };
   const back = () => {
     if (fromReview) {
-      setStep(5);
+      setStep(reviewStep);
       setFromReview(false);
     } else if (step > 0) setStep(step - 1);
   };
@@ -211,28 +261,52 @@ export function SkinAnamnesisWizard({ patient, routine, onSaved }: SkinAnamnesis
     [items, products],
   );
 
-  const reviewRows = [
-    { label: 'Paciente', value: `${patient.name} · ${formatDateBR(consultDate)}`, step: 0 },
-    { label: 'Tipo de pele', value: optionLabel(SKIN_TYPES, answers.pele) || '—', step: 1 },
-    { label: 'Afecções', value: conditionsText(answers) || '—', step: 2 },
-    { label: 'Olheiras', value: darkCirclesText(answers) || '—', step: 3 },
-    { label: 'Faixa etária', value: optionLabel(AGE_RANGES, answers.idade) || '—', step: 4 },
-  ];
+  const coreValue: Record<SkinCoreKey, string> = {
+    pele: optionLabel(SKIN_TYPES, answers.pele),
+    afec: conditionsText(answers),
+    olheira: darkCirclesText(answers),
+    idade: optionLabel(AGE_RANGES, answers.idade),
+  };
+  const reviewRows = steps.flatMap((st, i) => {
+    if (st.kind === 'patient') return [{ key: 'patient', label: 'Paciente', value: `${patient.name} · ${formatDateBR(consultDate)}`, step: i }];
+    if (st.kind === 'core') return [{ key: st.key, label: CORE_REVIEW_LABELS[st.key], value: coreValue[st.key] || '—', step: i }];
+    if (st.kind === 'extra') return st.questions.map((q) => ({ key: q.key, label: q.label, value: answerText(answers.extra?.[q.key]), step: i }));
+    return [];
+  });
 
   if (phase === 'wizard') {
-    const nextLabel = step === 5 ? 'Gerar rotina' : fromReview ? 'Voltar à revisão' : 'Continuar';
+    const nextLabel = current.kind === 'review' ? 'Gerar rotina' : fromReview ? 'Voltar à revisão' : 'Continuar';
+    const questionIndex = (questionSteps as SkinWizardStep[]).indexOf(current) + 1;
+    const eyebrow =
+      current.kind === 'patient' ? 'Identificação' : current.kind === 'review' ? 'Revisão' : `Pergunta ${questionIndex} de ${questionSteps.length}`;
+    const title =
+      current.kind === 'patient'
+        ? 'Dados da paciente'
+        : current.kind === 'core'
+          ? current.title
+          : current.kind === 'extra'
+            ? 'Mais sobre a pele'
+            : 'Revise as respostas';
+    const subtitle =
+      current.kind === 'patient'
+        ? 'Identifique a paciente e a data da consulta.'
+        : current.kind === 'core'
+          ? CORE_SUBTITLES[current.key]
+          : current.kind === 'extra'
+            ? 'Perguntas cadastradas pela clínica. As marcadas com * são obrigatórias.'
+            : 'Confira tudo antes de gerar a rotina. Use Editar para corrigir uma resposta.';
     return (
       <Box sx={{ maxWidth: 760, mx: 'auto', px: { xs: 2, sm: 2.5 }, pt: { xs: 2.5, sm: 4 }, pb: 7, display: 'flex', flexDirection: 'column', gap: 2.25 }}>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1.5 }}>
             <Typography sx={{ fontSize: fontSizes.xs, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase', color: 'primary.main' }}>
-              {STEP_EYEBROWS[step]}
+              {eyebrow}
             </Typography>
-            <Typography sx={{ fontSize: fontSizes.xs, fontWeight: 600, color: TEXT_SOFT }}>Etapa {step + 1} de 6</Typography>
+            <Typography sx={{ fontSize: fontSizes.xs, fontWeight: 600, color: TEXT_SOFT }}>Etapa {step + 1} de {steps.length}</Typography>
           </Box>
-          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(6, minmax(0, 1fr))', gap: 0.75 }}>
-            {STEP_TITLES.map((t, i) => (
-              <Box key={t} sx={{ height: 6, borderRadius: '6px', bgcolor: i <= step ? 'primary.main' : '#D5E0DC' }} />
+          <Box sx={{ display: 'grid', gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))`, gap: 0.75 }}>
+            {steps.map((_, i) => (
+              <Box key={i} sx={{ height: 6, borderRadius: '6px', bgcolor: i <= step ? 'primary.main' : '#D5E0DC' }} />
             ))}
           </Box>
         </Box>
@@ -240,12 +314,12 @@ export function SkinAnamnesisWizard({ patient, routine, onSaved }: SkinAnamnesis
         <Box sx={{ ...PANEL_SX, borderRadius: '20px', p: { xs: 2.25, sm: 3.5 }, display: 'flex', flexDirection: 'column', gap: 2.75 }}>
           <Box>
             <Typography component="h1" sx={{ fontSize: { xs: fontSizes['3xl'], sm: fontSizes['5xl'] }, fontWeight: 800, letterSpacing: '-.01em', lineHeight: 1.25, textWrap: 'pretty' }}>
-              {STEP_TITLES[step]}
+              {title}
             </Typography>
-            <Typography sx={{ mt: 0.75, fontSize: fontSizes.sm, color: 'text.secondary', lineHeight: 1.5 }}>{STEP_SUBTITLES[step]}</Typography>
+            <Typography sx={{ mt: 0.75, fontSize: fontSizes.sm, color: 'text.secondary', lineHeight: 1.5 }}>{subtitle}</Typography>
           </Box>
 
-          {step === 0 && (
+          {current.kind === 'patient' && (
             <Box sx={optionGrid(220)}>
               <Field label="Nome da paciente">
                 <TextInput value={patient.name} readOnly inputProps={{ 'aria-readonly': true }} sx={{ minHeight: 46, borderRadius: '12px', color: 'text.secondary' }} />
@@ -256,7 +330,7 @@ export function SkinAnamnesisWizard({ patient, routine, onSaved }: SkinAnamnesis
             </Box>
           )}
 
-          {step === 1 && (
+          {current.kind === 'core' && current.key === 'pele' && (
             <Box sx={optionGrid(210)}>
               {SKIN_TYPES.map(([k, label, desc]) => (
                 <OptionCard key={k} selected={answers.pele === k} onClick={() => setAns('pele', k)} label={label} desc={desc} />
@@ -264,7 +338,7 @@ export function SkinAnamnesisWizard({ patient, routine, onSaved }: SkinAnamnesis
             </Box>
           )}
 
-          {step === 2 && (
+          {current.kind === 'core' && current.key === 'afec' && (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.75 }}>
               <Box sx={optionGrid(190)}>
                 {SKIN_CONDITIONS.map(([k, label]) => (
@@ -279,7 +353,7 @@ export function SkinAnamnesisWizard({ patient, routine, onSaved }: SkinAnamnesis
             </Box>
           )}
 
-          {step === 3 && (
+          {current.kind === 'core' && current.key === 'olheira' && (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.25 }}>
               <Box sx={optionGrid(180)}>
                 {(
@@ -310,7 +384,7 @@ export function SkinAnamnesisWizard({ patient, routine, onSaved }: SkinAnamnesis
             </Box>
           )}
 
-          {step === 4 && (
+          {current.kind === 'core' && current.key === 'idade' && (
             <Box sx={optionGrid(160)}>
               {AGE_RANGES.map(([k, label]) => {
                 const selected = answers.idade === k;
@@ -351,11 +425,19 @@ export function SkinAnamnesisWizard({ patient, routine, onSaved }: SkinAnamnesis
             </Box>
           )}
 
-          {step === 5 && (
+          {current.kind === 'extra' && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+              {current.questions.map((q) => (
+                <QuestionField key={q.key} question={q} value={answers.extra?.[q.key]} onChange={(v) => setExtra(q.key, v)} />
+              ))}
+            </Box>
+          )}
+
+          {current.kind === 'review' && (
             <Box sx={{ display: 'flex', flexDirection: 'column', border: 1, borderColor: 'divider', borderRadius: '14px', overflow: 'hidden' }}>
               {reviewRows.map((r) => (
                 <Box
-                  key={r.label}
+                  key={r.key}
                   sx={{
                     display: 'flex',
                     flexWrap: 'wrap',
@@ -420,7 +502,7 @@ export function SkinAnamnesisWizard({ patient, routine, onSaved }: SkinAnamnesis
           <Button
             onClick={() => {
               setPhase('wizard');
-              setStep(5);
+              setStep(reviewStep);
               setFromReview(false);
             }}
             sx={{ ...BUTTON_SX, color: 'text.secondary' }}

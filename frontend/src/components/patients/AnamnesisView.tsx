@@ -4,9 +4,20 @@ import FitnessCenterOutlinedIcon from '@mui/icons-material/FitnessCenterOutlined
 import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
 import StraightenOutlinedIcon from '@mui/icons-material/StraightenOutlined';
 import { Box, Grid, Paper, Stack, Typography, alpha } from '@mui/material';
-import type { ReactNode } from 'react';
+import { useMemo, type ReactNode } from 'react';
 
-import { ANAMNESIS_SECTIONS, calcIMC, hasAnamnesisData, imcClassificacao, imcColor } from './anamnesisFields';
+import { useAnamnesisQuestions } from '../../hooks/useAnamnesisQuestions';
+import {
+  MEASUREMENTS_SECTION,
+  anamnesisSections,
+  calcIMC,
+  formatAnswer,
+  hasAnamnesisData,
+  hasAnswer,
+  imcClassificacao,
+  imcColor,
+  type AnamnesisSection,
+} from './anamnesisFields';
 import { fontSizes } from '../../theme/fontSizes';
 
 const SECTION_ICONS: Record<string, ReactNode> = {
@@ -126,25 +137,40 @@ function EmptyBlock({ message }: { message: string }) {
   );
 }
 
-function hasAnamnesisValue(value: unknown) {
-  return value !== '' && value !== false && value != null;
-}
-
-function formatAnamnesisValue(type: string | undefined, value: unknown, fieldDef?: { suffix?: string }) {
-  if (type === 'boolean') {
-    return value ? 'Sim' : 'Não';
-  }
-  if (type === 'number' && fieldDef?.suffix) {
-    return `${value} ${fieldDef.suffix}`;
-  }
-  return String(value);
-}
-
 interface AnamnesisViewProps {
   anamnesis?: Record<string, unknown> | null;
 }
 
+/**
+ * Respostas salvas cuja pergunta não está mais ativa na anamnese geral (desativada ou movida para a
+ * de pele). Só entram chaves que alguma pergunta cadastrada conhece; dados importados soltos ficam de fora.
+ */
+const PREVIOUS_ANSWERS_SECTION = 'Respostas anteriores';
+
+function previousAnswersSection(
+  anamnesis: Record<string, unknown>,
+  activeKeys: Set<string>,
+  labels: Map<string, string>,
+): AnamnesisSection | null {
+  const fields = Object.keys(anamnesis)
+    .filter((key) => !activeKeys.has(key) && labels.has(key) && hasAnswer(anamnesis[key]))
+    .map((key) => ({ key, label: labels.get(key)!, type: 'text' as const }));
+  return fields.length ? { title: PREVIOUS_ANSWERS_SECTION, fields } : null;
+}
+
 export function AnamnesisView({ anamnesis }: AnamnesisViewProps) {
+  const { data: general = [] } = useAnamnesisQuestions('GENERAL');
+  const { data: skin = [] } = useAnamnesisQuestions('SKIN');
+
+  const sections = useMemo(() => {
+    const active = anamnesisSections(general);
+    if (!anamnesis) return active;
+    const activeKeys = new Set(active.flatMap((s) => s.fields.map((f) => f.key)));
+    const labels = new Map([...skin, ...general].map((q) => [q.key, q.label]));
+    const previous = previousAnswersSection(anamnesis, activeKeys, labels);
+    return previous ? [...active, previous] : active;
+  }, [general, skin, anamnesis]);
+
   if (!hasAnamnesisData(anamnesis)) {
     return <EmptyBlock message="Nenhuma anamnese registrada." />;
   }
@@ -153,10 +179,10 @@ export function AnamnesisView({ anamnesis }: AnamnesisViewProps) {
 
   return (
     <Stack spacing={2.5}>
-      {ANAMNESIS_SECTIONS.map((section) => {
+      {sections.map((section) => {
         const infoFields = section.fields.filter((f) => f.type !== 'boolean');
         const boolFields = section.fields.filter((f) => f.type === 'boolean');
-        const isMedidas = section.title === 'Medidas corporais';
+        const isMedidas = section.title === MEASUREMENTS_SECTION;
         return (
           <Paper
             key={section.title}
@@ -181,11 +207,16 @@ export function AnamnesisView({ anamnesis }: AnamnesisViewProps) {
             >
               {section.title}
             </Typography>
+            {section.title === PREVIOUS_ANSWERS_SECTION && (
+              <Typography sx={{ fontSize: fontSizes.xs, color: 'text.secondary', mt: -1, mb: 1.75 }}>
+                Perguntas que saíram da anamnese geral (desativadas ou movidas para a anamnese de pele).
+              </Typography>
+            )}
 
             {infoFields.length > 0 && (
               <Grid container spacing={2}>
                 {infoFields.map((field) => {
-                  const filled = hasAnamnesisValue(anamnesis![field.key]);
+                  const filled = hasAnswer(anamnesis![field.key]);
                   return (
                     <Grid item key={field.key} xs={12} sm={field.fullWidth ? 12 : 6}>
                       <Typography
@@ -209,7 +240,7 @@ export function AnamnesisView({ anamnesis }: AnamnesisViewProps) {
                           color: filled ? 'text.primary' : 'text.disabled',
                         }}
                       >
-                        {filled ? formatAnamnesisValue(field.type, anamnesis![field.key], field) : '—'}
+                        {filled ? formatAnswer(field, anamnesis![field.key]) : '—'}
                       </Typography>
                     </Grid>
                   );
