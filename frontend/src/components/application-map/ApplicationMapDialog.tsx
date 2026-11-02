@@ -32,15 +32,19 @@ export function ApplicationMapDialog({
   onClose,
   points,
   setPoints,
-  defaultProduct,
+  products,
   defaultRegion,
+  regionLocked,
 }: {
   open: boolean;
   onClose: () => void;
   points: ApplicationMapPoint[];
   setPoints: Dispatch<SetStateAction<ApplicationMapPoint[]>>;
-  defaultProduct: ApplicationMapProduct;
+  /** Produtos do atendimento; vazio lista todos. */
+  products: ApplicationMapProduct[];
   defaultRegion: Region;
+  /** Esconde Facial/Corporal quando os procedimentos são de uma região só. */
+  regionLocked: boolean;
 }) {
   const isMobile = useMediaQuery(useTheme().breakpoints.down('sm'));
 
@@ -65,8 +69,9 @@ export function ApplicationMapDialog({
         onClose={onClose}
         points={points}
         setPoints={setPoints}
-        defaultProduct={defaultProduct}
+        products={products}
         defaultRegion={defaultRegion}
+        regionLocked={regionLocked}
         isMobile={isMobile}
       />
     </Dialog>
@@ -77,21 +82,29 @@ function ApplicationMapEditor({
   onClose,
   points,
   setPoints,
-  defaultProduct,
+  products,
   defaultRegion,
+  regionLocked,
   isMobile,
 }: {
   onClose: () => void;
   points: ApplicationMapPoint[];
   setPoints: Dispatch<SetStateAction<ApplicationMapPoint[]>>;
-  defaultProduct: ApplicationMapProduct;
+  products: ApplicationMapProduct[];
   defaultRegion: Region;
+  regionLocked: boolean;
   isMobile: boolean;
 }) {
-  const [product, setProduct] = useState<ApplicationMapProduct>(defaultProduct);
+  const [product, setProduct] = useState<ApplicationMapProduct>(products[0] ?? 'toxin');
   const [view, setView] = useState<ApplicationMapView>(defaultRegion === 'body' ? 'body' : 'front');
   const [selected, setSelected] = useState<number | null>(null);
   const region: Region = view === 'body' ? 'body' : 'face';
+
+  /** Pontos já marcados com outro produto mantêm a linha dele no resumo. */
+  const productRows =
+    products.length === 0
+      ? MAP_PRODUCTS
+      : MAP_PRODUCTS.filter((p) => products.includes(p.id) || points.some((point) => point.product === p.id));
 
   const changeView = (next: ApplicationMapView) => {
     setView(next);
@@ -109,34 +122,36 @@ function ApplicationMapEditor({
 
       <DialogContent sx={{ px: { xs: 2, sm: 3 }, py: { xs: 2, sm: 2.5 }, '&&': { pt: { xs: 2, sm: 2.5 } } }}>
         <Stack spacing={1.75}>
-          <Stack
-            direction="row"
-            spacing={0.5}
-            sx={{ bgcolor: 'grey.100', p: 0.5, borderRadius: '11px', alignSelf: 'flex-start' }}
-          >
-            {REGIONS.map((r) => {
-              const active = r.key === region;
-              return (
-                <ButtonBase
-                  key={r.key}
-                  aria-pressed={active}
-                  onClick={() => changeView(r.key === 'body' ? 'body' : 'front')}
-                  sx={{
-                    height: 36,
-                    px: 2.5,
-                    fontSize: fontSizes.sm,
-                    fontWeight: 700,
-                    borderRadius: '9px',
-                    bgcolor: active ? 'background.paper' : 'transparent',
-                    color: active ? 'primary.main' : 'text.secondary',
-                    boxShadow: active ? 1 : 'none',
-                  }}
-                >
-                  {r.label}
-                </ButtonBase>
-              );
-            })}
-          </Stack>
+          {!regionLocked && (
+            <Stack
+              direction="row"
+              spacing={0.5}
+              sx={{ bgcolor: 'grey.100', p: 0.5, borderRadius: '11px', alignSelf: 'flex-start' }}
+            >
+              {REGIONS.map((r) => {
+                const active = r.key === region;
+                return (
+                  <ButtonBase
+                    key={r.key}
+                    aria-pressed={active}
+                    onClick={() => changeView(r.key === 'body' ? 'body' : 'front')}
+                    sx={{
+                      height: 36,
+                      px: 2.5,
+                      fontSize: fontSizes.sm,
+                      fontWeight: 700,
+                      borderRadius: '9px',
+                      bgcolor: active ? 'background.paper' : 'transparent',
+                      color: active ? 'primary.main' : 'text.secondary',
+                      boxShadow: active ? 1 : 'none',
+                    }}
+                  >
+                    {r.label}
+                  </ButtonBase>
+                );
+              })}
+            </Stack>
+          )}
 
           <Box
             sx={{
@@ -175,7 +190,7 @@ function ApplicationMapEditor({
             />
 
             <Stack spacing={1.1}>
-              {MAP_PRODUCTS.map((p) => {
+              {productRows.map((p) => {
                 const active = p.id === product;
                 const count = points.filter((point) => point.product === p.id).length;
                 return (

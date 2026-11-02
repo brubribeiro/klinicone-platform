@@ -33,7 +33,7 @@ import { useAppToast } from '../../contexts/AppToastContext';
 import { usePermissions } from '../../contexts/usePermissions';
 import { DialogHeader } from '../DialogCloseButton';
 import { ApplicationMapDialog } from '../application-map/ApplicationMapDialog';
-import { guessProduct } from '../application-map/applicationMapModel';
+import { guessProducts } from '../application-map/applicationMapModel';
 import { SendWhatsAppDialog } from '../messages/SendWhatsAppDialog';
 import { PatientDetailDrawer } from '../patients/PatientDetailDrawer';
 import { SkinAnamnesisDialog } from '../skincare/SkinAnamnesisDialog';
@@ -310,9 +310,10 @@ export function AppointmentFormDialog({
     selectedKind === 'PROCEDURE' &&
     (selectedProcedures.some((p) => p.applicationMap) || initialMapPoints.length > 0);
   const mapProcedures = selectedProcedures.filter((p) => p.applicationMap);
-  const mapDefaultProduct = guessProduct(mapProcedures.map((p) => p.name));
-  const mapDefaultRegion =
-    mapProcedures.length > 0 && mapProcedures.every((p) => p.category === 'Corporal') ? 'body' : 'face';
+  const mapProducts = guessProducts(mapProcedures.map((p) => p.name));
+  const mapRegions = [
+    ...new Set(mapProcedures.map((p): 'face' | 'body' => (p.category === 'Corporal' ? 'body' : 'face'))),
+  ];
 
   const { data: activePatientPackages = [] } = useQuery({
     queryKey: ['patient-packages-active', selectedPatientId],
@@ -1111,8 +1112,9 @@ export function AppointmentFormDialog({
           onClose={() => setMapOpen(false)}
           points={mapPoints}
           setPoints={setMapPoints}
-          defaultProduct={mapDefaultProduct}
-          defaultRegion={mapDefaultRegion}
+          products={mapProducts}
+          defaultRegion={mapRegions.length === 1 ? mapRegions[0] : 'face'}
+          regionLocked={mapRegions.length === 1}
         />
       )}
 

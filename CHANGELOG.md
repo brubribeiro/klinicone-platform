@@ -5,6 +5,7 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 ## [Unreleased]
 
 ### Changed
+- Atendimento — **Mapa de aplicação** segue o protótipo Aurora: sai da seção 6 do formulário para um atalho na coluna lateral que abre modal própria com imagens do rosto (frente, perfil esquerdo e direito) e do corpo, zoom, produtos com cor e quantidade por ponto (U/ml) e total por produto; aberto do agendamento, lista só os produtos do procedimento e esconde Facial/Corporal quando a região é única. Pontos ganham `product`, `qty` e `view` opcionais no JSON `applicationMap` (sem migration).
 - Assistente de ajuda: quando a documentação cobre a pergunta, a UI mostra só o trecho mais relevante como resposta (texto direto), sem legenda de fonte nem cards de excerpt — em vez de “Encontrei N trechos” (#99).
 
 ### Added

@@ -71,12 +71,12 @@ const NAME_HINTS: [RegExp, ApplicationMapProduct][] = [
   [/skin ?booster/, 'skinbooster'],
 ];
 
-/** Produto já selecionado ao abrir o mapa, deduzido do nome do primeiro procedimento reconhecido. */
-export function guessProduct(procedureNames: string[]): ApplicationMapProduct {
+/** Produtos do atendimento, deduzidos dos nomes dos procedimentos; vazio quando nenhum nome é reconhecido. */
+export function guessProducts(procedureNames: string[]): ApplicationMapProduct[] {
+  const found = new Set<ApplicationMapProduct>();
   for (const name of procedureNames) {
     const normalized = name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-    const hit = NAME_HINTS.find(([pattern]) => pattern.test(normalized));
-    if (hit) return hit[1];
+    for (const [pattern, product] of NAME_HINTS) if (pattern.test(normalized)) found.add(product);
   }
-  return 'toxin';
+  return MAP_PRODUCTS.map((p) => p.id).filter((id) => found.has(id));
 }
