@@ -60,6 +60,7 @@ model Tenant {
   patients                Patient[]
   patientPhotos           PatientPhoto[]
   patientMeasurements     PatientMeasurement[]
+  patientMeasurementValues PatientMeasurementValue[]
   procedures              Procedure[]
   procedureEquipments     ProcedureEquipment[]
   procedureMaterials      ProcedureMaterial[]
@@ -83,6 +84,8 @@ model Tenant {
   skincareProducts        SkincareProduct[]
   skincareRules           SkincareRule[]
   skincareRoutines        SkincareRoutine[]
+  anamnesisQuestions      AnamnesisQuestion[]
+  anamnesisLinks          AnamnesisLink[]
   feedbackReports         FeedbackReport[]
   platformAuditLogs       PlatformAuditLog[]
   apiRequestErrors        ApiRequestError[]
@@ -644,11 +647,73 @@ model Patient {
   skincareRoutines  SkincareRoutine[]
   measurements      PatientMeasurement[]
   messageDispatches MessageDispatch[]
+  anamnesisLinks    AnamnesisLink[]
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
   @@index([tenantId])
   @@map("patients")
+}
+
+// Perguntas da anamnese, por clínica. GENERAL = ficha da paciente (Patient.anamnesis);
+// SKIN = anamnese de pele (SkincareRoutine.answers). A chave é a das respostas salvas e não muda.
+enum AnamnesisKind {
+  GENERAL
+  SKIN
+}
+
+enum AnamnesisQuestionType {
+  TEXT
+  BOOLEAN
+  SINGLE_CHOICE
+  MULTIPLE_CHOICE
+  NUMBER
+}
+
+model AnamnesisQuestion {
+  id        String                @id @default(uuid())
+  tenantId  String                @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  kind      AnamnesisKind
+  key       String
+  label     String
+  type      AnamnesisQuestionType
+  options   String[]              @default([])
+  section   String? // agrupamento no formulário (ex.: "Saúde geral")
+  placeholder String?
+  required  Boolean               @default(false)
+  sortOrder Int                   @default(0)
+  active    Boolean               @default(true)
+  // Pergunta usada por regra do sistema (peso/altura, perguntas que geram a rotina): só texto e ordem editáveis
+  system    Boolean               @default(false)
+  createdAt DateTime              @default(now())
+  updatedAt DateTime              @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@unique([tenantId, kind, key])
+  @@index([tenantId])
+  @@map("anamnesis_questions")
+}
+
+// Link público para a paciente preencher a anamnese geral. Guarda só o hash do token.
+model AnamnesisLink {
+  id          String    @id @default(uuid())
+  tenantId    String    @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  patientId   String
+  tokenHash   String    @unique
+  expiresAt   DateTime
+  usedAt      DateTime?
+  revokedAt   DateTime?
+  createdById String?
+  createdAt   DateTime  @default(now())
+
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@index([patientId])
+  @@index([tenantId])
+  @@map("anamnesis_links")
 }
 
 // Fotos "antes e depois" do paciente (armazenadas comprimidas no R2).
@@ -689,17 +754,16 @@ model PatientMeasurement {
   patientId     String
   appointmentId String? // consulta em que as medidas foram tomadas (opcional)
   measuredAt    DateTime
+  // Tipos básicos (MeasurementType.key); as demais medidas ficam em PatientMeasurementValue
   weightKg      Decimal?     @db.Decimal(5, 2)
   heightCm      Decimal?     @db.Decimal(5, 1)
-  waistCm       Decimal?     @db.Decimal(5, 1)
-  abdomenCm     Decimal?     @db.Decimal(5, 1)
-  hipCm         Decimal?     @db.Decimal(5, 1)
   notes         String?
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 
-  patient     Patient      @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  appointment Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  patient     Patient                   @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  appointment Appointment?              @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  values      PatientMeasurementValue[]
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
@@ -707,6 +771,44 @@ model PatientMeasurement {
   @@index([appointmentId])
   @@index([tenantId])
   @@map("patient_measurements")
+}
+
+// Catálogo global (sem tenantId) dos tipos de medida corporal; só o super-admin edita em /admin.
+// Peso e altura são básicos (key preenchida): gravados nas colunas de PatientMeasurement, não removíveis.
+model MeasurementType {
+  id        String   @id @default(uuid())
+  // weightKg | heightCm nos básicos; null nos cadastrados pelo admin
+  key       String?  @unique
+  name      String
+  unit      String
+  sortOrder Int      @default(0)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  values PatientMeasurementValue[]
+
+  @@index([active, sortOrder])
+  @@map("measurement_types")
+}
+
+// Valor de um tipo de medida não básico numa medição. Tipo com valores não pode ser excluído, só desativado.
+model PatientMeasurementValue {
+  id            String  @id @default(uuid())
+  tenantId      String  @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  measurementId String
+  typeId        String
+  value         Decimal @db.Decimal(7, 2)
+
+  measurement PatientMeasurement @relation(fields: [measurementId], references: [id], onDelete: Cascade)
+  type        MeasurementType    @relation(fields: [typeId], references: [id], onDelete: Restrict)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@unique([measurementId, typeId])
+  @@index([typeId])
+  @@index([tenantId])
+  @@map("patient_measurement_values")
 }
 
 // =========================

@@ -9,7 +9,7 @@ import type { ReactNode } from 'react';
 import type { PatientWithHistory } from '../../api/patients';
 import type { Appointment } from '../../types';
 import { fontSizes } from '../../theme/fontSizes';
-import { ANAMNESIS_SECTIONS } from './anamnesisFields';
+import { useAnamnesisQuestions } from '../../hooks/useAnamnesisQuestions';
 
 function HeaderIcon({ children }: { children: ReactNode }) {
   return (
@@ -96,7 +96,8 @@ export function PatientOverviewTab({
     .sort((a, b) => dayjs(b.startAt).valueOf() - dayjs(a.startAt).valueOf())[0];
 
   const anamnesis: Record<string, any> = data.anamnesis ?? {};
-  const boolFields = ANAMNESIS_SECTIONS.flatMap((s) => s.fields).filter((f) => f.type === 'boolean');
+  const { data: questions = [] } = useAnamnesisQuestions('GENERAL');
+  const boolFields = questions.filter((q) => q.active && q.type === 'BOOLEAN');
   const activeConditions = boolFields.filter((f) => !!anamnesis[f.key]);
   const allergyEntries = [
     { label: 'Alergia a medicamentos', v: anamnesis.alergiasMedicamentos },

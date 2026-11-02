@@ -67,6 +67,7 @@ export const NAV_GROUPS: NavGroup[] = [
     title: 'Configurações',
     items: [
       { label: 'Mensagens', path: '/mensagens', icon: <AuroraIcon name="mensagens" />, permission: 'messages:view', feature: 'messages' },
+      { label: 'Anamnese', path: '/perguntas-anamnese', icon: <AuroraIcon name="documentos" />, adminOnly: true },
       { label: 'Grupos', path: '/grupos', icon: <AuroraIcon name="permissoes" />, permission: 'roles:view' },
       { label: 'Meu plano', path: '/meu-plano', icon: <AuroraIcon name="pagamentos" />, adminOnly: true },
     ],

@@ -5,6 +5,7 @@ import type {
   AdminPlan,
   AdminTenant,
   AdminTenantDetail,
+  MeasurementType,
   PlanLimits,
   PlatformAnnouncement,
   AnnouncementKind,
@@ -194,6 +195,37 @@ export const adminApi = {
       `/admin/catalogs/${id}/${active ? 'activate' : 'deactivate'}`,
     );
     return data;
+  },
+
+  listMeasurementTypes: async (): Promise<MeasurementType[]> => {
+    const { data } = await api.get<MeasurementType[]>('/admin/measurement-types');
+    return data;
+  },
+
+  createMeasurementType: async (payload: { name: string; unit: string }): Promise<MeasurementType> => {
+    const { data } = await api.post<MeasurementType>('/admin/measurement-types', payload);
+    return data;
+  },
+
+  updateMeasurementType: async (id: string, payload: { name?: string; unit?: string }): Promise<MeasurementType> => {
+    const { data } = await api.patch<MeasurementType>(`/admin/measurement-types/${id}`, payload);
+    return data;
+  },
+
+  reorderMeasurementTypes: async (ids: string[]): Promise<MeasurementType[]> => {
+    const { data } = await api.put<MeasurementType[]>('/admin/measurement-types/order', { ids });
+    return data;
+  },
+
+  setMeasurementTypeActive: async (id: string, active: boolean): Promise<MeasurementType> => {
+    const { data } = await api.post<MeasurementType>(
+      `/admin/measurement-types/${id}/${active ? 'activate' : 'deactivate'}`,
+    );
+    return data;
+  },
+
+  removeMeasurementType: async (id: string): Promise<void> => {
+    await api.delete(`/admin/measurement-types/${id}`);
   },
 
   getUsage: async (params: { from?: string; to?: string; tenantId?: string } = {}): Promise<PlatformUsage> => {

@@ -28,6 +28,7 @@ import { FeedbackModule } from './feedback/feedback.module';
 import { GoalsModule } from './goals/goals.module';
 import { PendenciasModule } from './pendencias/pendencias.module';
 import { SkincareModule } from './skincare/skincare.module';
+import { AnamnesisModule } from './anamnesis/anamnesis.module';
 import { SchedulerModule } from './scheduler/scheduler.module';
 import { AuditLogModule } from './audit-log/audit-log.module';
 import { AdminModule } from './admin/admin.module';
@@ -71,6 +72,7 @@ import { AppController } from './app.controller';
     GoalsModule,
     PendenciasModule,
     SkincareModule,
+    AnamnesisModule,
     SchedulerModule,
     AuditLogModule,
     AdminModule,

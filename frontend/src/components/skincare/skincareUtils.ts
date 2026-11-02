@@ -1,5 +1,6 @@
 import { getCatalogItems } from '../../features/platformCatalog';
 import type {
+  AnamnesisQuestion,
   PlatformCatalogOption,
   SkinAnswers,
   SkincareAvoided,
@@ -120,14 +121,52 @@ export function toggleCondition(current: string[], key: string): string[] {
   return rest.includes(key) ? rest.filter((k) => k !== key) : [...rest, key];
 }
 
-/** Etapa 0 a 4 do assistente pode avançar? (a 5 é a revisão) */
+/** As quatro perguntas que geram a rotina (chaves fixas das regras), na ordem padrão. */
+export const SKIN_CORE_KEYS = ['pele', 'afec', 'olheira', 'idade'] as const;
+export type SkinCoreKey = (typeof SKIN_CORE_KEYS)[number];
+
+export function canAdvanceCore(key: SkinCoreKey, a: SkinAnswers): boolean {
+  if (key === 'pele') return !!a.pele;
+  if (key === 'afec') return a.afec.length > 0 && (!a.afec.includes('outra') || !!a.afecOutra.trim());
+  if (key === 'olheira') return a.olheira === 'nao' || (a.olheira === 'sim' && !!a.olheiraTipo);
+  return !!a.idade;
+}
+
+/** Etapa 0 a 4 do assistente padrão pode avançar? (a 5 é a revisão) */
 export function canAdvance(step: number, a: SkinAnswers, hasPatient: boolean, consultDate: string): boolean {
   if (step === 0) return hasPatient && !!consultDate;
-  if (step === 1) return !!a.pele;
-  if (step === 2) return a.afec.length > 0 && (!a.afec.includes('outra') || !!a.afecOutra.trim());
-  if (step === 3) return a.olheira === 'nao' || (a.olheira === 'sim' && !!a.olheiraTipo);
-  if (step === 4) return !!a.idade;
-  return true;
+  const key = SKIN_CORE_KEYS[step - 1];
+  return key ? canAdvanceCore(key, a) : true;
+}
+
+export type SkinWizardStep =
+  | { kind: 'patient' }
+  | { kind: 'core'; key: SkinCoreKey; title: string }
+  | { kind: 'extra'; questions: AnamnesisQuestion[] }
+  | { kind: 'review' };
+
+const isCoreKey = (key: string): key is SkinCoreKey => (SKIN_CORE_KEYS as readonly string[]).includes(key);
+
+/**
+ * Etapas do assistente na ordem cadastrada: cada pergunta que gera a rotina é uma etapa; perguntas
+ * da clínica em sequência dividem uma etapa. Sem cadastro carregado, usa as quatro perguntas padrão.
+ */
+export function buildSkinWizardSteps(questions: AnamnesisQuestion[] | undefined, defaultTitles: Record<SkinCoreKey, string>): SkinWizardStep[] {
+  const steps: SkinWizardStep[] = [{ kind: 'patient' }];
+  const list = questions?.length
+    ? questions.filter((q) => q.active || isCoreKey(q.key))
+    : SKIN_CORE_KEYS.map((key) => ({ key, label: defaultTitles[key] }) as AnamnesisQuestion);
+  for (const q of list) {
+    if (isCoreKey(q.key)) {
+      steps.push({ kind: 'core', key: q.key, title: q.label || defaultTitles[q.key] });
+      continue;
+    }
+    const last = steps[steps.length - 1];
+    if (last.kind === 'extra') last.questions.push(q);
+    else steps.push({ kind: 'extra', questions: [q] });
+  }
+  steps.push({ kind: 'review' });
+  return steps;
 }
 
 export function conditionsText(a: SkinAnswers): string {

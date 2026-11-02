@@ -120,6 +120,12 @@ export type PlatformAuditAction =
   | 'CATALOG_UPDATE'
   | 'CATALOG_ACTIVATE'
   | 'CATALOG_DEACTIVATE'
+  | 'MEASUREMENT_TYPE_CREATE'
+  | 'MEASUREMENT_TYPE_UPDATE'
+  | 'MEASUREMENT_TYPE_REORDER'
+  | 'MEASUREMENT_TYPE_ACTIVATE'
+  | 'MEASUREMENT_TYPE_DEACTIVATE'
+  | 'MEASUREMENT_TYPE_DELETE'
   | 'FEEDBACK_STATUS_CHANGE'
   | 'ANNOUNCEMENT_GENERATE'
   | 'ANNOUNCEMENT_CREATE'
@@ -282,6 +288,27 @@ export interface PatientPhoto {
   } | null;
 }
 
+/** Tipo de medida corporal do catálogo da plataforma (peso e altura são básicos: `key` preenchida). */
+export interface MeasurementType {
+  id: string;
+  key: 'weightKg' | 'heightCm' | null;
+  name: string;
+  unit: string;
+  sortOrder: number;
+  active?: boolean;
+  /** Só no /admin: quantos valores já foram registrados */
+  valuesCount?: number;
+}
+
+export interface PatientMeasurementValue {
+  typeId: string;
+  value: number;
+  name: string;
+  unit: string;
+  sortOrder: number;
+  active: boolean;
+}
+
 export interface PatientMeasurement {
   id: string;
   patientId: string;
@@ -289,9 +316,8 @@ export interface PatientMeasurement {
   measuredAt: string;
   weightKg: number | null;
   heightCm: number | null;
-  waistCm: number | null;
-  abdomenCm: number | null;
-  hipCm: number | null;
+  /** Medidas não básicas do catálogo (inclui tipos já desativados) */
+  values: PatientMeasurementValue[];
   notes?: string | null;
   createdAt: string;
   appointment?: {
@@ -990,6 +1016,8 @@ export interface SkinAnswers {
   olheira: '' | 'sim' | 'nao';
   olheiraTipo: string;
   idade: string;
+  /** Respostas das perguntas cadastradas pela clínica (além das quatro que geram a rotina). */
+  extra?: Record<string, AnamnesisAnswerValue>;
 }
 
 /** Produto na rotina, copiado do catálogo no momento em que a rotina foi gerada. */
@@ -1029,4 +1057,34 @@ export interface SkincareRoutine {
   createdByName: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+// ---------- Anamnese cadastrável ----------
+
+export type AnamnesisKind = 'GENERAL' | 'SKIN';
+export type AnamnesisQuestionType = 'TEXT' | 'BOOLEAN' | 'SINGLE_CHOICE' | 'MULTIPLE_CHOICE' | 'NUMBER';
+export type AnamnesisAnswerValue = string | number | boolean | string[];
+
+export interface AnamnesisQuestion {
+  id: string;
+  kind: AnamnesisKind;
+  /** Chave da resposta salva (não muda). */
+  key: string;
+  label: string;
+  type: AnamnesisQuestionType;
+  options: string[];
+  section: string | null;
+  placeholder: string | null;
+  required: boolean;
+  sortOrder: number;
+  active: boolean;
+  /** Usada por regra do sistema: só texto e ordem editáveis. */
+  system: boolean;
+}
+
+export interface PublicAnamnesisForm {
+  firstName: string;
+  clinicName: string | null;
+  expiresAt: string;
+  questions: Pick<AnamnesisQuestion, 'key' | 'label' | 'type' | 'options' | 'section' | 'placeholder' | 'required'>[];
 }

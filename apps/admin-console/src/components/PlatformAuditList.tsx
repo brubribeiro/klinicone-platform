@@ -25,6 +25,12 @@ export const PLATFORM_AUDIT_LABELS: Record<PlatformAuditAction, { label: string;
   CATALOG_UPDATE: { label: 'Editou o catálogo', color: '#5BA8DE' },
   CATALOG_ACTIVATE: { label: 'Ativou no catálogo', color: '#15998B' },
   CATALOG_DEACTIVATE: { label: 'Desativou no catálogo', color: '#C25A4C' },
+  MEASUREMENT_TYPE_CREATE: { label: 'Criou a medida', color: '#15998B' },
+  MEASUREMENT_TYPE_UPDATE: { label: 'Editou a medida', color: '#5BA8DE' },
+  MEASUREMENT_TYPE_REORDER: { label: 'Reordenou as medidas', color: '#5BA8DE' },
+  MEASUREMENT_TYPE_ACTIVATE: { label: 'Ativou a medida', color: '#15998B' },
+  MEASUREMENT_TYPE_DEACTIVATE: { label: 'Desativou a medida', color: '#C25A4C' },
+  MEASUREMENT_TYPE_DELETE: { label: 'Excluiu a medida', color: '#C25A4C' },
   FEEDBACK_STATUS_CHANGE: { label: 'Mudou o status do report', color: '#5BA8DE' },
   ANNOUNCEMENT_GENERATE: { label: 'Gerou avisos do release', color: '#9B7BD4' },
   ANNOUNCEMENT_CREATE: { label: 'Criou o aviso', color: '#15998B' },
@@ -47,6 +53,7 @@ const FIELD_LABELS: Record<string, string> = {
   label: 'rótulo',
   sortOrder: 'ordem',
   meta: 'meta',
+  unit: 'unidade',
 };
 
 type PlanRef = { name?: string } | null | undefined;
@@ -79,7 +86,8 @@ export function auditDetailsText(entry: PlatformAuditLog): string | null {
           return `${FIELD_LABELS[field] ?? field}: ${changeValue(field, c.old)} → ${changeValue(field, c.new)}`;
         })
         .join(' · ');
-    case 'CATALOG_UPDATE': {
+    case 'CATALOG_UPDATE':
+    case 'MEASUREMENT_TYPE_UPDATE': {
       const parts = Object.entries(d)
         .filter(([, change]) => change && typeof change === 'object' && 'old' in (change as object))
         .map(([field, change]) => {
@@ -110,6 +118,10 @@ export function auditDetailsText(entry: PlatformAuditLog): string | null {
       return d.reason ? `Motivo: ${String(d.reason)}` : null;
     case 'TENANT_ENTER':
       return d.suspended ? 'Clínica estava suspensa' : null;
+    case 'MEASUREMENT_TYPE_CREATE':
+      return d.unit ? `Unidade: ${String(d.unit)}` : null;
+    case 'MEASUREMENT_TYPE_REORDER':
+      return Array.isArray(d.new) ? `Nova ordem: ${d.new.join(', ')}` : null;
     case 'CATALOG_CREATE':
       return [d.kind, d.value, d.label].filter(Boolean).map(String).join(' · ') || null;
     case 'FEEDBACK_STATUS_CHANGE': {
