@@ -46,7 +46,6 @@ export type SectionKey =
   | 'schedule'
   | 'package'
   | 'materials'
-  | 'applicationMap'
   | 'notes';
 
 export const statusOptions: { value: AppointmentStatus; label: string }[] = [
@@ -107,6 +106,13 @@ export function normalizeExtraMaterials(rows: ExtraMaterialRow[]) {
 export function normalizeApplicationMapPoints(points: ApplicationMapPoint[]): ApplicationMapPoint[] {
   return points.map((p) => {
     const note = p.note?.trim();
-    return { x: p.x, y: p.y, ...(note ? { note } : {}) };
+    return {
+      x: p.x,
+      y: p.y,
+      ...(note ? { note } : {}),
+      ...(p.product ? { product: p.product } : {}),
+      ...(p.qty !== undefined ? { qty: p.qty } : {}),
+      ...(p.view ? { view: p.view } : {}),
+    };
   });
 }
