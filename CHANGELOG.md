@@ -4,6 +4,10 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ## [Unreleased]
 
+### Fixed
+
+- Modal "Anamnese de pele" aberta sobre "Editar agendamento" agora é menor (~90%) que a de baixo, com sombra mais forte e margem visível, para ler como camada sobreposta; também inset no mobile.
+
 ## [0.2.1] - 2026-10-26
 
 ### Security
