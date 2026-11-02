@@ -15,13 +15,14 @@ import { AppointmentFormDialog } from '../components/appointments/AppointmentFor
 import { usePermissions } from '../contexts/usePermissions';
 import type { Appointment } from '../types';
 import { useAgendaData } from '../components/appointments/useAgendaData';
+import { useElementWidth } from '../components/appointments/useElementWidth';
 import { useCalendarKeyboardScroll } from '../components/appointments/useCalendarKeyboardScroll';
 import { PendingAppointmentsBanner } from '../components/appointments/PendingAppointmentsBanner';
 import { AgendaToolbar } from '../components/appointments/AgendaToolbar';
 import { AgendaStatusLegend } from '../components/appointments/AgendaStatusLegend';
 import { AgendaCalendarSkeleton } from '../components/appointments/AgendaCalendarSkeleton';
 import { agendaCalendarSx } from '../components/appointments/agendaCalendarSx';
-import { AGENDA_VIEWS } from '../components/appointments/agendaConfig';
+import { AGENDA_VIEWS, agendaMaxStack } from '../components/appointments/agendaConfig';
 import { renderAgendaDayHeader, renderAgendaEventContent } from '../components/appointments/agendaCalendarContent';
 
 const AGENDA_VIEW_CODEC = urlEnum(AGENDA_VIEWS.map((v) => v.view));
@@ -32,6 +33,8 @@ export function Appointments() {
   const { has, restrictToOwnAppointments } = usePermissions();
   const canCreate = has('appointments:create');
   const calendarRef = useRef<FullCalendar | null>(null);
+  const cardRef = useRef<HTMLDivElement | null>(null);
+  const cardWidth = useElementWidth(cardRef);
   const [currentView, setCurrentView] = useUrlState(
     'visao',
     isMobile ? 'timeGridDay' : 'timeGridWeek',
@@ -144,6 +147,7 @@ export function Appointments() {
       <AgendaStatusLegend />
 
       <Card
+        ref={cardRef}
         tabIndex={0}
         data-tour="agenda-calendar"
         role="region"
@@ -170,6 +174,11 @@ export function Appointments() {
           selectable
           selectMirror
           dayMaxEvents
+          // Simultâneos ficam lado a lado (sem cascata por cima); o que não cabe vira "+N mais" com popover.
+          slotEventOverlap={false}
+          eventMaxStack={agendaMaxStack(cardWidth, currentView)}
+          moreLinkContent={(arg) => `+${arg.num} mais`}
+          moreLinkClick="popover"
           firstDay={1}
           events={events}
           datesSet={handleDatesSet}
