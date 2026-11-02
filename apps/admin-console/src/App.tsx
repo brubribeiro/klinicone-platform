@@ -6,6 +6,7 @@ import { AdminAnnouncements } from './pages/AdminAnnouncements';
 import { AdminAudit } from './pages/AdminAudit';
 import { AdminCatalogs } from './pages/AdminCatalogs';
 import { AdminFeedback } from './pages/AdminFeedback';
+import { AdminMeasurementTypes } from './pages/AdminMeasurementTypes';
 import { AdminObservability } from './pages/AdminObservability';
 import { AdminPlans } from './pages/AdminPlans';
 import { AdminTenantDetail } from './pages/AdminTenantDetail';
@@ -31,6 +32,7 @@ export default function AdminApp() {
         <Route path="clinicas/:id" element={<AdminTenantDetail />} />
         <Route path="planos" element={<AdminPlans />} />
         <Route path="catalogos" element={<AdminCatalogs />} />
+        <Route path="medidas" element={<AdminMeasurementTypes />} />
         <Route path="uso" element={<AdminUsage />} />
         <Route path="saude" element={<AdminObservability />} />
         <Route path="reports" element={<AdminFeedback />} />

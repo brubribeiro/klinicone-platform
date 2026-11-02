@@ -60,6 +60,7 @@ model Tenant {
   patients                Patient[]
   patientPhotos           PatientPhoto[]
   patientMeasurements     PatientMeasurement[]
+  patientMeasurementValues PatientMeasurementValue[]
   procedures              Procedure[]
   procedureEquipments     ProcedureEquipment[]
   procedureMaterials      ProcedureMaterial[]
@@ -689,17 +690,16 @@ model PatientMeasurement {
   patientId     String
   appointmentId String? // consulta em que as medidas foram tomadas (opcional)
   measuredAt    DateTime
+  // Tipos básicos (MeasurementType.key); as demais medidas ficam em PatientMeasurementValue
   weightKg      Decimal?     @db.Decimal(5, 2)
   heightCm      Decimal?     @db.Decimal(5, 1)
-  waistCm       Decimal?     @db.Decimal(5, 1)
-  abdomenCm     Decimal?     @db.Decimal(5, 1)
-  hipCm         Decimal?     @db.Decimal(5, 1)
   notes         String?
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 
-  patient     Patient      @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  appointment Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  patient     Patient                   @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  appointment Appointment?              @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  values      PatientMeasurementValue[]
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
@@ -707,6 +707,44 @@ model PatientMeasurement {
   @@index([appointmentId])
   @@index([tenantId])
   @@map("patient_measurements")
+}
+
+// Catálogo global (sem tenantId) dos tipos de medida corporal; só o super-admin edita em /admin.
+// Peso e altura são básicos (key preenchida): gravados nas colunas de PatientMeasurement, não removíveis.
+model MeasurementType {
+  id        String   @id @default(uuid())
+  // weightKg | heightCm nos básicos; null nos cadastrados pelo admin
+  key       String?  @unique
+  name      String
+  unit      String
+  sortOrder Int      @default(0)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  values PatientMeasurementValue[]
+
+  @@index([active, sortOrder])
+  @@map("measurement_types")
+}
+
+// Valor de um tipo de medida não básico numa medição. Tipo com valores não pode ser excluído, só desativado.
+model PatientMeasurementValue {
+  id            String  @id @default(uuid())
+  tenantId      String  @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
+  measurementId String
+  typeId        String
+  value         Decimal @db.Decimal(7, 2)
+
+  measurement PatientMeasurement @relation(fields: [measurementId], references: [id], onDelete: Cascade)
+  type        MeasurementType    @relation(fields: [typeId], references: [id], onDelete: Restrict)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@unique([measurementId, typeId])
+  @@index([typeId])
+  @@index([tenantId])
+  @@map("patient_measurement_values")
 }
 
 // =========================

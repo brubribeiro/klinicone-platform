@@ -1,5 +1,29 @@
 import { PartialType } from '@nestjs/mapped-types';
-import { IsDateString, IsNumber, IsOptional, IsString, IsUUID, MaxLength, Min, Max } from 'class-validator';
+import { Type } from 'class-transformer';
+import {
+  ArrayMaxSize,
+  IsArray,
+  IsDateString,
+  IsNumber,
+  IsOptional,
+  IsString,
+  IsUUID,
+  MaxLength,
+  Min,
+  Max,
+  ValidateNested,
+} from 'class-validator';
+
+export class MeasurementValueDto {
+  @IsUUID()
+  typeId: string;
+
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0.01)
+  @Max(99999)
+  value: number | null;
+}
 
 export class CreatePatientMeasurementDto {
   /** Data da medição; sem data, usa a do agendamento vinculado ou agora. */
@@ -23,23 +47,13 @@ export class CreatePatientMeasurementDto {
   @Max(260)
   heightCm?: number | null;
 
+  /** Tipos não básicos do catálogo; value null remove o valor. */
   @IsOptional()
-  @IsNumber({ maxDecimalPlaces: 1 })
-  @Min(10)
-  @Max(400)
-  waistCm?: number | null;
-
-  @IsOptional()
-  @IsNumber({ maxDecimalPlaces: 1 })
-  @Min(10)
-  @Max(400)
-  abdomenCm?: number | null;
-
-  @IsOptional()
-  @IsNumber({ maxDecimalPlaces: 1 })
-  @Min(10)
-  @Max(400)
-  hipCm?: number | null;
+  @IsArray()
+  @ArrayMaxSize(50)
+  @ValidateNested({ each: true })
+  @Type(() => MeasurementValueDto)
+  values?: MeasurementValueDto[];
 
   @IsOptional()
   @IsString()
