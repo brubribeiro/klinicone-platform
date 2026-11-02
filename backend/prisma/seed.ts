@@ -181,17 +181,65 @@ const demoProcedureMaterials: {
       { sku: 'MAT-018', quantity: 2 },
     ],
   },
+  {
+    procedureName: 'Botox',
+    materials: [
+      { sku: 'MAT-004', quantity: 1 },
+      { sku: 'MAT-012', quantity: 5 },
+      { sku: 'MAT-016', quantity: 8 },
+    ],
+  },
+  {
+    procedureName: 'Preenchimento labial',
+    materials: [
+      { sku: 'MAT-004', quantity: 1 },
+      { sku: 'MAT-012', quantity: 5 },
+      { sku: 'MAT-016', quantity: 8 },
+    ],
+  },
+  {
+    procedureName: 'Criolipólise',
+    materials: [
+      { sku: 'MAT-004', quantity: 1 },
+      { sku: 'MAT-016', quantity: 10 },
+      { sku: 'MAT-019', quantity: 4 },
+    ],
+  },
 ];
+
+/** Procedimentos demo — criados um a um se ainda não existirem (seed idempotente). */
+const defaultDemoProcedures = [
+  { name: 'Limpeza de pele', category: 'Facial', durationMinutes: 60, price: 150, recurrenceDays: 30 },
+  { name: 'Drenagem linfática', category: 'Corporal', durationMinutes: 50, price: 120, recurrenceDays: 15 },
+  { name: 'Peeling químico', category: 'Facial', durationMinutes: 45, price: 250, recurrenceDays: 45 },
+  { name: 'Microagulhamento', category: 'Facial', durationMinutes: 90, price: 350, recurrenceDays: 30 },
+  { name: 'Botox', category: 'Injetáveis', durationMinutes: 30, price: 890, recurrenceDays: 120, applicationMap: true },
+  { name: 'Preenchimento labial', category: 'Injetáveis', durationMinutes: 45, price: 1290, recurrenceDays: 365, applicationMap: true },
+  { name: 'Preenchimento malar', category: 'Injetáveis', durationMinutes: 50, price: 1890, recurrenceDays: 365, applicationMap: true },
+  { name: 'Criolipólise', category: 'Corporal', durationMinutes: 60, price: 450, recurrenceDays: 30 },
+  { name: 'Harmonização facial', category: 'Injetáveis', durationMinutes: 90, price: 2500, recurrenceDays: 180, applicationMap: true },
+  { name: 'Bioestimulador de colágeno', category: 'Injetáveis', durationMinutes: 40, price: 1590, recurrenceDays: 180 },
+  { name: 'Laser rejuvenescimento', category: 'Laser', durationMinutes: 45, price: 380, recurrenceDays: 30 },
+  { name: 'Depilação a laser — axilas', category: 'Laser', durationMinutes: 25, price: 120, recurrenceDays: 28 },
+] as const;
 
 const DEMO_DRENIAGEM_COUNT = 20;
 const DEMO_DRENIAGEM_NOTE_PREFIX = 'seedDemo:drenagem-linfatica';
 
 /** Agendamentos demo adicionais por procedimento (idempotentes via notes). */
 const demoProcedureAppointments = [
-  { procedureName: 'Limpeza de pele', count: 12, notePrefix: 'seedDemo:limpeza-de-pele', weekdayStart: -28 },
-  { procedureName: 'Peeling químico', count: 10, notePrefix: 'seedDemo:peeling-quimico', weekdayStart: -22 },
+  { procedureName: 'Botox', count: 18, notePrefix: 'seedDemo:botox', weekdayStart: -30 },
+  { procedureName: 'Preenchimento labial', count: 16, notePrefix: 'seedDemo:preenchimento-labial', weekdayStart: -28 },
+  { procedureName: 'Criolipólise', count: 20, notePrefix: 'seedDemo:criolipolise', weekdayStart: -26 },
+  { procedureName: 'Preenchimento malar', count: 14, notePrefix: 'seedDemo:preenchimento-malar', weekdayStart: -24 },
+  { procedureName: 'Harmonização facial', count: 12, notePrefix: 'seedDemo:harmonizacao-facial', weekdayStart: -22 },
+  { procedureName: 'Limpeza de pele', count: 12, notePrefix: 'seedDemo:limpeza-de-pele', weekdayStart: -20 },
+  { procedureName: 'Peeling químico', count: 10, notePrefix: 'seedDemo:peeling-quimico', weekdayStart: -18 },
   { procedureName: 'Microagulhamento', count: 10, notePrefix: 'seedDemo:microagulhamento', weekdayStart: -16 },
+  { procedureName: 'Bioestimulador de colágeno', count: 10, notePrefix: 'seedDemo:bioestimulador', weekdayStart: -14 },
+  { procedureName: 'Laser rejuvenescimento', count: 8, notePrefix: 'seedDemo:laser-rejuvenescimento', weekdayStart: -12 },
   { procedureName: 'Drenagem linfática', count: 8, notePrefix: 'seedDemo:drenagem-futuro', weekdayStart: 4 },
+  { procedureName: 'Depilação a laser — axilas', count: 6, notePrefix: 'seedDemo:depilacao-axilas', weekdayStart: 6 },
 ] as const;
 
 /** Sexta (5) e sábado (6) — agendamentos demo extras (idempotentes via notes). */
@@ -204,6 +252,14 @@ const demoWeekendAppointments = [
   { procedureName: 'Peeling químico', count: 3, notePrefix: 'seedDemo:peeling-sabado', dayOfWeek: 6 },
   { procedureName: 'Microagulhamento', count: 4, notePrefix: 'seedDemo:micro-sexta', dayOfWeek: 5 },
   { procedureName: 'Microagulhamento', count: 3, notePrefix: 'seedDemo:micro-sabado', dayOfWeek: 6 },
+  { procedureName: 'Botox', count: 6, notePrefix: 'seedDemo:botox-sexta', dayOfWeek: 5 },
+  { procedureName: 'Botox', count: 4, notePrefix: 'seedDemo:botox-sabado', dayOfWeek: 6 },
+  { procedureName: 'Preenchimento labial', count: 5, notePrefix: 'seedDemo:preenchimento-labial-sexta', dayOfWeek: 5 },
+  { procedureName: 'Preenchimento labial', count: 3, notePrefix: 'seedDemo:preenchimento-labial-sabado', dayOfWeek: 6 },
+  { procedureName: 'Criolipólise', count: 6, notePrefix: 'seedDemo:criolipolise-sexta', dayOfWeek: 5 },
+  { procedureName: 'Criolipólise', count: 5, notePrefix: 'seedDemo:criolipolise-sabado', dayOfWeek: 6 },
+  { procedureName: 'Harmonização facial', count: 3, notePrefix: 'seedDemo:harmonizacao-sexta', dayOfWeek: 5 },
+  { procedureName: 'Harmonização facial', count: 2, notePrefix: 'seedDemo:harmonizacao-sabado', dayOfWeek: 6 },
 ] as const;
 
 /** Avança N dias de atendimento a partir de hoje (seg–sáb; domingo não conta). */
@@ -267,6 +323,39 @@ function demoProcedureStatus(startAt: Date, slotIndex: number): AppointmentStatu
   }
   if (apptDay.getTime() === todayStart.getTime()) return 'CONFIRMED';
   return 'SCHEDULED';
+}
+
+async function createDemoProcedureAppointment(data: {
+  patientId: string;
+  procedureId: string;
+  professionalId: string;
+  startAt: Date;
+  endAt: Date;
+  status: AppointmentStatus;
+  notes: string | null;
+  clinicalNotes: string | null;
+}) {
+  const appointment = await prisma.appointment.create({
+    data: {
+      patientId: data.patientId,
+      procedureId: data.procedureId,
+      professionalId: data.professionalId,
+      startAt: data.startAt,
+      endAt: data.endAt,
+      status: data.status,
+      kind: 'PROCEDURE',
+      notes: data.notes,
+      clinicalNotes: data.clinicalNotes,
+    },
+  });
+  await prisma.appointmentProcedure.create({
+    data: {
+      appointmentId: appointment.id,
+      procedureId: data.procedureId,
+      sortOrder: 0,
+    },
+  });
+  return appointment;
 }
 
 // Planos da plataforma (preço de referência + módulos; sem cobrança automática).
@@ -453,19 +542,16 @@ async function main() {
   }
 
   console.log('\n→ Garantindo procedimentos de exemplo...');
-  const procedureCount = await prisma.procedure.count();
-  if (procedureCount === 0) {
-    await prisma.procedure.createMany({
-      data: [
-        { name: 'Limpeza de pele', durationMinutes: 60, price: 150.0, recurrenceDays: 30 },
-        { name: 'Drenagem linfática', durationMinutes: 50, price: 120.0, recurrenceDays: 15 },
-        { name: 'Peeling químico', durationMinutes: 45, price: 250.0, recurrenceDays: 45 },
-        { name: 'Microagulhamento', durationMinutes: 90, price: 350.0, recurrenceDays: 30 },
-      ],
-    });
-    console.log('  ✓ Procedimentos criados.');
-  } else {
-    console.log('  • Procedimentos já existem, pulando.');
+  let proceduresCreated = 0;
+  for (const p of defaultDemoProcedures) {
+    const exists = await prisma.procedure.findFirst({ where: { name: p.name } });
+    if (exists) continue;
+    await prisma.procedure.create({ data: p });
+    proceduresCreated++;
+    console.log(`  ✓ Procedimento criado: ${p.name}`);
+  }
+  if (proceduresCreated === 0) {
+    console.log('  • Todos os procedimentos demo já existem.');
   }
 
   console.log('\n→ Materiais de estoque e vínculos com procedimentos...');
@@ -590,19 +676,15 @@ async function main() {
 
       const { notes, clinicalNotes } = demoAppointmentNotes(seedKey, drenagemProcedure.name, status);
 
-      await prisma.appointment.create({
-        data: {
-          patientId: patient.id,
-          procedureId: drenagemProcedure.id,
-          appointmentProcedures: { create: { procedureId: drenagemProcedure.id } },
-          professionalId: drenagemProfessional.id,
-          startAt,
-          endAt,
-          status,
-          kind: 'PROCEDURE',
-          notes,
-          clinicalNotes,
-        },
+      await createDemoProcedureAppointment({
+        patientId: patient.id,
+        procedureId: drenagemProcedure.id,
+        professionalId: drenagemProfessional.id,
+        startAt,
+        endAt,
+        status,
+        notes,
+        clinicalNotes,
       });
       created++;
       console.log(
@@ -656,19 +738,15 @@ async function main() {
 
         const { notes, clinicalNotes } = demoAppointmentNotes(seedKey, procedure.name, status);
 
-        await prisma.appointment.create({
-          data: {
-            patientId: patient.id,
-            procedureId: procedure.id,
-            appointmentProcedures: { create: { procedureId: procedure.id } },
-            professionalId: demoProfessional.id,
-            startAt,
-            endAt,
-            status,
-            kind: 'PROCEDURE',
-            notes,
-            clinicalNotes,
-          },
+        await createDemoProcedureAppointment({
+          patientId: patient.id,
+          procedureId: procedure.id,
+          professionalId: demoProfessional.id,
+          startAt,
+          endAt,
+          status,
+          notes,
+          clinicalNotes,
         });
         createdForProcedure++;
       }
@@ -716,19 +794,15 @@ async function main() {
 
         const { notes, clinicalNotes } = demoAppointmentNotes(seedKey, procedure.name, status);
 
-        await prisma.appointment.create({
-          data: {
-            patientId: patient.id,
-            procedureId: procedure.id,
-            appointmentProcedures: { create: { procedureId: procedure.id } },
-            professionalId: demoProfessional.id,
-            startAt,
-            endAt,
-            status,
-            kind: 'PROCEDURE',
-            notes,
-            clinicalNotes,
-          },
+        await createDemoProcedureAppointment({
+          patientId: patient.id,
+          procedureId: procedure.id,
+          professionalId: demoProfessional.id,
+          startAt,
+          endAt,
+          status,
+          notes,
+          clinicalNotes,
         });
         createdForProcedure++;
       }

@@ -94,8 +94,28 @@ Roda o seed principal e os seeds de pacientes, pacotes e promoções, e completa
 cd frontend
 cp .env.example .env       # VITE_GOOGLE_CLIENT_ID (OAuth Web Client do Google Cloud)
 npm install
-npm run dev                # http://localhost:5173
+npm run dev                # http://localhost:5174/painel
 ```
+
+#### Rodar todos os apps juntos
+
+Na raiz, `npm run dev` sobe a API e os três apps Vite (saída prefixada por `[backend]`, `[landing]`, `[clinic]`, `[admin]`):
+
+| App | URL local | Só este app |
+|-----|-----------|-------------|
+| API (NestJS, `/api`) | http://localhost:3333/api | `npm run dev:backend` |
+| Landing pública (`/`) | http://localhost:5173 | `npm run dev:landing` |
+| Painel da clínica (`/painel`) | http://localhost:5174/painel | `npm run dev:clinic` |
+| Console super-admin | http://localhost:5175 | `npm run dev:admin` |
+
+```bash
+npm install                                                 # na raiz: workspaces (frontend, apps/*)
+cp apps/landing/.env.example apps/landing/.env              # VITE_CLINIC_APP_URL: botão "Entrar" leva ao painel
+cp apps/admin-console/.env.example apps/admin-console/.env  # VITE_CLINIC_APP_URL: volta ao painel da clínica
+npm run dev
+```
+
+Sem os `.env` das apps, o link "Entrar" da landing aponta para a própria landing (o painel fica em 5174). Se uma das portas estiver ocupada, o Vite escolhe outra sem avisar: confira a URL que aparece no log. Se a API parar, o `concurrently` encerra os demais (`-k`).
 
 ### 4. Autenticação (Google)
 
@@ -120,8 +140,8 @@ O painel **não** tem login por e-mail/senha. O fluxo é:
 
 > **Atualizou o schema?** Sempre que `prisma/schema.prisma` mudar, rode `npx prisma migrate dev --name <descricao>` para aplicar a migration e regenerar o client. Exemplo: após adicionar a tabela `procedure_materials`, rode `npx prisma migrate dev --name add_procedure_materials`.
 
-**Frontend**
-- `npm run dev` - dev server
+**Frontend** (painel da clínica; na raiz, `npm run dev` sobe todos os apps)
+- `npm run dev` - dev server do painel (http://localhost:5174/painel)
 - `npm run build` - build de produção (gera `dist/`)
 - `npm run preview` - servir build
 
@@ -131,8 +151,8 @@ O front é um monorepo npm (`workspaces` no `package.json` da raiz) com três ap
 
 | App | Pasta | Versão | Sync da versão | Dev |
 |-----|-------|--------|----------------|-----|
-| Painel da clínica (`/painel`) | `frontend/` | `VERSION` da raiz (junto com o backend) | `npm run version:sync` | `npm run dev:clinic` (5174) |
-| Landing pública (`/`) | `apps/landing/` | `apps/landing/VERSION` | `npm run version:sync:landing` | `npm run dev:landing` (5173) |
+| Painel da clínica (`/painel`) | `frontend/` | `VERSION` da raiz (junto com o backend) | `npm run version:sync` | `npm run dev:clinic` (5173) |
+| Landing pública (`/`) | `apps/landing/` | `apps/landing/VERSION` | `npm run version:sync:landing` | `npm run dev:landing` (5174) |
 | Console super-admin | `apps/admin-console/` | `apps/admin-console/VERSION` | `npm run version:sync:admin` | `npm run dev:admin` (5175) |
 
 `npm run dev` na raiz sobe backend + os três apps. A versão de cada app aparece no próprio app (rodapé da landing; login e escolha de painel do console admin; login da clínica).

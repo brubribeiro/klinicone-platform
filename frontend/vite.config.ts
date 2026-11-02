@@ -27,7 +27,7 @@ export default defineConfig({
     css: false,
   },
   server: {
-    port: 5174,
+    port: 5173,
     allowedHosts: true,
     hmr: {
       host: 'localhost',

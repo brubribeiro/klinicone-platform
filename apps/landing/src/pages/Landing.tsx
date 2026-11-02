@@ -14,6 +14,7 @@ import {
   Typography,
 } from '@mui/material';
 import { keyframes } from '@mui/system';
+import CheckRoundedIcon from '@mui/icons-material/CheckRounded';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import MenuIcon from '@mui/icons-material/Menu';
 import { useQuery } from '@tanstack/react-query';
@@ -22,7 +23,19 @@ import { publicApi } from '../../../../frontend/src/api/public';
 import { AuroraIcon } from '../../../../frontend/src/components/AuroraIcon';
 import { LandingHeroPreview } from '../components/LandingHeroPreview';
 import { LandingPlans } from '../components/LandingPlans';
-import { BENEFITS, BRAND_NAME, BRAND_TAGLINE, FAQ, FEATURES, HERO } from '../components/landingContent';
+import { LandingVideo } from '../components/LandingVideo';
+import {
+  AUDIENCE,
+  BENEFITS,
+  BRAND_NAME,
+  BRAND_TAGLINE,
+  FAQ,
+  HERO,
+  MODULES,
+  MORE_FEATURES,
+  STEPS,
+  type LandingModule,
+} from '../components/landingContent';
 import { fontSizes } from '../../../../frontend/src/theme/fontSizes';
 import { clinicPanelUrl } from '../../../../frontend/src/utils/appUrls';
 import { APP_VERSION } from '../../../../frontend/src/version';
@@ -160,6 +173,40 @@ function IconBadge({ name }: { name: Parameters<typeof AuroraIcon>[0]['name'] })
   );
 }
 
+function ModuleRow({ module, reverse }: { module: LandingModule; reverse: boolean }) {
+  return (
+    <Box
+      id={`modulo-${module.id}`}
+      sx={{
+        display: 'grid',
+        gap: { xs: 3, md: 7 },
+        gridTemplateColumns: { xs: '1fr', md: reverse ? '1fr 1.35fr' : '1.35fr 1fr' },
+        alignItems: 'center',
+        scrollMarginTop: 88,
+      }}
+    >
+      <Box sx={{ order: { md: reverse ? 2 : 1 }, minWidth: 0 }}>
+        <LandingVideo name={module.video} label={`Vídeo: ${module.title} no painel, com dados fictícios`} />
+      </Box>
+      <Box sx={{ order: { md: reverse ? 1 : 2 } }}>
+        <IconBadge name={module.icon} />
+        <Typography component="h3" sx={{ mt: 2, fontWeight: 800, fontSize: { xs: fontSizes['4xl'], md: fontSizes['5xl'] }, letterSpacing: '-0.4px' }}>
+          {module.title}
+        </Typography>
+        <Typography sx={{ mt: 1, color: 'text.secondary', fontSize: fontSizes.xl, lineHeight: 1.6 }}>{module.text}</Typography>
+        <Stack component="ul" spacing={1.25} sx={{ listStyle: 'none', p: 0, m: 0, mt: 2.5 }}>
+          {module.points.map((point) => (
+            <Stack component="li" key={point} direction="row" spacing={1.25} alignItems="flex-start">
+              <CheckRoundedIcon sx={{ color: 'primary.main', fontSize: 20, mt: '2px', flexShrink: 0 }} />
+              <Typography sx={{ fontSize: fontSizes.lg, lineHeight: 1.5 }}>{point}</Typography>
+            </Stack>
+          ))}
+        </Stack>
+      </Box>
+    </Box>
+  );
+}
+
 /**
  * Landing pública de divulgação (`/`, fora do painel em `/painel`): sem login, sem chamadas
  * de sessão. Só lê os planos ativos (`GET /public/plans`); sem planos, a seção some.
@@ -177,7 +224,9 @@ export function Landing() {
   const year = new Date().getFullYear();
 
   const navLinks = [
-    { href: '#funcionalidades', label: 'Funcionalidades' },
+    { href: '#funcionalidades', label: 'Módulos' },
+    { href: '#como-funciona', label: 'Como funciona' },
+    { href: '#para-quem', label: 'Para quem' },
     ...(hasPlans ? [{ href: '#planos', label: 'Planos' }] : []),
     { href: '#faq', label: 'Dúvidas' },
     { href: '#contato', label: 'Contato' },
@@ -201,7 +250,7 @@ export function Landing() {
             <MuiLink href="#inicio" underline="none" aria-label={`${BRAND_NAME} — início`}>
               <BrandLogo />
             </MuiLink>
-            <Stack component="nav" direction="row" spacing={3.5} sx={{ display: { xs: 'none', md: 'flex' } }}>
+            <Stack component="nav" direction="row" spacing={3} sx={{ display: { xs: 'none', lg: 'flex' } }}>
               {navLinks.map((l) => (
                 <MuiLink
                   key={l.href}
@@ -227,7 +276,7 @@ export function Landing() {
                 aria-controls={menuAnchor ? 'landing-menu' : undefined}
                 aria-expanded={Boolean(menuAnchor)}
                 onClick={(e) => setMenuAnchor(e.currentTarget)}
-                sx={{ display: { md: 'none' }, color: '#fff' }}
+                sx={{ display: { lg: 'none' }, color: '#fff' }}
               >
                 <MenuIcon />
               </IconButton>
@@ -399,12 +448,20 @@ export function Landing() {
 
       <Section id="funcionalidades" tinted>
         <SectionTitle
-          eyebrow="Funcionalidades"
-          title="Um módulo para cada parte da clínica"
-          subtitle="Os módulos variam conforme o plano, e cada pessoa da equipe vê o que o grupo dela permite."
+          eyebrow="Módulos"
+          title="Veja a plataforma funcionando"
+          subtitle="Vídeos curtos do painel, gravados com dados fictícios. Os módulos variam conforme o plano, e cada pessoa da equipe vê o que o grupo dela permite."
         />
+        <Stack spacing={{ xs: 8, md: 12 }}>
+          {MODULES.map((m, i) => (
+            <ModuleRow key={m.id} module={m} reverse={i % 2 === 1} />
+          ))}
+        </Stack>
+        <Typography component="h3" sx={{ mt: { xs: 10, md: 14 }, mb: 3, textAlign: 'center', fontWeight: 800, fontSize: fontSizes['4xl'] }}>
+          E ainda
+        </Typography>
         <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: 'repeat(3, 1fr)' } }}>
-          {FEATURES.map((f) => (
+          {MORE_FEATURES.map((f) => (
             <Stack
               key={f.title}
               direction="row"
@@ -415,12 +472,65 @@ export function Landing() {
                 <AuroraIcon name={f.icon} size={24} />
               </Box>
               <Box>
-                <Typography component="h3" sx={{ fontWeight: 800, fontSize: fontSizes.xl }}>
+                <Typography component="h4" sx={{ fontWeight: 800, fontSize: fontSizes.xl }}>
                   {f.title}
                 </Typography>
                 <Typography sx={{ mt: 0.5, color: 'text.secondary', fontSize: fontSizes.md, lineHeight: 1.55 }}>{f.text}</Typography>
               </Box>
             </Stack>
+          ))}
+        </Box>
+      </Section>
+
+      <Section id="como-funciona">
+        <SectionTitle
+          eyebrow="Como funciona"
+          title="Do primeiro contato à equipe atendendo"
+          subtitle="Sem instalação e sem migração complicada: a clínica começa a usar no navegador."
+        />
+        <Box component="ol" sx={{ display: 'grid', gap: 3, gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: 'repeat(4, 1fr)' }, listStyle: 'none', p: 0, m: 0 }}>
+          {STEPS.map((step, i) => (
+            <Box component="li" key={step.title} sx={{ p: 3, borderRadius: '18px', bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider' }}>
+              <Box
+                aria-hidden="true"
+                sx={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: '50%',
+                  backgroundImage: 'linear-gradient(135deg,#22BBAA,#0E7C7B)',
+                  color: '#fff',
+                  fontWeight: 800,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                {i + 1}
+              </Box>
+              <Typography component="h3" sx={{ mt: 2, fontWeight: 800, fontSize: fontSizes['2xl'] }}>
+                {step.title}
+              </Typography>
+              <Typography sx={{ mt: 1, color: 'text.secondary', fontSize: fontSizes.md, lineHeight: 1.6 }}>{step.text}</Typography>
+            </Box>
+          ))}
+        </Box>
+      </Section>
+
+      <Section id="para-quem" tinted>
+        <SectionTitle
+          eyebrow="Para quem é"
+          title="Feita para a rotina de clínicas de estética e saúde"
+          subtitle="Do consultório de uma profissional só a clínicas com equipe, salas e vários serviços."
+        />
+        <Box sx={{ display: 'grid', gap: 3, gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: 'repeat(4, 1fr)' } }}>
+          {AUDIENCE.map((a) => (
+            <Box key={a.title} sx={{ p: 3, borderRadius: '18px', bgcolor: 'background.default', border: '1px solid', borderColor: 'divider' }}>
+              <IconBadge name={a.icon} />
+              <Typography component="h3" sx={{ mt: 2, fontWeight: 800, fontSize: fontSizes['2xl'] }}>
+                {a.title}
+              </Typography>
+              <Typography sx={{ mt: 1, color: 'text.secondary', fontSize: fontSizes.md, lineHeight: 1.6 }}>{a.text}</Typography>
+            </Box>
           ))}
         </Box>
       </Section>
