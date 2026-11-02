@@ -143,9 +143,8 @@ export interface PatientMeasurementPayload {
   appointmentId?: string | null;
   weightKg?: number | null;
   heightCm?: number | null;
-  waistCm?: number | null;
-  abdomenCm?: number | null;
-  hipCm?: number | null;
+  /** value null remove o valor do tipo */
+  values?: { typeId: string; value: number | null }[];
   notes?: string | null;
 }
 

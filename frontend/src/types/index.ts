@@ -120,6 +120,12 @@ export type PlatformAuditAction =
   | 'CATALOG_UPDATE'
   | 'CATALOG_ACTIVATE'
   | 'CATALOG_DEACTIVATE'
+  | 'MEASUREMENT_TYPE_CREATE'
+  | 'MEASUREMENT_TYPE_UPDATE'
+  | 'MEASUREMENT_TYPE_REORDER'
+  | 'MEASUREMENT_TYPE_ACTIVATE'
+  | 'MEASUREMENT_TYPE_DEACTIVATE'
+  | 'MEASUREMENT_TYPE_DELETE'
   | 'FEEDBACK_STATUS_CHANGE'
   | 'ANNOUNCEMENT_GENERATE'
   | 'ANNOUNCEMENT_CREATE'
@@ -282,6 +288,27 @@ export interface PatientPhoto {
   } | null;
 }
 
+/** Tipo de medida corporal do catálogo da plataforma (peso e altura são básicos: `key` preenchida). */
+export interface MeasurementType {
+  id: string;
+  key: 'weightKg' | 'heightCm' | null;
+  name: string;
+  unit: string;
+  sortOrder: number;
+  active?: boolean;
+  /** Só no /admin: quantos valores já foram registrados */
+  valuesCount?: number;
+}
+
+export interface PatientMeasurementValue {
+  typeId: string;
+  value: number;
+  name: string;
+  unit: string;
+  sortOrder: number;
+  active: boolean;
+}
+
 export interface PatientMeasurement {
   id: string;
   patientId: string;
@@ -289,9 +316,8 @@ export interface PatientMeasurement {
   measuredAt: string;
   weightKg: number | null;
   heightCm: number | null;
-  waistCm: number | null;
-  abdomenCm: number | null;
-  hipCm: number | null;
+  /** Medidas não básicas do catálogo (inclui tipos já desativados) */
+  values: PatientMeasurementValue[];
   notes?: string | null;
   createdAt: string;
   appointment?: {

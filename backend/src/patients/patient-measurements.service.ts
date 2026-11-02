@@ -4,9 +4,13 @@ import { PatientMeasurement, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditUser } from '../audit-log/audit-log.service';
 import { PatientEventsService } from './patient-events.service';
-import { CreatePatientMeasurementDto, UpdatePatientMeasurementDto } from './dto/patient-measurement.dto';
+import {
+  CreatePatientMeasurementDto,
+  MeasurementValueDto,
+  UpdatePatientMeasurementDto,
+} from './dto/patient-measurement.dto';
 
-const MEASURE_FIELDS = ['weightKg', 'heightCm', 'waistCm', 'abdomenCm', 'hipCm'] as const;
+const MEASURE_FIELDS = ['weightKg', 'heightCm'] as const;
 type MeasureField = (typeof MEASURE_FIELDS)[number];
 
 const APPOINTMENT_SELECT = {
@@ -16,8 +20,21 @@ const APPOINTMENT_SELECT = {
   procedure: { select: { name: true } },
 } as const;
 
+// Tipo junto do valor: a ficha mostra também medidas de tipos já desativados no catálogo
+const VALUES_INCLUDE = {
+  include: { type: { select: { name: true, unit: true, sortOrder: true, active: true } } },
+} as const;
+
+const MEASUREMENT_INCLUDE = {
+  appointment: { select: APPOINTMENT_SELECT },
+  values: VALUES_INCLUDE,
+} as const;
+
+type MeasurementValueRow = Prisma.PatientMeasurementValueGetPayload<typeof VALUES_INCLUDE>;
+
 type MeasurementWithAppointment = PatientMeasurement & {
   appointment: { id: string; startAt: Date; kind: string; procedure: { name: string } | null } | null;
+  values: MeasurementValueRow[];
 };
 
 const toNumber = (value: Prisma.Decimal | null) => (value == null ? null : Number(value));
@@ -55,14 +72,15 @@ export class PatientMeasurementsService {
     const rows = await this.prisma.patientMeasurement.findMany({
       where: { patientId },
       orderBy: [{ measuredAt: 'desc' }, { createdAt: 'desc' }],
-      include: { appointment: { select: APPOINTMENT_SELECT } },
+      include: MEASUREMENT_INCLUDE,
     });
     return rows.map((row) => this.serialize(row));
   }
 
   async create(patientId: string, dto: CreatePatientMeasurementDto, user?: AuditUser) {
     await this.findPatientOrThrow(patientId);
-    this.assertHasMeasure(dto);
+    const values = await this.resolveValues(dto.values ?? [], []);
+    this.assertHasMeasure(dto, values.filter((v) => v.value != null).length);
     const appointment = dto.appointmentId ? await this.findAppointmentOrThrow(patientId, dto.appointmentId) : null;
 
     const created = await this.prisma.patientMeasurement.create({
@@ -72,8 +90,9 @@ export class PatientMeasurementsService {
         measuredAt: dto.measuredAt ? new Date(dto.measuredAt) : (appointment?.startAt ?? new Date()),
         ...this.measureData(dto),
         notes: dto.notes?.trim() || null,
+        values: { create: values.filter((v) => v.value != null).map((v) => ({ typeId: v.typeId, value: v.value! })) },
       },
-      include: { appointment: { select: APPOINTMENT_SELECT } },
+      include: MEASUREMENT_INCLUDE,
     });
     this.events.created('PatientMeasurement', created.id, created, user);
     await this.syncAnamnesis(patientId);
@@ -82,8 +101,13 @@ export class PatientMeasurementsService {
 
   async update(patientId: string, measurementId: string, dto: UpdatePatientMeasurementDto, user?: AuditUser) {
     const existing = await this.findMeasurementOrThrow(patientId, measurementId);
-    const merged = { ...this.serialize({ ...existing, appointment: null }), ...dto };
-    this.assertHasMeasure(merged);
+    const values = await this.resolveValues(dto.values ?? [], existing.values);
+    const changed = new Set(values.map((v) => v.typeId));
+    const keptValues = existing.values.filter((v) => !changed.has(v.typeId)).length;
+    this.assertHasMeasure(
+      { ...this.serialize(existing), ...dto },
+      keptValues + values.filter((v) => v.value != null).length,
+    );
 
     let appointmentId: string | null | undefined;
     if (dto.appointmentId !== undefined) {
@@ -97,10 +121,18 @@ export class PatientMeasurementsService {
         ...(dto.measuredAt ? { measuredAt: new Date(dto.measuredAt) } : {}),
         ...this.measureData(dto),
         ...(dto.notes !== undefined ? { notes: dto.notes?.trim() || null } : {}),
+        ...(values.length
+          ? {
+              values: {
+                deleteMany: { typeId: { in: [...changed] } },
+                create: values.filter((v) => v.value != null).map((v) => ({ typeId: v.typeId, value: v.value! })),
+              },
+            }
+          : {}),
       },
-      include: { appointment: { select: APPOINTMENT_SELECT } },
+      include: MEASUREMENT_INCLUDE,
     });
-    this.events.updated('PatientMeasurement', measurementId, existing, updated, user);
+    this.events.updated('PatientMeasurement', measurementId, this.serialize(existing), this.serialize(updated), user);
     await this.syncAnamnesis(patientId);
     return this.serialize(updated);
   }
@@ -108,7 +140,7 @@ export class PatientMeasurementsService {
   async remove(patientId: string, measurementId: string, user?: AuditUser) {
     const existing = await this.findMeasurementOrThrow(patientId, measurementId);
     await this.prisma.patientMeasurement.delete({ where: { id: measurementId } });
-    this.events.deleted('PatientMeasurement', measurementId, existing, user);
+    this.events.deleted('PatientMeasurement', measurementId, this.serialize(existing), user);
     await this.syncAnamnesis(patientId);
     return { ok: true };
   }
@@ -169,20 +201,39 @@ export class PatientMeasurementsService {
     return data;
   }
 
-  private assertHasMeasure(dto: Partial<Record<MeasureField, number | null>>) {
-    if (!MEASURE_FIELDS.some((field) => dto[field] != null)) {
+  private assertHasMeasure(dto: Partial<Record<MeasureField, number | null>>, otherValues: number) {
+    if (otherValues === 0 && !MEASURE_FIELDS.some((field) => dto[field] != null)) {
       throw new BadRequestException('Informe ao menos uma medida.');
     }
   }
 
-  private serialize(row: MeasurementWithAppointment) {
+  /**
+   * Valida os valores de tipos não básicos (peso e altura vão nas colunas próprias).
+   * Tipo desativado só aceita mexer num valor que a medição já tinha.
+   */
+  private async resolveValues(values: MeasurementValueDto[], existing: { typeId: string }[]) {
+    if (!values.length) return [];
+    const ids = [...new Set(values.map((v) => v.typeId))];
+    if (ids.length !== values.length) throw new BadRequestException('Medida repetida.');
+    const types = await this.prisma.measurementType.findMany({ where: { id: { in: ids } } });
+    for (const v of values) {
+      const type = types.find((t) => t.id === v.typeId);
+      if (!type || type.key) throw new BadRequestException('Tipo de medida inválido.');
+      if (!type.active && v.value != null && !existing.some((e) => e.typeId === v.typeId)) {
+        throw new BadRequestException(`A medida “${type.name}” está desativada.`);
+      }
+    }
+    return values;
+  }
+
+  private serialize({ values, ...row }: Omit<MeasurementWithAppointment, 'appointment'> & {
+    appointment?: MeasurementWithAppointment['appointment'];
+  }) {
     return {
       ...row,
       weightKg: toNumber(row.weightKg),
       heightCm: toNumber(row.heightCm),
-      waistCm: toNumber(row.waistCm),
-      abdomenCm: toNumber(row.abdomenCm),
-      hipCm: toNumber(row.hipCm),
+      values: values.map((v) => ({ typeId: v.typeId, value: Number(v.value), ...v.type })),
     };
   }
 
@@ -202,7 +253,10 @@ export class PatientMeasurementsService {
   }
 
   private async findMeasurementOrThrow(patientId: string, measurementId: string) {
-    const measurement = await this.prisma.patientMeasurement.findFirst({ where: { id: measurementId, patientId } });
+    const measurement = await this.prisma.patientMeasurement.findFirst({
+      where: { id: measurementId, patientId },
+      include: { values: VALUES_INCLUDE },
+    });
     if (!measurement) throw new NotFoundException('Medição não encontrada');
     return measurement;
   }

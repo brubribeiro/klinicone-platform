@@ -22,6 +22,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip as ChartTooltip, XAxis, YAxis } from 'recharts';
 
+import { catalogsApi } from '../../api/catalogs';
 import { patientsApi } from '../../api/patients';
 import { useAppDialog } from '../../contexts/AppDialogContext';
 import { useAppToast } from '../../contexts/AppToastContext';
@@ -30,7 +31,7 @@ import type { Appointment, PatientMeasurement } from '../../types';
 import { getApiErrorMessage } from '../../utils/apiError';
 import { PANEL_SX } from '../skincare/skincareUi';
 import { imcClassificacao, imcColor } from './anamnesisFields';
-import { CHART_METRICS, formatMeasure, withImc, type ChartMetric } from './measurementFields';
+import { formatMeasure, measureColumns, measureValue, withImc, type MeasureColumn } from './measurementFields';
 import { PatientMeasurementDialog } from './PatientMeasurementDialog';
 
 interface Props {
@@ -49,14 +50,22 @@ const HEAD_CELL_SX = {
 
 const CELL_SX = { fontSize: fontSizes.sm, whiteSpace: 'nowrap', py: 1.1, px: 1 } as const;
 
-const TABLE_COLUMNS = [
-  { key: 'weightKg', label: 'Peso (kg)' },
-  { key: 'heightCm', label: 'Altura (cm)' },
-  { key: 'imc', label: 'IMC' },
-  { key: 'waistCm', label: 'Cintura' },
-  { key: 'abdomenCm', label: 'Abdômen' },
-  { key: 'hipCm', label: 'Quadril' },
-] as const;
+const IMC_ID = 'imc';
+
+type MeasureRow = PatientMeasurement & { imc: number | null };
+
+/** Colunas do catálogo com o IMC (calculado) logo depois da altura. */
+function tableColumns(columns: MeasureColumn[]) {
+  const list: { id: string; label: string; unit: string; column?: MeasureColumn }[] = [];
+  for (const c of columns) {
+    list.push({ id: c.id, label: c.label, unit: c.unit, column: c });
+    if (c.key === 'heightCm') list.push({ id: IMC_ID, label: 'IMC', unit: '' });
+  }
+  return list;
+}
+
+const cellValue = (r: MeasureRow, c: { id: string; column?: MeasureColumn }) =>
+  c.column ? measureValue(r, c.column) : r.imc;
 
 function SummaryTile({ label, value, hint, hintColor }: { label: string; value: string; hint?: string; hintColor?: string }) {
   return (
@@ -82,11 +91,16 @@ export function PatientMeasurementsCard({ patient, canEdit }: Props) {
     open: false,
     editing: null,
   });
-  const [metric, setMetric] = useState<ChartMetric>('weightKg');
+  const [metric, setMetric] = useState('weightKg');
 
   const { data: measurements = [], isLoading } = useQuery({
     queryKey: ['patient-measurements', patient.id],
     queryFn: () => patientsApi.listMeasurements(patient.id),
+  });
+  const { data: types = [] } = useQuery({
+    queryKey: ['measurement-types'],
+    queryFn: catalogsApi.measurementTypes,
+    staleTime: 5 * 60 * 1000,
   });
 
   const removeMutation = useMutation({
@@ -103,12 +117,16 @@ export function PatientMeasurementsCard({ patient, canEdit }: Props) {
   const chronological = useMemo(() => withImc([...measurements].reverse()), [measurements]);
   const rows = useMemo(() => [...chronological].reverse(), [chronological]);
 
-  const availableMetrics = CHART_METRICS.filter((m) => chronological.some((r) => r[m.key] != null));
-  const activeMetric = availableMetrics.find((m) => m.key === metric) ?? availableMetrics[0];
+  const columns = useMemo(() => tableColumns(measureColumns(types, measurements)), [types, measurements]);
+  // Altura quase não muda: fica fora do gráfico
+  const availableMetrics = columns.filter(
+    (c) => c.column?.key !== 'heightCm' && chronological.some((r) => cellValue(r, c) != null),
+  );
+  const activeMetric = availableMetrics.find((m) => m.id === metric) ?? availableMetrics[0];
   const chartData = activeMetric
     ? chronological
-        .filter((r) => r[activeMetric.key] != null)
-        .map((r) => ({ t: dayjs(r.measuredAt).valueOf(), value: r[activeMetric.key] as number }))
+        .filter((r) => cellValue(r, activeMetric) != null)
+        .map((r) => ({ t: dayjs(r.measuredAt).valueOf(), value: cellValue(r, activeMetric) as number }))
     : [];
 
   const weights = chronological.filter((r) => r.weightKg != null);
@@ -151,7 +169,7 @@ export function PatientMeasurementsCard({ patient, canEdit }: Props) {
           </Typography>
           <Typography sx={{ fontSize: fontSizes.xs, color: 'text.secondary', fontWeight: 600 }}>
             {measurements.length === 0
-              ? 'Evolução de peso, IMC e circunferências'
+              ? 'Evolução de peso, IMC e demais medidas'
               : `${measurements.length} ${measurements.length === 1 ? 'registro' : 'registros'}`}
           </Typography>
         </Box>
@@ -206,14 +224,14 @@ export function PatientMeasurementsCard({ patient, canEdit }: Props) {
               <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap" sx={{ mb: 1.25 }} role="group" aria-label="Métrica do gráfico">
                 {availableMetrics.map((m) => (
                   <Chip
-                    key={m.key}
+                    key={m.id}
                     label={m.label}
                     size="small"
                     clickable
-                    color={m.key === activeMetric.key ? 'primary' : 'default'}
-                    variant={m.key === activeMetric.key ? 'filled' : 'outlined'}
-                    onClick={() => setMetric(m.key)}
-                    aria-pressed={m.key === activeMetric.key}
+                    color={m.id === activeMetric.id ? 'primary' : 'default'}
+                    variant={m.id === activeMetric.id ? 'filled' : 'outlined'}
+                    onClick={() => setMetric(m.id)}
+                    aria-pressed={m.id === activeMetric.id}
                     sx={{ fontWeight: 700 }}
                   />
                 ))}
@@ -281,9 +299,9 @@ export function PatientMeasurementsCard({ patient, canEdit }: Props) {
               <TableHead>
                 <TableRow>
                   <TableCell sx={{ ...HEAD_CELL_SX, pl: { xs: 2, sm: 2.75 } }}>Data</TableCell>
-                  {TABLE_COLUMNS.map((c) => (
-                    <TableCell key={c.key} sx={HEAD_CELL_SX} align="right">
-                      {c.label}
+                  {columns.map((c) => (
+                    <TableCell key={c.id} sx={HEAD_CELL_SX} align="right">
+                      {c.unit ? `${c.label} (${c.unit})` : c.label}
                     </TableCell>
                   ))}
                   {canEdit && <TableCell sx={{ ...HEAD_CELL_SX, pr: { xs: 1, sm: 1.5 } }} aria-label="Ações" />}
@@ -305,13 +323,13 @@ export function PatientMeasurementsCard({ patient, canEdit }: Props) {
                         </Typography>
                       )}
                     </TableCell>
-                    {TABLE_COLUMNS.map((c) => (
+                    {columns.map((c) => (
                       <TableCell
-                        key={c.key}
-                        sx={c.key === 'imc' && r.imc != null ? { ...CELL_SX, fontWeight: 700, color: imcColor(r.imc) } : CELL_SX}
+                        key={c.id}
+                        sx={c.id === IMC_ID && r.imc != null ? { ...CELL_SX, fontWeight: 700, color: imcColor(r.imc) } : CELL_SX}
                         align="right"
                       >
-                        {formatMeasure(r[c.key])}
+                        {formatMeasure(cellValue(r, c))}
                       </TableCell>
                     ))}
                     {canEdit && (
@@ -337,9 +355,6 @@ export function PatientMeasurementsCard({ patient, canEdit }: Props) {
                 ))}
               </TableBody>
             </Table>
-            <Typography sx={{ px: { xs: 2, sm: 2.75 }, pt: 1, fontSize: fontSizes.xs, color: 'text.secondary' }}>
-              Cintura, abdômen e quadril em cm.
-            </Typography>
           </Box>
         </Stack>
       )}
@@ -352,6 +367,7 @@ export function PatientMeasurementsCard({ patient, canEdit }: Props) {
           patientName={patient.name}
           appointments={patient.appointments ?? []}
           editing={dialog.editing}
+          types={types}
         />
       )}
     </Box>

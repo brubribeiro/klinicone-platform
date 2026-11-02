@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import {
   Box,
@@ -20,7 +20,7 @@ import dayjs from 'dayjs';
 
 import { patientsApi, type PatientMeasurementPayload } from '../../api/patients';
 import { useAppToast } from '../../contexts/AppToastContext';
-import type { Appointment, PatientMeasurement } from '../../types';
+import type { Appointment, MeasurementType, PatientMeasurement } from '../../types';
 import { getApiErrorMessage } from '../../utils/apiError';
 import { fontSizes } from '../../theme/fontSizes';
 import { DialogHeader, dialogActionsBorderSx, formDialogPaperSx } from '../DialogCloseButton';
@@ -28,7 +28,7 @@ import { FieldAdornment } from '../FieldAdornment';
 import { FormSection } from '../FormSection';
 import { LabeledField } from '../LabeledField';
 import { calcIMC, imcClassificacao, imcColor } from './anamnesisFields';
-import { MEASURE_FIELDS, type MeasureKey } from './measurementFields';
+import { measureColumns, measureValue, type MeasureColumn } from './measurementFields';
 
 interface Props {
   open: boolean;
@@ -37,27 +37,40 @@ interface Props {
   patientName?: string;
   appointments: Appointment[];
   editing?: PatientMeasurement | null;
+  /** Tipos ativos do catálogo */
+  types: MeasurementType[];
 }
 
-type FormValues = Record<MeasureKey, string> & {
+interface FormValues {
   measuredAt: string;
   appointmentId: string;
   notes: string;
-};
+  /** Por id da coluna (peso/altura: weightKg/heightCm) */
+  measures: Record<string, string>;
+}
 
 const DIALOG_MAX_WIDTH = 640;
 
-function toFormValues(m?: PatientMeasurement | null): FormValues {
-  const values = {
+function toFormValues(columns: MeasureColumn[], m?: PatientMeasurement | null): FormValues {
+  const measures: Record<string, string> = {};
+  for (const c of columns) {
+    const value = m ? measureValue(m, c) : null;
+    measures[c.id] = value == null ? '' : String(value);
+  }
+  return {
     measuredAt: dayjs(m?.measuredAt).format('YYYY-MM-DD'),
     appointmentId: m?.appointmentId ?? '',
     notes: m?.notes ?? '',
-  } as FormValues;
-  for (const f of MEASURE_FIELDS) values[f.key] = m?.[f.key] == null ? '' : String(m[f.key]);
-  return values;
+    measures,
+  };
 }
 
-function toPayload(values: FormValues, appointments: Appointment[]): PatientMeasurementPayload {
+const parseMeasure = (value: string | undefined) => {
+  const n = parseFloat(value ?? '');
+  return Number.isFinite(n) && n > 0 ? n : null;
+};
+
+function toPayload(values: FormValues, columns: MeasureColumn[], appointments: Appointment[]): PatientMeasurementPayload {
   const appt = appointments.find((a) => a.id === values.appointmentId);
   // Mesmo dia do agendamento: mantém o horário dele; senão, meio-dia local evita trocar de dia pelo fuso
   const measuredAt =
@@ -68,27 +81,32 @@ function toPayload(values: FormValues, appointments: Appointment[]): PatientMeas
     measuredAt,
     appointmentId: values.appointmentId || null,
     notes: values.notes.trim() || null,
+    values: [],
   };
-  for (const f of MEASURE_FIELDS) {
-    const n = parseFloat(values[f.key]);
-    payload[f.key] = Number.isFinite(n) && n > 0 ? n : null;
+  for (const c of columns) {
+    const value = parseMeasure(values.measures[c.id]);
+    if (c.key) payload[c.key] = value;
+    else payload.values!.push({ typeId: c.id, value });
   }
   return payload;
 }
 
-export function PatientMeasurementDialog({ open, onClose, patientId, patientName, appointments, editing }: Props) {
+export function PatientMeasurementDialog({ open, onClose, patientId, patientName, appointments, editing, types }: Props) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const queryClient = useQueryClient();
   const toast = useAppToast();
 
+  // Ao editar, aparecem também medidas desativadas que essa medição já tinha
+  const columns = useMemo(() => measureColumns(types, editing ? [editing] : []), [types, editing]);
+
   const { control, handleSubmit, reset, watch, setValue } = useForm<FormValues>({
-    defaultValues: toFormValues(),
+    defaultValues: toFormValues(columns),
   });
 
   useEffect(() => {
-    if (open) reset(toFormValues(editing));
-  }, [open, editing, reset]);
+    if (open) reset(toFormValues(columns, editing));
+  }, [open, editing, columns, reset]);
 
   const mutation = useMutation({
     mutationFn: (payload: PatientMeasurementPayload) =>
@@ -105,13 +123,13 @@ export function PatientMeasurementDialog({ open, onClose, patientId, patientName
     onError: (err) => toast.error(getApiErrorMessage(err, 'Não foi possível salvar as medidas.')),
   });
 
-  const [peso, altura, ...rest] = watch(['weightKg', 'heightCm', 'waistCm', 'abdomenCm', 'hipCm']);
-  const imc = calcIMC(peso, altura);
-  const hasMeasure = [peso, altura, ...rest].some((v) => parseFloat(v) > 0);
+  const measures = watch('measures') ?? {};
+  const imc = calcIMC(measures.weightKg, measures.heightCm);
+  const hasMeasure = columns.some((c) => parseMeasure(measures[c.id]) != null);
 
   const submit = handleSubmit((values) => {
     if (!hasMeasure) return;
-    mutation.mutate(toPayload(values, appointments));
+    mutation.mutate(toPayload(values, columns, appointments));
   });
 
   const sortedAppointments = [...appointments].sort((a, b) => b.startAt.localeCompare(a.startAt));
@@ -194,15 +212,16 @@ export function PatientMeasurementDialog({ open, onClose, patientId, patientName
 
             <FormSection title="Medidas">
               <Grid container spacing={1.75}>
-                {MEASURE_FIELDS.map((f) => (
-                  <Grid item xs={6} sm={4} key={f.key}>
+                {columns.map((f) => (
+                  <Grid item xs={6} sm={4} key={f.id}>
                     <Controller
-                      name={f.key}
+                      name={`measures.${f.id}`}
                       control={control}
                       render={({ field }) => (
-                        <LabeledField label={f.label}>
+                        <LabeledField label={f.active ? f.label : `${f.label} (desativada)`}>
                           <TextField
                             {...field}
+                            value={field.value ?? ''}
                             fullWidth
                             size="small"
                             placeholder="0"
