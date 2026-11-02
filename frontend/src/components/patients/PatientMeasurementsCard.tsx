@@ -27,7 +27,7 @@ import { patientsApi } from '../../api/patients';
 import { useAppDialog } from '../../contexts/AppDialogContext';
 import { useAppToast } from '../../contexts/AppToastContext';
 import { fontSizes } from '../../theme/fontSizes';
-import type { Appointment, PatientMeasurement } from '../../types';
+import type { Appointment, MeasurementType, PatientMeasurement } from '../../types';
 import { getApiErrorMessage } from '../../utils/apiError';
 import { PANEL_SX } from '../skincare/skincareUi';
 import { imcClassificacao, imcColor } from './anamnesisFields';
@@ -51,6 +51,7 @@ const HEAD_CELL_SX = {
 const CELL_SX = { fontSize: fontSizes.sm, whiteSpace: 'nowrap', py: 1.1, px: 1 } as const;
 
 const IMC_ID = 'imc';
+const NO_TYPES: MeasurementType[] = [];
 
 type MeasureRow = PatientMeasurement & { imc: number | null };
 
@@ -97,7 +98,7 @@ export function PatientMeasurementsCard({ patient, canEdit }: Props) {
     queryKey: ['patient-measurements', patient.id],
     queryFn: () => patientsApi.listMeasurements(patient.id),
   });
-  const { data: types = [] } = useQuery({
+  const { data: types = NO_TYPES } = useQuery({
     queryKey: ['measurement-types'],
     queryFn: catalogsApi.measurementTypes,
     staleTime: 5 * 60 * 1000,

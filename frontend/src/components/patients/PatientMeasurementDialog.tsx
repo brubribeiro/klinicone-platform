@@ -104,9 +104,11 @@ export function PatientMeasurementDialog({ open, onClose, patientId, patientName
     defaultValues: toFormValues(columns),
   });
 
+  // Só ao abrir: um refetch do catálogo com o diálogo aberto não pode apagar o que foi digitado
   useEffect(() => {
     if (open) reset(toFormValues(columns, editing));
-  }, [open, editing, columns, reset]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, editing, reset]);
 
   const mutation = useMutation({
     mutationFn: (payload: PatientMeasurementPayload) =>
