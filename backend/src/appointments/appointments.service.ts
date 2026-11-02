@@ -25,6 +25,7 @@ import {
   loadAppointmentProcedureIds,
   resolveProcedureIds,
   syncAppointmentProcedureRows,
+  withLegacyProcedureRow,
 } from './appointment-procedures.util';
 
 /** Campos que usuários restritos aos próprios agendamentos não podem alterar. */
@@ -78,7 +79,7 @@ export class AppointmentsService {
         : new Map<string, number>();
 
     return appointments.map((a) => ({
-      ...a,
+      ...withLegacyProcedureRow(a),
       sessionIndex: a.patientPackageId ? sessionIndexById.get(a.id) ?? null : null,
     }));
   }
@@ -87,8 +88,8 @@ export class AppointmentsService {
    * Retorna agendamentos "pendentes": já passaram (endAt < agora) mas
    * não estão com status COMPLETED, CANCELLED ou NO_SHOW.
    */
-  pending(professionalId?: string) {
-    return this.prisma.appointment.findMany({
+  async pending(professionalId?: string) {
+    const appointments = await this.prisma.appointment.findMany({
       where: {
         ...(professionalId ? { professionalId } : {}),
         endAt: { lt: new Date() },
@@ -103,6 +104,7 @@ export class AppointmentsService {
       include: appointmentRelationsInclude,
       orderBy: { startAt: 'desc' },
     });
+    return appointments.map(withLegacyProcedureRow);
   }
 
   async findOne(id: string, user?: AuthenticatedUser) {
@@ -111,13 +113,14 @@ export class AppointmentsService {
       include: {
         patient: true,
         procedure: true,
+        appointmentProcedures: appointmentRelationsInclude.appointmentProcedures,
         professional: true,
         extraMaterials: { include: { item: true } },
       },
     });
     if (!appt) throw new NotFoundException('Agendamento não encontrado');
     assertOwnAppointmentAccess(appt.professionalId, user);
-    return appt;
+    return withLegacyProcedureRow(appt);
   }
 
   getRecurrenceLimit(patientId: string, procedureId: string, excludeAppointmentId?: string) {
@@ -367,7 +370,7 @@ export class AppointmentsService {
     });
 
     this.events.updated(current, result, dto.status === AppointmentStatus.CANCELLED, user);
-    return result;
+    return withLegacyProcedureRow(result);
   }
 
   backfillFinance() {
@@ -455,14 +458,15 @@ export class AppointmentsService {
     return appt;
   }
 
-  private updateWithRelations(
+  private async updateWithRelations(
     id: string,
     data: { status?: AppointmentStatus; startedAt?: Date; finishedAt?: Date | null },
   ) {
-    return this.prisma.appointment.update({
+    const appt = await this.prisma.appointment.update({
       where: { id },
       data,
       include: appointmentRelationsInclude,
     });
+    return withLegacyProcedureRow(appt);
   }
 }

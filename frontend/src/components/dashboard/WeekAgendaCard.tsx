@@ -5,6 +5,7 @@ import { Link as RouterLink } from 'react-router-dom';
 import type { Appointment, AppointmentStatus } from '../../types';
 import { fontSizes } from '../../theme/fontSizes';
 import { clickableProps } from '../../utils/a11y';
+import { appointmentProcedureLabel } from '../../utils/appointmentProcedures';
 import { DashboardEmptyState } from './DashboardEmptyState';
 
 const statusLabelDashboard: Partial<Record<AppointmentStatus, string>> = {
@@ -99,7 +100,7 @@ export function WeekAgendaCard({ appointments, loading, canSeeAgenda, onOpen }: 
                     {a.patient?.name ?? 'Paciente'}
                   </Typography>
                   <Typography noWrap sx={{ fontSize: fontSizes.xs, color: 'text.secondary' }}>
-                    {[a.procedure?.name ?? 'Procedimento', a.professional?.name]
+                    {[appointmentProcedureLabel(a) || 'Procedimento', a.professional?.name]
                       .filter(Boolean)
                       .join(' · ')}
                   </Typography>

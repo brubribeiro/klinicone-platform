@@ -5,6 +5,7 @@ import { AuroraIcon } from '../AuroraIcon';
 import type { Appointment } from '../../types';
 import { fontSizes } from '../../theme/fontSizes';
 import { clickableProps } from '../../utils/a11y';
+import { appointmentProcedureLabel } from '../../utils/appointmentProcedures';
 import { kindLabel } from './agendaConfig';
 
 interface PendingAppointmentsBannerProps {
@@ -107,7 +108,7 @@ export function PendingAppointmentsBanner({ appointments, onOpen }: PendingAppoi
                 {a.patient?.name ?? 'Paciente'}
               </Box>
               <Box component="span" sx={{ fontSize: fontSizes.xs, color: 'text.secondary', whiteSpace: 'nowrap' }}>
-                · {a.procedure?.name ?? kindLabel[a.kind] ?? a.kind}
+                · {appointmentProcedureLabel(a) || kindLabel[a.kind] || a.kind}
               </Box>
             </Box>
           ))}

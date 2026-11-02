@@ -514,7 +514,9 @@ export interface FinancialEntry {
   profitMargin?: number | null;
   appointment?: {
     id: string;
+    kind: AppointmentKind;
     procedure?: { name: string };
+    appointmentProcedures?: { sortOrder?: number; procedure?: { name: string } }[];
   };
   equipment?: { id: string; name: string };
 }

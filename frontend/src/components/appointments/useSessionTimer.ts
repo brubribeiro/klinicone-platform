@@ -52,6 +52,8 @@ export function useSessionTimer({
       startTimer(detail.startedAt);
     } else if (detail?.startedAt && detail?.finishedAt) {
       setElapsed(Math.floor((new Date(detail.finishedAt).getTime() - new Date(detail.startedAt).getTime()) / 1000));
+    } else {
+      setElapsed(0);
     }
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);

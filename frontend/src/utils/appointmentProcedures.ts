@@ -21,12 +21,16 @@ export function appointmentProcedureIds(appointment: {
 
 export function appointmentProcedureLabel(appointment: {
   kind: Appointment['kind'];
-  procedure?: Procedure | null;
-  appointmentProcedures?: AppointmentProcedureRow[];
+  procedure?: Pick<Procedure, 'name'> | null;
+  appointmentProcedures?: { sortOrder?: number; procedure?: Pick<Procedure, 'name'> }[];
 }): string {
+  const fromJoin = (appointment.appointmentProcedures ?? [])
+    .slice()
+    .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+    .map((row) => row.procedure?.name)
+    .filter(Boolean);
   const names =
-    appointment.appointmentProcedures?.map((row) => row.procedure?.name).filter(Boolean) ??
-    (appointment.procedure?.name ? [appointment.procedure.name] : []);
+    fromJoin.length > 0 ? fromJoin : appointment.procedure?.name ? [appointment.procedure.name] : [];
   if (names.length > 0) return names.join(' + ');
   if (appointment.kind === 'EVALUATION') return 'Avaliação';
   if (appointment.kind === 'RETURN') return 'Retorno';

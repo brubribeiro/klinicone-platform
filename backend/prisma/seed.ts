@@ -594,6 +594,7 @@ async function main() {
         data: {
           patientId: patient.id,
           procedureId: drenagemProcedure.id,
+          appointmentProcedures: { create: { procedureId: drenagemProcedure.id } },
           professionalId: drenagemProfessional.id,
           startAt,
           endAt,
@@ -659,6 +660,7 @@ async function main() {
           data: {
             patientId: patient.id,
             procedureId: procedure.id,
+            appointmentProcedures: { create: { procedureId: procedure.id } },
             professionalId: demoProfessional.id,
             startAt,
             endAt,
@@ -718,6 +720,7 @@ async function main() {
           data: {
             patientId: patient.id,
             procedureId: procedure.id,
+            appointmentProcedures: { create: { procedureId: procedure.id } },
             professionalId: demoProfessional.id,
             startAt,
             endAt,

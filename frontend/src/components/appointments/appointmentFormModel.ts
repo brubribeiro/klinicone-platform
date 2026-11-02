@@ -1,6 +1,13 @@
 import dayjs from 'dayjs';
 
-import type { ApplicationMapPoint, AppointmentKind, AppointmentStatus, Procedure } from '../../types';
+import type {
+  ApplicationMapPoint,
+  Appointment,
+  AppointmentKind,
+  AppointmentStatus,
+  Procedure,
+} from '../../types';
+import { appointmentProcedureIds } from '../../utils/appointmentProcedures';
 
 export function totalProcedureDurationMinutes(procedures: Procedure[], procedureIds: string[]): number {
   if (procedureIds.length === 0) return 60;
@@ -39,6 +46,35 @@ export const emptyFormValues: FormValues = {
   notes: '',
   clinicalNotes: '',
 };
+
+export function appointmentToFormValues(appointment: Appointment): FormValues {
+  return {
+    patientId: appointment.patientId,
+    procedureIds: appointmentProcedureIds(appointment),
+    professionalId: appointment.professionalId ?? '',
+    date: dayjs(appointment.startAt).format('YYYY-MM-DD'),
+    startTime: dayjs(appointment.startAt).format('HH:mm'),
+    status: appointment.status,
+    kind: appointment.kind ?? 'PROCEDURE',
+    notes: appointment.notes ?? '',
+    clinicalNotes: appointment.clinicalNotes ?? '',
+  };
+}
+
+/**
+ * Seleção de procedimentos válida para o tipo e as opções atuais. Enquanto o catálogo não
+ * carregou, mantém os ids (a falta de opção ainda não quer dizer procedimento inválido).
+ */
+export function reconcileProcedureIds(
+  kind: AppointmentKind,
+  procedureIds: string[],
+  procedureOptions: Procedure[],
+  optionsLoaded: boolean,
+): string[] {
+  if (kind !== 'PROCEDURE') return [];
+  if (!optionsLoaded) return procedureIds;
+  return procedureIds.filter((id) => procedureOptions.some((p) => p.id === id));
+}
 
 export type SectionKey =
   | 'patient'

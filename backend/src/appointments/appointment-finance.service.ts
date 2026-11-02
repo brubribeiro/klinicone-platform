@@ -164,47 +164,62 @@ export class AppointmentFinanceService {
         financeGenerated: false,
         procedureId: { not: null },
       },
-      include: { patient: true, procedure: true },
+      include: {
+        patient: true,
+        procedure: true,
+        appointmentProcedures: { orderBy: { sortOrder: 'asc' }, include: { procedure: true } },
+      },
     });
 
     if (pending.length === 0) return { created: 0 };
 
     await this.prisma.$transactionWithRetry(async (tx) => {
       for (const appt of pending) {
-        if (!appt.procedure) continue;
+        const procedures =
+          appt.appointmentProcedures.length > 0
+            ? appt.appointmentProcedures.map((row) => row.procedure)
+            : appt.procedure
+              ? [appt.procedure]
+              : [];
+        if (procedures.length === 0) continue;
 
+        const patientName = appt.patient?.name ?? 'Paciente';
         const packageRevenue = appt.patientPackageId
           ? await this.resolvePackageRevenue(tx, appt.patientPackageId)
           : null;
+        const coveredIds = new Set(packageRevenue?.coveredProcedureIds ?? []);
+        const covered = procedures.filter((p) => coveredIds.has(p.id));
+        const billable = procedures.filter((p) => !coveredIds.has(p.id));
+        const entryData = {
+          type: FinancialType.INCOME,
+          paymentMethodId: null,
+          paidAt: appt.updatedAt ?? appt.startAt,
+          patientId: appt.patientId,
+          appointmentId: appt.id,
+          invoiceIssued: false,
+        };
 
-        if (!packageRevenue?.alreadyGenerated) {
-          let amount = appt.procedure.price;
-          let description = `${appt.procedure.name} - ${appt.patient?.name ?? 'Paciente'}`;
-          let category = 'Atendimentos';
-
-          if (packageRevenue?.patientPackage) {
-            amount = packageRevenue.patientPackage.totalPaid;
-            description = `Pacote - ${description}`;
-            category = 'Pacotes';
-          }
-
+        if (covered.length > 0 && packageRevenue?.patientPackage && !packageRevenue.alreadyGenerated) {
           await tx.financialEntry.create({
             data: {
-              type: FinancialType.INCOME,
-              description,
-              amount,
-              category,
-              paymentMethodId: null,
-              paidAt: appt.updatedAt ?? appt.startAt,
-              patientId: appt.patientId,
-              appointmentId: appt.id,
-              invoiceIssued: false,
+              ...entryData,
+              description: `Pacote - ${covered.map((p) => p.name).join(' + ')} - ${patientName}`,
+              amount: packageRevenue.patientPackage.totalPaid,
+              category: 'Pacotes',
             },
           });
+          await this.markPackageFinanceGenerated(tx, appt.patientPackageId!);
+        }
 
-          if (appt.patientPackageId) {
-            await this.markPackageFinanceGenerated(tx, appt.patientPackageId);
-          }
+        for (const procedure of billable) {
+          await tx.financialEntry.create({
+            data: {
+              ...entryData,
+              description: `${procedure.name} - ${patientName}`,
+              amount: procedure.price,
+              category: 'Atendimentos',
+            },
+          });
         }
 
         await tx.appointment.update({

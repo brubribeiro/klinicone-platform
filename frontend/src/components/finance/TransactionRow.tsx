@@ -9,6 +9,7 @@ import { brl } from '../../utils/money';
 import { RowActionButton } from '../RowActionButton';
 import { FinancePill } from './FinanceKpiCard';
 import { formatInstallmentsLabel } from '../../utils/paymentMethodMeta';
+import { appointmentProcedureLabel } from '../../utils/appointmentProcedures';
 
 const EXPENSE_TYPE_LABEL: Record<ExpenseType, string> = {
   FIXED: 'Fixa',
@@ -47,11 +48,16 @@ export function TransactionRow({ entry, onEdit, onDelete, onToggleInvoice }: Tra
     entry.authorizationCode ? `NSU ${entry.authorizationCode}` : null,
   ].filter(Boolean);
 
+  const procedureLabel =
+    entry.appointment && (entry.appointment.procedure || entry.appointment.appointmentProcedures?.length)
+      ? appointmentProcedureLabel(entry.appointment)
+      : '';
+
   const tooltip = [
     typeLabel,
     [...details, entry.recurringExpenseId ? 'Recorrente' : null].filter(Boolean).join(' · ') || null,
     cardMeta.length ? cardMeta.join(' · ') : null,
-    entry.appointment?.procedure?.name ? `Procedimento: ${entry.appointment.procedure.name}` : null,
+    procedureLabel ? `Procedimento: ${procedureLabel}` : null,
   ]
     .filter(Boolean)
     .join('\n');

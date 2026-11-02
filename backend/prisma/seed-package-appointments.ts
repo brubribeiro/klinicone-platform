@@ -98,6 +98,7 @@ async function createPackageAppointment(params: {
     data: {
       patientId: params.patientId,
       procedureId: params.procedureId,
+      appointmentProcedures: { create: { procedureId: params.procedureId } },
       professionalId: params.professionalId,
       patientPackageId: params.patientPackageId,
       startAt: params.startAt,

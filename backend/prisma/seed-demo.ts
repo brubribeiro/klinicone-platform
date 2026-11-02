@@ -360,6 +360,7 @@ async function seedExtras() {
         data: {
           patientId: patient.id,
           procedureId: proc.id,
+          appointmentProcedures: { create: { procedureId: proc.id } },
           professionalId: pick(pros, i + k).id,
           startAt: start,
           endAt: new Date(start.getTime() + proc.durationMinutes * 60000),
@@ -381,6 +382,7 @@ async function seedExtras() {
         data: {
           patientId: patient.id,
           procedureId: proc.id,
+          appointmentProcedures: { create: { procedureId: proc.id } },
           professionalId: pros[0].id,
           startAt: start,
           endAt: new Date(start.getTime() + proc.durationMinutes * 60000),
@@ -417,6 +419,7 @@ async function seedExtras() {
       data: {
         patientId: patients[20 + i].id,
         procedureId: proc.id,
+        appointmentProcedures: { create: { procedureId: proc.id } },
         professionalId: pick(pros, i).id,
         startAt: start,
         endAt: end,
