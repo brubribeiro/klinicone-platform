@@ -103,35 +103,49 @@ export function renderAgendaEventContent(arg: EventContentArg, theme: Theme) {
         </Box>
       );
     }
+    const fullText = [arg.timeText, appt.patient?.name ?? 'Paciente', procedureLabel]
+      .filter(Boolean)
+      .join(' · ');
     return (
       <Box
+        title={fullText}
         sx={{
           position: 'relative',
           height: '100%',
+          minWidth: 0,
           overflow: 'hidden',
           borderRadius: '12px',
           boxShadow: `inset 4px 0 0 ${barColor}`,
-          pl: '11px',
-          pr: '14px',
-          pt: '7px',
-          pb: '4px',
+          pl: '10px',
+          pr: '12px',
+          pt: '5px',
+          pb: '3px',
         }}
       >
         <Box
           sx={{
             position: 'absolute',
-            top: 6,
-            right: 6,
-            width: 13,
-            height: 13,
+            top: 5,
+            right: 5,
+            width: 11,
+            height: 11,
             borderRadius: '50%',
             bgcolor: statusColor,
             border: '2px solid',
             borderColor: 'background.paper',
           }}
         />
-        <Box sx={{ minWidth: 0, lineHeight: 1.25 }}>
-          <Box sx={{ fontSize: fontSizes['3xs'], fontWeight: 700, opacity: 0.9 }}>
+        <Box sx={{ minWidth: 0, lineHeight: 1.2 }}>
+          <Box
+            sx={{
+              fontSize: fontSizes['3xs'],
+              fontWeight: 700,
+              opacity: 0.9,
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+          >
             {arg.timeText}
           </Box>
           <Box

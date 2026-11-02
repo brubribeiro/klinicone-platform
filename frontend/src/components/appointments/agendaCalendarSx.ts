@@ -106,6 +106,56 @@ export function agendaCalendarSx(theme: Theme) {
     '& .fc-event.fc-unavailability:hover': {
       filter: 'none',
     },
+    // "+N mais": pílula discreta sobre o excedente de simultâneos (semana/dia) e no fim da célula (mês).
+    '& .fc .fc-timegrid-more-link': {
+      backgroundColor: theme.palette.background.paper,
+      border: `1px solid ${theme.palette.primary.main}`,
+      borderRadius: '8px',
+      boxShadow: '0 1px 3px rgba(16,40,37,.18)',
+      color: theme.palette.primary.main,
+      cursor: 'pointer',
+      fontSize: fontSizes['3xs'],
+      fontWeight: 800,
+      whiteSpace: 'nowrap',
+      zIndex: 5,
+    },
+    '& .fc .fc-timegrid-more-link-inner': {
+      padding: '2px 4px',
+    },
+    '& .fc .fc-daygrid-more-link': {
+      color: theme.palette.primary.main,
+      fontSize: fontSizes['2xs'],
+      fontWeight: 800,
+      padding: '0 4px',
+    },
+    '& .fc .fc-more-popover': {
+      minWidth: 220,
+      maxWidth: 'min(320px, 90vw)',
+      zIndex: 20,
+      backgroundColor: theme.palette.background.paper,
+      border: `1px solid ${theme.palette.divider}`,
+      borderRadius: '12px',
+      boxShadow: theme.shadows[8],
+      overflow: 'hidden',
+    },
+    '& .fc .fc-more-popover .fc-popover-header': {
+      backgroundColor: theme.palette.action.hover,
+      color: theme.palette.text.primary,
+      fontSize: fontSizes.xs,
+      fontWeight: 700,
+      padding: '6px 10px',
+    },
+    '& .fc .fc-more-popover .fc-popover-body': {
+      maxHeight: 280,
+      overflowY: 'auto',
+      padding: '6px',
+    },
+    // No popover os cards não têm altura de grade: deixa crescer para mostrar paciente e procedimento.
+    '& .fc .fc-more-popover .fc-timegrid-event': {
+      position: 'relative',
+      minHeight: 46,
+      marginBottom: '4px',
+    },
     '& .fc .fc-all-day': {
       minHeight: 28,
     },

@@ -24,9 +24,9 @@ export function appointmentProcedureLabel(appointment: {
   procedure?: Procedure | null;
   appointmentProcedures?: AppointmentProcedureRow[];
 }): string {
-  const names =
-    appointment.appointmentProcedures?.map((row) => row.procedure?.name).filter(Boolean) ??
-    (appointment.procedure?.name ? [appointment.procedure.name] : []);
+  const joinNames = appointment.appointmentProcedures?.map((row) => row.procedure?.name).filter(Boolean) ?? [];
+  // Sem itens na tabela de junção (agendamento legado/seed), vale o procedimento principal.
+  const names = joinNames.length > 0 ? joinNames : appointment.procedure?.name ? [appointment.procedure.name] : [];
   if (names.length > 0) return names.join(' + ');
   if (appointment.kind === 'EVALUATION') return 'Avaliação';
   if (appointment.kind === 'RETURN') return 'Retorno';

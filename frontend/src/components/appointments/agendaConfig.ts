@@ -54,3 +54,19 @@ export function categoryColorFor(name: string): string {
   for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
   return AGENDA_CATEGORIES[h % AGENDA_CATEGORIES.length].color;
 }
+
+/** Largura mínima (px) de um agendamento lado a lado na grade de horários para o texto continuar legível. */
+export const AGENDA_MIN_EVENT_WIDTH = 64;
+// Eixo de horários + paddings do card, descontados da largura do calendário.
+const AGENDA_GRID_GUTTER = 70;
+
+/**
+ * Quantos agendamentos simultâneos cabem lado a lado numa coluna de dia (`eventMaxStack` do FullCalendar);
+ * o excedente vira o link "+N mais".
+ */
+export function agendaMaxStack(containerWidth: number, view: string): number {
+  if (!containerWidth) return 3;
+  const columns = view === 'timeGridWeek' ? 7 : 1;
+  const columnWidth = (containerWidth - AGENDA_GRID_GUTTER) / columns;
+  return Math.min(6, Math.max(1, Math.floor(columnWidth / AGENDA_MIN_EVENT_WIDTH)));
+}
