@@ -103,6 +103,11 @@ export function renderAgendaEventContent(arg: EventContentArg, theme: Theme) {
         </Box>
       );
     }
+    // Na semana as colunas são estreitas: só o início; o intervalo completo fica no title e na visão diária.
+    const timeLabel =
+      arg.view.type === 'timeGridWeek' && arg.event.start
+        ? arg.event.start.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+        : arg.timeText;
     const fullText = [arg.timeText, appt.patient?.name ?? 'Paciente', procedureLabel]
       .filter(Boolean)
       .join(' · ');
@@ -146,7 +151,7 @@ export function renderAgendaEventContent(arg: EventContentArg, theme: Theme) {
               textOverflow: 'ellipsis',
             }}
           >
-            {arg.timeText}
+            {timeLabel}
           </Box>
           <Box
             sx={{

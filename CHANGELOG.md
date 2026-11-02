@@ -34,6 +34,7 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 - KPIs no topo das listagens: `StatCard` com altura mínima uniforme; Metas e Documentos alinhados a Pacientes, Financeiro, Estoque e Equipamentos (Pacientes passa a usar `StatCard`).
 
 ### Fixed
+- Agenda — visões semanal e diária: agendamentos simultâneos ficam lado a lado em colunas (`slotEventOverlap={false}`) em vez de empilhados um sobre o outro; o número de colunas por dia acompanha a largura do calendário (`agendaMaxStack`, mín. 64px por card) e o excedente vira o link "+N mais" com popover. Cards com texto truncado com reticências e `title` com horário, paciente e procedimentos; na semana mostra só o horário de início. No mês o link passa a ser "+N mais". Agendamento sem linhas em `appointmentProcedures` (legado/seed) volta a mostrar o procedimento principal.
 - Modal "Anamnese de pele" aberta sobre "Editar agendamento" agora é menor (~90%) que a de baixo, com sombra mais forte e margem visível, para ler como camada sobreposta; também inset no mobile.
 - Agenda/pacotes: concluir sessão de pacote cuja receita ainda não tinha sido lançada travava até o timeout da transação e repetia a contagem de sessões; `incrementSession`/`decrementSession` agora rodam na transação do agendamento.
 - Assistente (FAB): campo de pergunta e botão enviar com a mesma altura (~40px) e alinhamento na barra inferior do painel; ao minimizar, limpa histórico e pergunta em digitação (não persiste entre aberturas).
