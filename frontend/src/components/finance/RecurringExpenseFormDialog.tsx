@@ -214,6 +214,17 @@ export function RecurringExpenseFormDialog({ open, onClose, expense }: Props) {
                     <MenuItem value="FIXED">Fixa</MenuItem>
                     <MenuItem value="VARIABLE">Variável</MenuItem>
                   </TextField>
+                  <Typography
+                    sx={{
+                      mt: 0.75,
+                      fontSize: fontSizes['2xs'],
+                      color: 'text.secondary',
+                      lineHeight: 1.35,
+                    }}
+                  >
+                    Fixas entram no custo/hora mensal; variáveis podem ser incluídas no cálculo dos
+                    procedimentos.
+                  </Typography>
                 </LabeledField>
               )}
             />
@@ -239,10 +250,6 @@ export function RecurringExpenseFormDialog({ open, onClose, expense }: Props) {
               )}
             />
           </Box>
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: -0.75 }}>
-            Fixas entram no custo/hora mensal; variáveis podem ser incluídas no cálculo dos
-            procedimentos.
-          </Typography>
 
           <Controller
             name="description"

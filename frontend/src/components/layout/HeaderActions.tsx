@@ -25,9 +25,11 @@ interface HeaderActionsProps {
   moneyHidden: boolean;
   onToggleMoneyHidden: () => void;
   canSeeAgenda: boolean;
+  /** Presente quando a tela tem tour guiado: mostra o botão “Como funciona?”. */
+  onOpenTour?: () => void;
 }
 
-/** Botões à direita do header: tema, histórico, ocultar valores, notificações e novo agendamento. */
+/** Botões à direita do header: tour, tema, histórico, ocultar valores, notificações e novo agendamento. */
 export function HeaderActions({
   canSeeHistory,
   hasAuditEntity,
@@ -35,12 +37,20 @@ export function HeaderActions({
   moneyHidden,
   onToggleMoneyHidden,
   canSeeAgenda,
+  onOpenTour,
 }: HeaderActionsProps) {
   const { mode: colorMode, toggleColorMode } = useColorMode();
   const { openAppointmentDialog } = useAppointmentDialog();
 
   return (
     <Stack direction="row" spacing={{ xs: 0.5, sm: 1 }} alignItems="center" sx={{ flexShrink: 0 }}>
+      {onOpenTour && (
+        <Tooltip title="Como funciona?">
+          <IconButton onClick={onOpenTour} aria-label="Como funciona? Ver tour da tela" data-tour="tour-help" sx={HEADER_ICON_BUTTON_SX}>
+            <AuroraIcon name="help" size={20} strokeWidth={1.8} />
+          </IconButton>
+        </Tooltip>
+      )}
       <Tooltip title={colorMode === 'dark' ? 'Tema claro' : 'Tema escuro'}>
         <IconButton onClick={toggleColorMode} aria-label="Alternar tema" sx={HEADER_ICON_BUTTON_SX}>
           <AuroraIcon name={colorMode === 'dark' ? 'sun' : 'moon'} size={20} strokeWidth={1.8} />
@@ -87,6 +97,7 @@ export function HeaderActions({
             color="primary"
             startIcon={<AuroraIcon name="plus" size={18} strokeWidth={2.2} />}
             onClick={() => openAppointmentDialog()}
+            data-tour="agenda-new"
             sx={{
               height: { xs: 34, sm: 38 },
               minHeight: { xs: 34, sm: 38 },

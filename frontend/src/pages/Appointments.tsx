@@ -145,6 +145,7 @@ export function Appointments() {
 
       <Card
         tabIndex={0}
+        data-tour="agenda-calendar"
         role="region"
         aria-label="Calendário de agendamentos"
         onKeyDown={handleCalendarKeyDown}

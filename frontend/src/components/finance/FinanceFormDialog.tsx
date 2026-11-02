@@ -1,16 +1,13 @@
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Alert,
-  alpha,
   Autocomplete,
   Box,
   Button,
   Dialog,
   DialogActions,
   DialogContent,
-  Grid,
   MenuItem,
-  Paper,
   Stack,
   TextField,
   ToggleButton,
@@ -21,13 +18,18 @@ import {
 } from '@mui/material';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
-import LabelOutlinedIcon from '@mui/icons-material/LabelOutlined';
-import PaymentsOutlinedIcon from '@mui/icons-material/PaymentsOutlined';
 import { useForm, Controller, type Control } from 'react-hook-form';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 
-import { DialogHeader, dialogActionsBorderSx, dialogPaperSx } from '../DialogCloseButton';
+import {
+  DialogHeader,
+  dialogActionsBorderSx,
+  dialogContentScrollSx,
+  dialogFormLayoutSx,
+  formDialogPaperSx,
+} from '../DialogCloseButton';
+import { LabeledField } from '../LabeledField';
 import { MoneyField } from '../MoneyField';
 import { financeApi, FinancialEntryPayload } from '../../api/finance';
 import { useAppToast } from '../../contexts/AppToastContext';
@@ -37,6 +39,12 @@ import { patientsApi } from '../../api/patients';
 import { paymentMethodsApi } from '../../api/paymentMethods';
 import type { ExpenseType, FinancialEntry, FinancialType, PaymentMethodEntry } from '../../types';
 import { fontSizes } from '../../theme/fontSizes';
+import {
+  PaymentCaptureFields,
+  emptyPaymentCapture,
+  paymentCaptureToPayload,
+  type PaymentCaptureValues,
+} from '../payment-methods/PaymentCaptureFields';
 
 interface FinanceFormDialogProps {
   open: boolean;
@@ -66,55 +74,20 @@ const empty: FormValues = {
   expenseType: '',
 };
 
-const DIALOG_MAX_WIDTH = 900;
-const DIALOG_HEIGHT_DESKTOP = 540;
+const DIALOG_MAX_WIDTH = 680;
+const FORM_STACK_GAP = 1.5;
 
-const FORM_CARD_SX = {
-  p: { xs: 1.5, sm: 1.75 },
-  borderRadius: 2,
-  borderColor: 'divider',
-  bgcolor: 'background.paper',
-  boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
-  height: '100%',
+const TWO_COLUMNS_SX = {
+  display: 'grid',
+  gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))' },
+  gap: FORM_STACK_GAP,
+  alignItems: 'start',
 } as const;
 
-function SectionIcon({ children }: { children: ReactNode }) {
-  return (
-    <Box
-      sx={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        width: 36,
-        height: 36,
-        borderRadius: 2,
-        bgcolor: (theme) => alpha(theme.palette.primary.main, 0.1),
-        color: 'primary.main',
-        flexShrink: 0,
-      }}
-    >
-      {children}
-    </Box>
-  );
-}
-
-function SectionTitle({ title }: { icon?: ReactNode; title: string }) {
-  return (
-    <Typography
-      sx={{
-        display: 'block',
-        mb: 1.75,
-        fontSize: fontSizes.xs,
-        fontWeight: 800,
-        letterSpacing: '0.06em',
-        textTransform: 'uppercase',
-        color: 'text.disabled',
-      }}
-    >
-      {title}
-    </Typography>
-  );
-}
+const THREE_COLUMNS_SX = {
+  ...TWO_COLUMNS_SX,
+  gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, minmax(0, 1fr))' },
+} as const;
 
 function EntryTypeToggle({
   control,
@@ -155,6 +128,7 @@ export function FinanceFormDialog({ open, onClose, entry }: FinanceFormDialogPro
   const queryClient = useQueryClient();
   const toast = useAppToast();
   const { control, handleSubmit, reset, watch } = useForm<FormValues>({ defaultValues: empty });
+  const [capture, setCapture] = useState<PaymentCaptureValues>(emptyPaymentCapture);
 
   const { data: patients = [] } = useQuery({
     queryKey: ['patients', ''],
@@ -181,12 +155,20 @@ export function FinanceFormDialog({ open, onClose, entry }: FinanceFormDialogPro
         patientId: entry.patientId ?? '',
         expenseType: entry.expenseType ?? '',
       });
+      setCapture({
+        installments: entry.installments && entry.installments > 1 ? String(entry.installments) : '',
+        cardBrand: entry.cardBrand ?? '',
+        authorizationCode: entry.authorizationCode ?? '',
+      });
     } else {
       reset(empty);
+      setCapture(emptyPaymentCapture);
     }
   }, [open, entry, reset]);
 
   const type = watch('type');
+  const paymentMethodId = watch('paymentMethodId');
+  const selectedPaymentMethod = paymentMethods.find((m) => m.id === paymentMethodId);
 
   const mutation = useMutation({
     mutationFn: (values: FormValues) => {
@@ -200,6 +182,9 @@ export function FinanceFormDialog({ open, onClose, entry }: FinanceFormDialogPro
         ...(values.patientId ? { patientId: values.patientId } : {}),
         ...(values.type === 'EXPENSE' && values.expenseType
           ? { expenseType: values.expenseType }
+          : {}),
+        ...(values.type === 'INCOME' && values.paymentMethodId
+          ? paymentCaptureToPayload(capture)
           : {}),
       };
       return entry ? financeApi.update(entry.id, payload) : financeApi.create(payload);
@@ -223,33 +208,18 @@ export function FinanceFormDialog({ open, onClose, entry }: FinanceFormDialogPro
       fullWidth
       fullScreen={isMobile}
       PaperProps={{
-        sx: {
-          ...dialogPaperSx(isMobile),
-          display: 'flex',
-          flexDirection: 'column',
-          width: '100%',
-          ...(isMobile
-            ? { height: '100%', maxHeight: '100dvh' }
-            : {
-                maxWidth: DIALOG_MAX_WIDTH,
-                height: DIALOG_HEIGHT_DESKTOP,
-                maxHeight: '94dvh',
-                overflow: 'hidden',
-              }),
-        },
+        sx: formDialogPaperSx(isMobile, {
+          maxWidth: DIALOG_MAX_WIDTH,
+          height: 'auto',
+          maxHeight: '88dvh',
+        }),
       }}
     >
       <Box
         component="form"
         noValidate
         onSubmit={handleSubmit((v) => mutation.mutate(v))}
-        sx={{
-          display: 'flex',
-          flexDirection: 'column',
-          flex: 1,
-          minHeight: 0,
-          ...(isMobile ? { height: '100%' } : {}),
-        }}
+        sx={{ ...dialogFormLayoutSx(isMobile), overflow: 'hidden' }}
       >
         <DialogHeader
           onClose={onClose}
@@ -277,172 +247,165 @@ export function FinanceFormDialog({ open, onClose, entry }: FinanceFormDialogPro
         />
 
         <DialogContent
-          dividers
           sx={{
+            ...dialogContentScrollSx,
             px: { xs: 2, sm: 3 },
-            py: { xs: 2, sm: 2.5 },
-            flex: 1,
-            minHeight: 0,
-            overflow: 'auto',
-            display: 'flex',
-            flexDirection: 'column',
-            bgcolor: (t) => t.palette.background.default,
+            pb: { xs: 2, sm: 2.5 },
+            bgcolor: 'background.default',
+            '&.MuiDialogContent-root': { pt: { xs: 2, sm: 2.25 } },
           }}
         >
-          <Grid container spacing={2.5} alignItems="stretch">
-            <Grid item xs={12} md={6}>
-              <Paper variant="outlined" sx={FORM_CARD_SX}>
-                <SectionTitle icon={<LabelOutlinedIcon fontSize="small" />} title="Identificação" />
-                <Stack spacing={2}>
-                  <Controller
-                    name="description"
-                    control={control}
-                    rules={{ required: 'Descrição é obrigatória' }}
-                    render={({ field, fieldState }) => (
-                      <TextField
-                        {...field}
-                        label="Descrição"
-                        fullWidth
-                        required
-                        autoFocus={!entry}
-                        error={!!fieldState.error}
-                        helperText={fieldState.error?.message}
-                      />
-                    )}
+          <Stack spacing={FORM_STACK_GAP}>
+            <Controller
+              name="description"
+              control={control}
+              rules={{ required: 'Descrição é obrigatória' }}
+              render={({ field, fieldState }) => (
+                <LabeledField label="Descrição" required>
+                  <TextField
+                    {...field}
+                    fullWidth
+                    autoFocus={!entry}
+                    error={!!fieldState.error}
+                    helperText={fieldState.error?.message}
                   />
+                </LabeledField>
+              )}
+            />
 
-                  <Controller
-                    name="category"
-                    control={control}
-                    render={({ field }) => (
-                      <TextField
-                        {...field}
-                        label="Categoria"
-                        fullWidth
-                        placeholder={type === 'INCOME' ? 'Ex.: Atendimentos' : 'Ex.: Material, Aluguel'}
-                      />
-                    )}
-                  />
-
-                  {type === 'EXPENSE' && (
-                    <Box>
-                      <Typography variant="body2" fontWeight={600} sx={{ mb: 1 }}>
-                        Tipo de despesa
-                      </Typography>
-                      <Controller
-                        name="expenseType"
-                        control={control}
-                        render={({ field }) => (
-                          <ToggleButtonGroup
-                            exclusive
-                            fullWidth
-                            size="small"
-                            color="primary"
-                            value={field.value || null}
-                            onChange={(_, val) => field.onChange(val ?? '')}
-                          >
-                            <ToggleButton value="FIXED">Fixa</ToggleButton>
-                            <ToggleButton value="VARIABLE">Variável</ToggleButton>
-                          </ToggleButtonGroup>
+            <Box sx={TWO_COLUMNS_SX}>
+              <Controller
+                name="category"
+                control={control}
+                render={({ field }) => (
+                  <LabeledField label="Categoria">
+                    <TextField
+                      {...field}
+                      fullWidth
+                      placeholder={type === 'INCOME' ? 'Ex.: Atendimentos' : 'Ex.: Material, Aluguel'}
+                    />
+                  </LabeledField>
+                )}
+              />
+              {type === 'INCOME' ? (
+                <Controller
+                  name="patientId"
+                  control={control}
+                  render={({ field }) => (
+                    <LabeledField label="Vincular a paciente">
+                      <Autocomplete
+                        options={patients}
+                        getOptionLabel={(p) => p.name}
+                        value={patients.find((p) => p.id === field.value) ?? null}
+                        onChange={(_, val) => field.onChange(val?.id ?? '')}
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            placeholder="Opcional"
+                            inputProps={{ ...params.inputProps, 'aria-label': 'Vincular a paciente' }}
+                          />
                         )}
                       />
-                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-                        Fixa = recorrente (aluguel, internet) · Variável = pontual (material, taxas)
-                      </Typography>
-                    </Box>
+                    </LabeledField>
                   )}
-
-                  {type === 'INCOME' && (
-                    <Controller
-                      name="patientId"
-                      control={control}
-                      render={({ field }) => (
-                        <Autocomplete
-                          options={patients}
-                          getOptionLabel={(p) => p.name}
-                          value={patients.find((p) => p.id === field.value) ?? null}
-                          onChange={(_, val) => field.onChange(val?.id ?? '')}
-                          renderInput={(params) => (
-                            <TextField
-                              {...params}
-                              label="Vincular a paciente"
-                              placeholder="Opcional"
-                            />
-                          )}
-                        />
-                      )}
-                    />
+                />
+              ) : (
+                <Controller
+                  name="expenseType"
+                  control={control}
+                  render={({ field }) => (
+                    <LabeledField label="Tipo de despesa">
+                      <ToggleButtonGroup
+                        exclusive
+                        fullWidth
+                        color="primary"
+                        value={field.value || null}
+                        onChange={(_, val) => field.onChange(val ?? '')}
+                        sx={{ height: 40 }}
+                      >
+                        <ToggleButton value="FIXED">Fixa</ToggleButton>
+                        <ToggleButton value="VARIABLE">Variável</ToggleButton>
+                      </ToggleButtonGroup>
+                    </LabeledField>
                   )}
-                </Stack>
-              </Paper>
-            </Grid>
+                />
+              )}
+            </Box>
+            {type === 'EXPENSE' && (
+              <Typography sx={{ fontSize: fontSizes['2xs'], color: 'text.secondary', lineHeight: 1.35, mt: -0.5 }}>
+                Fixa = recorrente (aluguel, internet) · Variável = pontual (material, taxas)
+              </Typography>
+            )}
 
-            <Grid item xs={12} md={6}>
-              <Paper variant="outlined" sx={FORM_CARD_SX}>
-                <SectionTitle icon={<PaymentsOutlinedIcon fontSize="small" />} title="Valor e pagamento" />
-                <Stack spacing={2}>
-                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-                    <Controller
-                      name="amount"
-                      control={control}
-                      rules={{ validate: (v) => Number(v) > 0 || 'Informe um valor maior que zero' }}
-                      render={({ field, fieldState }) => (
-                        <MoneyField
-                          {...field}
-                          label="Valor"
-                          fullWidth
-                          required
-                          error={!!fieldState.error}
-                          helperText={fieldState.error?.message}
-                          sx={{ flex: 1, minWidth: 0 }}
-                        />
-                      )}
+            <Box sx={THREE_COLUMNS_SX}>
+              <Controller
+                name="amount"
+                control={control}
+                rules={{ validate: (v) => Number(v) > 0 || 'Informe um valor maior que zero' }}
+                render={({ field, fieldState }) => (
+                  <LabeledField label="Valor" required>
+                    <MoneyField
+                      {...field}
+                      fullWidth
+                      error={!!fieldState.error}
+                      helperText={fieldState.error?.message}
                     />
+                  </LabeledField>
+                )}
+              />
+              <Controller
+                name="paidAt"
+                control={control}
+                render={({ field }) => (
+                  <LabeledField label="Data do pagamento">
+                    <TextField {...field} type="date" fullWidth />
+                  </LabeledField>
+                )}
+              />
+              <Controller
+                name="paymentMethodId"
+                control={control}
+                render={({ field }) => (
+                  <LabeledField label="Forma de pagamento">
+                    <TextField
+                      {...field}
+                      select
+                      fullWidth
+                      onChange={(e) => {
+                        field.onChange(e);
+                        setCapture(emptyPaymentCapture);
+                      }}
+                    >
+                      <MenuItem value="">—</MenuItem>
+                      {paymentMethods.filter((m) => m.active).map((m) => (
+                        <MenuItem key={m.id} value={m.id}>
+                          {m.name}
+                          {Number(m.feePercent) > 0 ? ` (${Number(m.feePercent)}%)` : ''}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                  </LabeledField>
+                )}
+              />
+            </Box>
 
-                    <Controller
-                      name="paidAt"
-                      control={control}
-                      render={({ field }) => (
-                        <TextField
-                          {...field}
-                          type="date"
-                          label="Data do pagamento"
-                          fullWidth
-                          InputLabelProps={{ shrink: true }}
-                          sx={{ flex: 1, minWidth: 0 }}
-                        />
-                      )}
-                    />
-                  </Stack>
-
-                  <Controller
-                    name="paymentMethodId"
-                    control={control}
-                    render={({ field }) => (
-                      <TextField {...field} select label="Forma de pagamento" fullWidth>
-                        <MenuItem value="">—</MenuItem>
-                        {paymentMethods.filter((m) => m.active).map((m) => (
-                          <MenuItem key={m.id} value={m.id}>
-                            {m.name}
-                            {Number(m.feePercent) > 0 ? ` (${Number(m.feePercent)}%)` : ''}
-                          </MenuItem>
-                        ))}
-                      </TextField>
-                    )}
-                  />
-                </Stack>
-              </Paper>
-            </Grid>
+            {type === 'INCOME' && selectedPaymentMethod && (
+              <Stack spacing={FORM_STACK_GAP}>
+                <PaymentCaptureFields
+                  kind={selectedPaymentMethod.kind}
+                  values={capture}
+                  onChange={(patch) => setCapture((prev) => ({ ...prev, ...patch }))}
+                />
+              </Stack>
+            )}
 
             {mutation.isError && (
-              <Grid item xs={12}>
-                <Alert severity="error" variant="outlined">
-                  {(mutation.error as { response?: { data?: { message?: string } } })?.response?.data
-                    ?.message ?? 'Erro ao salvar lançamento'}
-                </Alert>
-              </Grid>
+              <Alert severity="error" variant="outlined">
+                {(mutation.error as { response?: { data?: { message?: string } } })?.response?.data
+                  ?.message ?? 'Erro ao salvar lançamento'}
+              </Alert>
             )}
-          </Grid>
+          </Stack>
         </DialogContent>
 
         <DialogActions sx={{ ...dialogActionsBorderSx, flexShrink: 0 }}>

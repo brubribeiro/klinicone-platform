@@ -1,6 +1,6 @@
 import type { SxProps, Theme } from '@mui/material/styles';
 
-import { dialogPaperSx } from '../DialogCloseButton';
+import { formDialogPaperSx } from '../DialogCloseButton';
 import { fontSizes } from '../../theme/fontSizes';
 import type { WorkingHours } from '../../types';
 
@@ -90,13 +90,12 @@ export const ROW_ACTION_SX = {
 export const EMPTY_HOURS: WorkingHours[] = [];
 
 /** Paper dos diálogos de horário/bloqueio: tela cheia no mobile, 640px no desktop. */
-export const availabilityDialogPaperSx = (isMobile: boolean): SxProps<Theme> => ({
-  ...dialogPaperSx(isMobile),
-  display: 'flex',
-  flexDirection: 'column',
-  width: '100%',
-  ...(isMobile ? { height: '100%', maxHeight: '100dvh' } : { maxWidth: DIALOG_MAX_WIDTH, maxHeight: '94dvh' }),
-});
+export const availabilityDialogPaperSx = (isMobile: boolean): SxProps<Theme> =>
+  formDialogPaperSx(isMobile, { maxWidth: DIALOG_MAX_WIDTH, height: 'min(86dvh, 620px)' });
+
+/** Horário semanal: o paper cresce até caber os 7 dias; só então o miolo rola. */
+export const workingHoursDialogPaperSx = (isMobile: boolean): SxProps<Theme> =>
+  formDialogPaperSx(isMobile, { maxWidth: DIALOG_MAX_WIDTH, height: 'auto', maxHeight: '92dvh' });
 
 export const AVAILABILITY_DIALOG_CONTENT_SX = {
   px: { xs: 2, sm: 3 },

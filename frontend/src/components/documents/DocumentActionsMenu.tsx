@@ -5,6 +5,7 @@ import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import PrintOutlinedIcon from '@mui/icons-material/PrintOutlined';
+import SendOutlinedIcon from '@mui/icons-material/SendOutlined';
 import { DOCUMENT_STATUSES, canOpenDocument } from './documentUtils';
 import type { DocumentFile, DocumentStatus } from '../../types';
 
@@ -19,12 +20,13 @@ interface DocumentActionsMenuProps {
   onOpenFile: (doc: DocumentFile) => void;
   onView: (doc: DocumentFile) => void;
   onAttach: (doc: DocumentFile) => void;
+  onSend: (doc: DocumentFile) => void;
   onSetStatus: (doc: DocumentFile, status: DocumentStatus) => void;
   onEdit: (doc: DocumentFile) => void;
   onDelete: (doc: DocumentFile) => void;
 }
 
-/** Menu "..." da linha de documento: abrir, imprimir, anexar, status, editar e excluir. */
+/** Menu "..." da linha de documento: abrir, imprimir, enviar, anexar, status, editar e excluir. */
 export function DocumentActionsMenu({
   anchor,
   doc,
@@ -35,6 +37,7 @@ export function DocumentActionsMenu({
   onOpenFile,
   onView,
   onAttach,
+  onSend,
   onSetStatus,
   onEdit,
   onDelete,
@@ -66,6 +69,12 @@ export function DocumentActionsMenu({
           <MenuItem onClick={menuAction(onView)}>
             <ListItemIcon><PrintOutlinedIcon fontSize="small" /></ListItemIcon>
             <ListItemText>Visualizar e imprimir</ListItemText>
+          </MenuItem>
+        )}
+        {doc?.patientId && canEdit && (
+          <MenuItem onClick={menuAction(onSend)}>
+            <ListItemIcon><SendOutlinedIcon fontSize="small" /></ListItemIcon>
+            <ListItemText>Enviar ao paciente</ListItemText>
           </MenuItem>
         )}
         {doc && canEdit && (

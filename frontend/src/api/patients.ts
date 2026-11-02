@@ -7,6 +7,7 @@ import type {
   PatientStats,
   PatientPhoto,
   PatientPhotoPhase,
+  PatientMeasurement,
 } from '../types';
 
 export interface PatientPayload {
@@ -116,7 +117,37 @@ export const patientsApi = {
   removePhoto2: async (id: string, photoId: string): Promise<void> => {
     await api.delete(`/patients/${id}/photos/${photoId}`);
   },
+  listMeasurements: async (id: string): Promise<PatientMeasurement[]> => {
+    const { data } = await api.get<PatientMeasurement[]>(`/patients/${id}/measurements`);
+    return data;
+  },
+  createMeasurement: async (id: string, payload: PatientMeasurementPayload): Promise<PatientMeasurement> => {
+    const { data } = await api.post<PatientMeasurement>(`/patients/${id}/measurements`, payload);
+    return data;
+  },
+  updateMeasurement: async (
+    id: string,
+    measurementId: string,
+    payload: PatientMeasurementPayload,
+  ): Promise<PatientMeasurement> => {
+    const { data } = await api.patch<PatientMeasurement>(`/patients/${id}/measurements/${measurementId}`, payload);
+    return data;
+  },
+  removeMeasurement: async (id: string, measurementId: string): Promise<void> => {
+    await api.delete(`/patients/${id}/measurements/${measurementId}`);
+  },
 };
+
+export interface PatientMeasurementPayload {
+  measuredAt?: string;
+  appointmentId?: string | null;
+  weightKg?: number | null;
+  heightCm?: number | null;
+  waistCm?: number | null;
+  abdomenCm?: number | null;
+  hipCm?: number | null;
+  notes?: string | null;
+}
 
 export interface PatientReliability {
   total: number;

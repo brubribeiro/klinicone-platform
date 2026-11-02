@@ -1,4 +1,16 @@
-import { IsBoolean, IsDateString, IsEnum, IsNumber, IsOptional, IsString, IsUUID } from 'class-validator';
+import {
+  IsBoolean,
+  IsDateString,
+  IsEnum,
+  IsInt,
+  IsNumber,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Max,
+  MaxLength,
+  Min,
+} from 'class-validator';
 import { ExpenseType, FinancialType } from '@prisma/client';
 
 export class CreateFinancialEntryDto {
@@ -14,6 +26,22 @@ export class CreateFinancialEntryDto {
   @IsOptional()
   @IsUUID()
   paymentMethodId?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(24)
+  installments?: number;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  cardBrand?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  authorizationCode?: string;
 
   @IsOptional()
   @IsString()

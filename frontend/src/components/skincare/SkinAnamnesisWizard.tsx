@@ -6,6 +6,7 @@ import dayjs from 'dayjs';
 import { skincareApi } from '../../api/skincare';
 import { useAppToast } from '../../contexts/AppToastContext';
 import { usePermissions } from '../../contexts/usePermissions';
+import { usePlatformCatalog } from '../../hooks/usePlatformCatalog';
 import { fontSizes } from '../../theme/fontSizes';
 import { getApiErrorMessage } from '../../utils/apiError';
 import type { SkinAnswers, SkincareAvoided, SkincareGuideline, SkincareMoment, SkincareRoutine, SkincareRoutineItem, SkincareStep } from '../../types';
@@ -25,6 +26,7 @@ import {
   formatDateBR,
   generateRoutine,
   optionLabel,
+  skincareTagsFromCatalog,
   productToItem,
   slotLabel,
   toggleCondition,
@@ -114,6 +116,8 @@ export function SkinAnamnesisWizard({ patient, routine, onSaved }: SkinAnamnesis
     queryFn: skincareApi.listRules,
     staleTime: 60_000,
   });
+  const tagCatalog = usePlatformCatalog('skincare_tag');
+  const tagOptions = useMemo(() => skincareTagsFromCatalog(tagCatalog), [tagCatalog]);
   const catalogLoading = productsLoading || rulesLoading;
 
   const canSave = has(savedId ? 'routines:edit' : 'routines:create');
@@ -137,7 +141,7 @@ export function SkinAnamnesisWizard({ patient, routine, onSaved }: SkinAnamnesis
   const canNext = canAdvance(step, answers, true, consultDate) && (step !== 5 || !catalogLoading);
 
   const generate = () => {
-    const result = generateRoutine(answers, products, rules);
+    const result = generateRoutine(answers, products, rules, tagOptions);
     setItems(result.items);
     setAvoided(result.avoided);
     setGuidelines(result.guidelines);

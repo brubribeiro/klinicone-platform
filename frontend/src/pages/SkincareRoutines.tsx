@@ -8,10 +8,11 @@ import {
   RULE_FIELDS,
   SKINCARE_MOMENTS,
   SKINCARE_STEPS,
-  SKINCARE_TAGS,
   optionLabel,
   ruleConditionLabel,
+  skincareTagsFromCatalog,
 } from '../components/skincare/skincareUtils';
+import { usePlatformCatalog } from '../hooks/usePlatformCatalog';
 import {
   BORDER_SOFT,
   DARK_BG,
@@ -52,6 +53,8 @@ export function SkincareRoutines() {
   const { data: products = [], isLoading: productsLoading } = useQuery({ queryKey: ['skincare', 'products'], queryFn: skincareApi.listProducts });
   const { data: rules = [], isLoading: rulesLoading } = useQuery({ queryKey: ['skincare', 'rules'], queryFn: skincareApi.listRules });
   const productName = useMemo(() => new Map(products.map((p) => [p.id, p.name])), [products]);
+  const tagCatalog = usePlatformCatalog('skincare_tag');
+  const tagOptions = useMemo(() => skincareTagsFromCatalog(tagCatalog), [tagCatalog]);
 
   const deleteProduct = useMutation({
     mutationFn: (p: SkincareProduct) => skincareApi.removeProduct(p.id),
@@ -188,7 +191,7 @@ export function SkincareRoutines() {
                     ) : (
                       p.tags.map((t) => (
                         <Pill key={t} tone="neutral">
-                          {optionLabel(SKINCARE_TAGS, t)}
+                          {optionLabel(tagOptions, t)}
                         </Pill>
                       ))
                     )}
@@ -262,7 +265,7 @@ export function SkincareRoutines() {
                             </Typography>
                             {r.avoidTags.map((t) => (
                               <Pill key={t} tone="danger">
-                                {optionLabel(SKINCARE_TAGS, t)}
+                                {optionLabel(tagOptions, t)}
                               </Pill>
                             ))}
                           </Box>

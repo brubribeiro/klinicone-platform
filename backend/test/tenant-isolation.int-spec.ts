@@ -248,6 +248,7 @@ describe('tenant isolation', () => {
       active: true,
       providesAppointments: true,
       features: [],
+      tokenVersion: clinic.admin.tokenVersion ?? 0,
     });
 
     it('fills tenantId on create and other clinic does not list it', async () => {
@@ -289,11 +290,21 @@ describe('tenant isolation', () => {
   describe('auth', () => {
     it('JWT carries the tenant and the request is scoped to it', async () => {
       const strategy = moduleRef.get(JwtStrategy);
-      const user = await strategy.validate({ sub: A.admin.id, email: A.admin.email, tenantId: A.tenant.id });
+      const user = await strategy.validate({
+        sub: A.admin.id,
+        email: A.admin.email,
+        tenantId: A.tenant.id,
+        tv: A.admin.tokenVersion ?? 0,
+      });
       expect(user.tenantId).toBe(A.tenant.id);
-      await expect(strategy.validate({ sub: A.admin.id, email: A.admin.email, tenantId: B.tenant.id })).rejects.toBeInstanceOf(
-        UnauthorizedException,
-      );
+      await expect(
+        strategy.validate({
+          sub: A.admin.id,
+          email: A.admin.email,
+          tenantId: B.tenant.id,
+          tv: A.admin.tokenVersion ?? 0,
+        }),
+      ).rejects.toBeInstanceOf(UnauthorizedException);
     });
 
     it('suspended clinic: requests and login are refused with a clear message', async () => {
@@ -303,12 +314,24 @@ describe('tenant isolation', () => {
 
       await base.tenant.update({ where: { id: B.tenant.id }, data: { active: false, suspendedAt: new Date() } });
       try {
-        await expect(strategy.validate({ sub: B.admin.id, email: B.admin.email, tenantId: B.tenant.id })).rejects.toThrow(
-          /suspenso/,
-        );
+        await expect(
+          strategy.validate({
+            sub: B.admin.id,
+            email: B.admin.email,
+            tenantId: B.tenant.id,
+            tv: B.admin.tokenVersion ?? 0,
+          }),
+        ).rejects.toThrow(/suspenso/);
         await expect(auth.loginWithGoogle({ credential: 'x' })).rejects.toThrow(/suspenso/);
         // a outra clínica segue funcionando
-        await expect(strategy.validate({ sub: A.admin.id, email: A.admin.email, tenantId: A.tenant.id })).resolves.toBeDefined();
+        await expect(
+          strategy.validate({
+            sub: A.admin.id,
+            email: A.admin.email,
+            tenantId: A.tenant.id,
+            tv: A.admin.tokenVersion ?? 0,
+          }),
+        ).resolves.toBeDefined();
       } finally {
         await base.tenant.update({ where: { id: B.tenant.id }, data: { active: true, suspendedAt: null } });
       }
@@ -322,7 +345,12 @@ describe('tenant isolation', () => {
       });
       try {
         const strategy = moduleRef.get(JwtStrategy);
-        const authUser = await strategy.validate({ sub: superAdmin.id, email: superAdmin.email, tenantId: null });
+        const authUser = await strategy.validate({
+          sub: superAdmin.id,
+          email: superAdmin.email,
+          tenantId: null,
+          tv: superAdmin.tokenVersion ?? 0,
+        });
         expect(authUser).toMatchObject({ isSuperAdmin: true, tenantId: null });
 
         const guard = new SuperAdminGuard();
@@ -342,9 +370,36 @@ describe('tenant isolation', () => {
       }
     });
 
+    it('database allows dual super-admin with clinic tenant and role', async () => {
+      try {
+        await base.user.update({ where: { id: A.admin.id }, data: { isSuperAdmin: true } });
+        const dual = await base.user.findUniqueOrThrow({ where: { id: A.admin.id } });
+        expect(dual).toMatchObject({
+          isSuperAdmin: true,
+          tenantId: A.tenant.id,
+          roleId: A.adminRole.id,
+        });
+      } finally {
+        await base.user.update({ where: { id: A.admin.id }, data: { isSuperAdmin: false } });
+      }
+    });
+
     it('database refuses a clinic user without tenant', async () => {
       await expect(
         base.user.create({ data: { name: 'Sem clínica', email: `orphan-${suffix}@isolamento.test`, password: 'x' } }),
+      ).rejects.toThrow(/users_tenant_or_super_admin_check/);
+    });
+
+    it('database refuses a clinic user without role', async () => {
+      await expect(
+        base.user.create({
+          data: {
+            name: 'Sem grupo',
+            email: `norole-${suffix}@isolamento.test`,
+            password: 'x',
+            tenantId: A.tenant.id,
+          },
+        }),
       ).rejects.toThrow(/users_tenant_or_super_admin_check/);
     });
   });

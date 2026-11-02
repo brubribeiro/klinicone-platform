@@ -82,6 +82,12 @@ export class PackagesController {
   }
 
   @RequirePermissions('packages:view')
+  @Get(':id/sale-quote')
+  saleQuote(@Param('id') id: string) {
+    return this.packages.saleQuote(id);
+  }
+
+  @RequirePermissions('packages:view')
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.packages.findOne(id);

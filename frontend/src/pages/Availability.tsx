@@ -25,6 +25,7 @@ export function Availability() {
           alignItems: 'start',
         }}
       >
+        <Box data-tour="hours-team">
         <TeamAvailabilityCard
           title={canEditOthers ? 'Disponibilidade da equipe' : 'Minha disponibilidade'}
           loading={canEditOthers && usersLoading}
@@ -33,7 +34,9 @@ export function Availability() {
           colorOf={colorOf}
           onEdit={setEditing}
         />
+        </Box>
 
+        <Box data-tour="hours-blocks">
         <UnavailabilityBlocksCard
           loading={unavailLoading}
           blocks={blocks}
@@ -41,6 +44,7 @@ export function Availability() {
           onAdd={() => setUnavailDialogOpen(true)}
           onRemove={(b) => removeBlock({ userId: b.professional.id, id: b.id })}
         />
+        </Box>
       </Box>
 
       <WorkingHoursDialog professional={editing} onClose={() => setEditing(null)} />

@@ -29,6 +29,7 @@ export function AgendaToolbar({ periodLabel, currentView, onPrev, onNext, onToda
   const theme = useTheme();
   return (
     <Box
+      data-tour="agenda-toolbar"
       sx={{
         display: 'flex',
         alignItems: 'center',
@@ -44,13 +45,18 @@ export function AgendaToolbar({ periodLabel, currentView, onPrev, onNext, onToda
             <AuroraIcon name="chevronLeft" size={17} strokeWidth={2} />
           </IconButton>
           <Typography
+            title={periodLabel}
+            noWrap
             sx={{
               fontSize: fontSizes.xl,
               fontWeight: 700,
               px: 1,
               textTransform: 'capitalize',
               textAlign: 'center',
-              minWidth: { xs: 90, sm: 150 },
+              // Largura fixa: trocar Dia/Semana/Mês não desloca Hoje e as visões.
+              width: { xs: 'auto', sm: 280 },
+              minWidth: { xs: 90, sm: 280 },
+              flexShrink: 0,
             }}
           >
             {periodLabel}

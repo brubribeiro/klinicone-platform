@@ -1,6 +1,8 @@
 import { Transform } from 'class-transformer';
 import { IsEmail, IsOptional, IsString, IsUUID, Matches, MaxLength, MinLength } from 'class-validator';
 
+import { TenantProfileDto } from './tenant-profile.dto';
+
 const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value);
 
 export const trimToUndefined = ({ value }: { value: unknown }) =>
@@ -9,7 +11,7 @@ export const trimToUndefined = ({ value }: { value: unknown }) =>
 export const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 export const SLUG_MESSAGE = 'Identificador deve ter só letras minúsculas, números e hífens (ex.: clinica-bela).';
 
-export class CreateTenantDto {
+export class CreateTenantDto extends TenantProfileDto {
   @Transform(trim)
   @IsString()
   @MinLength(2)

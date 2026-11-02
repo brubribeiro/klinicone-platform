@@ -18,7 +18,7 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import WhatsAppIcon from '@mui/icons-material/WhatsApp';
 import EventAvailableOutlinedIcon from '@mui/icons-material/EventAvailableOutlined';
 import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import 'dayjs/locale/pt-br';
 
@@ -37,7 +37,14 @@ import { PatientDetailDrawer } from '../patients/PatientDetailDrawer';
 import { SkinAnamnesisDialog } from '../skincare/SkinAnamnesisDialog';
 import { varsFromAppointment } from '../../utils/whatsapp';
 import { getApiErrorMessage } from '../../utils/apiError';
-import type { Appointment, Package, PaymentMethodEntry, Procedure } from '../../types';
+import { appointmentProcedureIds } from '../../utils/appointmentProcedures';
+import type {
+  ApplicationMapPoint,
+  Appointment,
+  Package,
+  PaymentMethodEntry,
+  Procedure,
+} from '../../types';
 import {
   invalidateAppointmentListQueries,
   isAppointmentListQuery,
@@ -49,17 +56,21 @@ import {
   emptyFormValues,
   formatElapsed,
   kindOptions,
+  normalizeApplicationMapPoints,
   normalizeExtraMaterials,
   type ExtraMaterialRow,
+  totalProcedureDurationMinutes,
   type FormValues,
   type SectionKey,
 } from './appointmentFormModel';
 import type { SectionState } from './AppointmentFormSection';
+import { ApplicationMapSection } from './ApplicationMapSection';
 import { AppointmentStatusSelect } from './AppointmentStatusSelect';
 import {
   AppointmentSummaryBar,
   AppointmentSummaryPanel,
   type AppointmentSummaryData,
+  type PromotionSummary,
 } from './AppointmentSummary';
 import { BatchSessionsDialog, type BatchTarget } from './BatchSessionsDialog';
 import { CompletePaymentDialog } from './CompletePaymentDialog';
@@ -85,7 +96,15 @@ interface AppointmentFormDialogProps {
   defaultPatientId?: string | null;
 }
 
-const SECTION_ORDER: SectionKey[] = ['patient', 'service', 'schedule', 'package', 'materials', 'notes'];
+const SECTION_ORDER: SectionKey[] = [
+  'patient',
+  'service',
+  'schedule',
+  'package',
+  'materials',
+  'applicationMap',
+  'notes',
+];
 
 const DEFAULT_EXPANDED: Record<SectionKey, boolean> = {
   patient: true,
@@ -93,6 +112,7 @@ const DEFAULT_EXPANDED: Record<SectionKey, boolean> = {
   schedule: true,
   package: false,
   materials: false,
+  applicationMap: false,
   notes: false,
 };
 
@@ -138,6 +158,8 @@ export function AppointmentFormDialog({
   const [batchTarget, setBatchTarget] = useState<BatchTarget | null>(null);
   /** Materiais extras como estavam ao abrir, para detectar alterações não salvas. */
   const initialExtrasRef = useRef('[]');
+  const [mapPoints, setMapPoints] = useState<ApplicationMapPoint[]>([]);
+  const [initialMapPoints, setInitialMapPoints] = useState<ApplicationMapPoint[]>([]);
   // Só habilita a busca de profissionais depois que o formulário foi inicializado
   // com os valores reais (reset), evitando uma requisição extra com o horário padrão.
   const [formInitialized, setFormInitialized] = useState(false);
@@ -179,7 +201,7 @@ export function AppointmentFormDialog({
     if (appointment) {
       reset({
         patientId: appointment.patientId,
-        procedureId: appointment.procedureId ?? '',
+        procedureIds: appointmentProcedureIds(appointment),
         professionalId: appointment.professionalId ?? '',
         date: dayjs(appointment.startAt).format('YYYY-MM-DD'),
         startTime: dayjs(appointment.startAt).format('HH:mm'),
@@ -202,6 +224,7 @@ export function AppointmentFormDialog({
       ...DEFAULT_EXPANDED,
       package: !!appointment?.patientPackageId,
       materials: !!appointment?.extraMaterials?.length,
+      applicationMap: appointment?.status === 'IN_PROGRESS' || !!appointment?.applicationMap?.points?.length,
       notes: !!(appointment?.notes?.trim() || appointment?.clinicalNotes?.trim()),
     });
     setFormInitialized(true);
@@ -223,8 +246,15 @@ export function AppointmentFormDialog({
     }
   }, [open, appointment, appointmentDetail]);
 
+  useEffect(() => {
+    if (!open) return;
+    const points = (appointmentDetail ?? appointment)?.applicationMap?.points ?? [];
+    setMapPoints(points);
+    setInitialMapPoints(points);
+  }, [open, appointment, appointmentDetail]);
+
   const selectedKind = watch('kind');
-  const selectedProcedureId = watch('procedureId');
+  const selectedProcedureIds = watch('procedureIds');
   const selectedStatus = watch('status');
   const selectedPatientId = watch('patientId');
   const selectedDate = watch('date');
@@ -233,37 +263,52 @@ export function AppointmentFormDialog({
   const notes = watch('notes');
   const clinicalNotes = watch('clinicalNotes');
 
-  const materialsEnabled = selectedKind === 'PROCEDURE' && !!selectedProcedureId;
+  const materialsEnabled = selectedKind === 'PROCEDURE' && selectedProcedureIds.length > 0;
 
   const procedureOptions = useMemo(() => {
     const byId = new Map<string, Procedure>(procedures.map((p) => [p.id, p]));
-    const fromAppointment = appointmentDetail?.procedure ?? appointment?.procedure;
-    if (fromAppointment?.id && !byId.has(fromAppointment.id)) {
-      byId.set(fromAppointment.id, fromAppointment as Procedure);
+    const source = appointmentDetail ?? appointment;
+    for (const row of source?.appointmentProcedures ?? []) {
+      if (row.procedure?.id && !byId.has(row.procedure.id)) {
+        byId.set(row.procedure.id, row.procedure as Procedure);
+      }
+    }
+    if (source?.procedure?.id && !byId.has(source.procedure.id)) {
+      byId.set(source.procedure.id, source.procedure as Procedure);
     }
     return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
   }, [procedures, appointment, appointmentDetail]);
-  const selectedProcedure = useMemo(
-    () => procedureOptions.find((p) => p.id === selectedProcedureId),
-    [procedureOptions, selectedProcedureId],
+  const selectedProcedures = useMemo(
+    () =>
+      selectedProcedureIds
+        .map((id) => procedureOptions.find((p) => p.id === id))
+        .filter((p): p is Procedure => !!p),
+    [procedureOptions, selectedProcedureIds],
   );
+  const selectedProcedure = selectedProcedures[0];
+  const totalDurationMinutes = totalProcedureDurationMinutes(procedureOptions, selectedProcedureIds);
 
   useEffect(() => {
     if (!open) return;
     if (selectedKind !== 'PROCEDURE') {
-      setValue('procedureId', '');
+      setValue('procedureIds', []);
       return;
     }
-    const currentProcedureId = getValues('procedureId');
-    if (
-      currentProcedureId &&
-      !procedureOptions.some((procedure) => procedure.id === currentProcedureId)
-    ) {
-      setValue('procedureId', '');
+    const currentIds = getValues('procedureIds');
+    const filtered = currentIds.filter((id) => procedureOptions.some((procedure) => procedure.id === id));
+    if (filtered.length !== currentIds.length) {
+      setValue('procedureIds', filtered);
     }
   }, [open, selectedKind, procedureOptions, getValues, setValue]);
 
   const selectedPatient = patients.find((p) => p.id === selectedPatientId);
+
+  // Mapa de aplicação: só ao editar, quando algum procedimento usa o mapa (um só mapa por
+  // atendimento); mantém visível se já houver pontos salvos mesmo que deixe de usar.
+  const showApplicationMap =
+    !!appointment &&
+    selectedKind === 'PROCEDURE' &&
+    (selectedProcedures.some((p) => p.applicationMap) || initialMapPoints.length > 0);
 
   const { data: activePatientPackages = [] } = useQuery({
     queryKey: ['patient-packages-active', selectedPatientId],
@@ -285,22 +330,25 @@ export function AppointmentFormDialog({
     [selectedPackageDetail],
   );
 
-  const { data: recurrenceLimit } = useQuery({
-    queryKey: ['appointment-recurrence-limit', selectedPatientId, selectedProcedureId, appointment?.id],
-    queryFn: () =>
-      appointmentsApi.getRecurrenceLimit(
-        selectedPatientId,
-        selectedProcedureId,
-        appointment?.id,
-      ),
-    enabled:
-      open &&
-      !!selectedPatientId &&
-      !!selectedProcedureId &&
-      selectedKind === 'PROCEDURE',
+  const recurrenceQueries = useQueries({
+    queries: selectedProcedureIds.map((procedureId) => ({
+      queryKey: ['appointment-recurrence-limit', selectedPatientId, procedureId, appointment?.id],
+      queryFn: () =>
+        appointmentsApi.getRecurrenceLimit(selectedPatientId, procedureId, appointment?.id),
+      enabled: open && !!selectedPatientId && selectedKind === 'PROCEDURE',
+    })),
   });
 
-  const recurrenceEarliestDate = recurrenceLimit?.earliestDate ?? null;
+  const recurrenceEarliestDate = useMemo(() => {
+    let latest: string | null = null;
+    for (const query of recurrenceQueries) {
+      const d = query.data?.earliestDate;
+      if (d && (!latest || d > latest)) latest = d;
+    }
+    return latest;
+  }, [recurrenceQueries]);
+
+  const recurrenceDays = recurrenceQueries.find((q) => q.data?.recurrenceDays)?.data?.recurrenceDays ?? null;
 
   const { data: allCatalogPackages = [] } = useQuery({
     queryKey: ['packages'],
@@ -308,23 +356,26 @@ export function AppointmentFormDialog({
     enabled: open,
   });
 
+  // Pacote vale se cobre ao menos um dos procedimentos; os demais são cobrados avulsos.
   const filteredPatientPackages = useMemo(() => {
-    if (!selectedProcedureId) return [];
+    if (selectedProcedureIds.length === 0) return [];
     return activePatientPackages.filter((pp) =>
-      pp.package?.items?.some((item) => item.procedureId === selectedProcedureId),
+      selectedProcedureIds.some((pid) =>
+        pp.package?.items?.some((item) => item.procedureId === pid),
+      ),
     );
-  }, [activePatientPackages, selectedProcedureId]);
+  }, [activePatientPackages, selectedProcedureIds]);
 
   const availableCatalogPackages = useMemo(() => {
-    if (!selectedProcedureId) return [];
+    if (selectedProcedureIds.length === 0) return [];
     const activePackageIds = new Set(activePatientPackages.map((pp) => pp.packageId));
     return allCatalogPackages.filter(
       (pkg) =>
         pkg.active &&
-        pkg.items?.some((item) => item.procedureId === selectedProcedureId) &&
+        selectedProcedureIds.some((pid) => pkg.items?.some((item) => item.procedureId === pid)) &&
         !activePackageIds.has(pkg.id),
     );
-  }, [allCatalogPackages, selectedProcedureId, activePatientPackages]);
+  }, [allCatalogPackages, selectedProcedureIds, activePatientPackages]);
 
   useEffect(() => {
     if (appointment?.patientPackageId) {
@@ -332,7 +383,7 @@ export function AppointmentFormDialog({
     } else {
       setSelectedPackageId('');
     }
-  }, [selectedPatientId, selectedProcedureId, appointment?.patientPackageId]);
+  }, [selectedPatientId, selectedProcedureIds, appointment?.patientPackageId]);
 
   const selectedPatientPkg = useMemo(
     () => filteredPatientPackages.find((pp) => pp.id === selectedPackageId),
@@ -349,13 +400,56 @@ export function AppointmentFormDialog({
     0,
   );
 
-  const paymentAmountOnComplete = useMemo(() => {
-    if (selectedPatientPkg && selectedPackageId && !selectedPatientPkg.financeGenerated) {
-      return Number(selectedPatientPkg.totalPaid);
-    }
-    if (selectedProcedure?.price) return Number(selectedProcedure.price);
-    return 0;
-  }, [selectedPatientPkg, selectedPackageId, selectedProcedure]);
+  // Procedimentos cobertos pelo pacote selecionado; os outros entram como avulsos.
+  const packageCoveredIds = useMemo(
+    () =>
+      new Set(
+        selectedPackageId && selectedPatientPkg
+          ? (selectedPatientPkg.package?.items ?? []).map((item) => item.procedureId)
+          : [],
+      ),
+    [selectedPackageId, selectedPatientPkg],
+  );
+  const billableProcedures = useMemo(
+    () => selectedProcedures.filter((p) => !packageCoveredIds.has(p.id)),
+    [selectedProcedures, packageCoveredIds],
+  );
+
+  // Prévia da promoção do dia por procedimento avulso que ainda não gerou receita
+  // (sessão de pacote usa o valor do pacote, com a promoção aplicada na venda).
+  const previewDate = /^\d{4}-\d{2}-\d{2}$/.test(selectedDate ?? '') ? selectedDate : '';
+  const promotionPreviewEnabled =
+    open && selectedKind === 'PROCEDURE' && !!previewDate && !appointment?.financeGenerated;
+  const promotionQueries = useQueries({
+    queries: billableProcedures.map((procedure) => ({
+      queryKey: ['promotion-preview', procedure.id, previewDate],
+      queryFn: () => appointmentsApi.promotionPreview(procedure.id, previewDate),
+      enabled: promotionPreviewEnabled,
+      staleTime: 60_000,
+    })),
+  });
+  const billableAmount = billableProcedures.reduce((sum, procedure, i) => {
+    const quote = promotionPreviewEnabled ? promotionQueries[i]?.data : undefined;
+    return sum + (quote?.promotion ? quote.finalPrice : Number(procedure.price ?? 0));
+  }, 0);
+  const promotionQuotes = promotionPreviewEnabled
+    ? promotionQueries.flatMap((q) => (q.data?.promotion ? [q.data] : []))
+    : [];
+
+  const packageAmount =
+    selectedPatientPkg && selectedPackageId && !selectedPatientPkg.financeGenerated
+      ? Number(selectedPatientPkg.totalPaid)
+      : 0;
+  const paymentAmountOnComplete = packageAmount + billableAmount;
+  const promotionDiscount = promotionQuotes.reduce((sum, q) => sum + q.discount, 0);
+  const promotionSummary: PromotionSummary | undefined =
+    promotionQuotes.length > 0
+      ? {
+          name: [...new Set(promotionQuotes.map((q) => q.promotion!.name))].join(', '),
+          originalPrice: paymentAmountOnComplete + promotionDiscount,
+          discount: promotionDiscount,
+        }
+      : undefined;
 
   // Mês de referência (competência) — relevante para agendamentos de meses passados
   const appointmentMonthKey = appointment ? dayjs(appointment.startAt).format('YYYY-MM') : '';
@@ -364,7 +458,7 @@ export function AppointmentFormDialog({
   const needsPaymentOnComplete = useCallback(
     (values: FormValues) => {
       if (!appointment || appointment.status === 'COMPLETED') return false;
-      if (values.status !== 'COMPLETED' || values.kind !== 'PROCEDURE' || !values.procedureId) {
+      if (values.status !== 'COMPLETED' || values.kind !== 'PROCEDURE' || values.procedureIds.length === 0) {
         return false;
       }
       if (selectedPackageId && selectedPatientPkg) {
@@ -380,7 +474,7 @@ export function AppointmentFormDialog({
     formInitialized,
     appointment,
     appointmentDetail,
-    selectedProcedure,
+    durationMinutes: totalDurationMinutes,
     selectedDate,
     selectedStartTime,
     selectedProfessionalId,
@@ -411,7 +505,7 @@ export function AppointmentFormDialog({
   const materialsState = useAppointmentMaterials({
     inventory,
     appointmentSource: appointmentDetail ?? appointment,
-    selectedProcedure,
+    selectedProcedures,
     extraMaterials,
   });
   const stockBlocksSave = willDeductMaterials && materialsState.hasInsufficient && selectedKind === 'PROCEDURE';
@@ -427,9 +521,16 @@ export function AppointmentFormDialog({
     [extraMaterials],
   );
 
+  const normalizedMapPoints = useMemo(() => normalizeApplicationMapPoints(mapPoints), [mapPoints]);
+  const mapChanged =
+    showApplicationMap &&
+    JSON.stringify(normalizedMapPoints) !==
+      JSON.stringify(normalizeApplicationMapPoints(initialMapPoints));
+
   const hasUnsavedChanges =
     isDirty ||
     JSON.stringify(normalizedExtraMaterials) !== initialExtrasRef.current ||
+    mapChanged ||
     selectedPackageId !== (appointment?.patientPackageId ?? '');
 
   const deleteMutation = useMutation({
@@ -468,25 +569,30 @@ export function AppointmentFormDialog({
       values,
       paymentMethodId,
       referenceMonth,
+      installments,
+      cardBrand,
+      authorizationCode,
     }: {
       values: FormValues;
       paymentMethodId?: string;
       referenceMonth?: string;
+      installments?: number;
+      cardBrand?: string;
+      authorizationCode?: string;
     }) => {
       const start = dayjs(`${values.date}T${values.startTime}`);
       if (!start.isValid()) {
         throw new Error('Data ou horário inválidos.');
       }
-      const duration = selectedProcedure?.durationMinutes ?? 60;
-      const end = start.add(duration, 'minute');
+      const end = start.add(totalProcedureDurationMinutes(procedureOptions, values.procedureIds), 'minute');
       if (!end.isValid() || !end.isAfter(start)) {
         throw new Error('Intervalo de horário inválido.');
       }
 
-      const procedureId =
-        values.kind === 'PROCEDURE' && values.procedureId.trim()
-          ? values.procedureId.trim()
-          : undefined;
+      const procedureIds =
+        values.kind === 'PROCEDURE'
+          ? values.procedureIds.filter(Boolean)
+          : [];
 
       const payload: AppointmentPayload = {
         patientId: values.patientId,
@@ -499,9 +605,15 @@ export function AppointmentFormDialog({
         ...(values.clinicalNotes.trim() ? { clinicalNotes: values.clinicalNotes.trim() } : {}),
         ...(paymentMethodId ? { paymentMethodId } : {}),
         ...(referenceMonth ? { referenceMonth } : {}),
-        ...(procedureId ? { procedureId } : {}),
+        ...(installments ? { installments } : {}),
+        ...(cardBrand ? { cardBrand } : {}),
+        ...(authorizationCode ? { authorizationCode } : {}),
+        ...(procedureIds.length > 0 ? { procedureIds, procedureId: procedureIds[0] } : {}),
         ...(selectedPackageId ? { patientPackageId: selectedPackageId } : {}),
         ...(normalizedExtraMaterials.length > 0 ? { extraMaterials: normalizedExtraMaterials } : {}),
+        ...(appointment && mapChanged
+          ? { applicationMap: { template: 'face' as const, points: normalizedMapPoints } }
+          : {}),
       };
       return appointment
         ? appointmentsApi.update(appointment.id, payload)
@@ -523,13 +635,14 @@ export function AppointmentFormDialog({
         isNowCompleted &&
         canCreate &&
         saved.kind === 'PROCEDURE' &&
-        saved.procedureId
+        appointmentProcedureIds(saved).length > 0
       ) {
+        const ids = appointmentProcedureIds(saved);
         setPendingReturn({
           ...(saved as Appointment),
           professionalId:
             saved.professionalId ?? saved.professional?.id ?? getValues().professionalId,
-          procedureId: saved.procedureId ?? saved.procedure?.id ?? getValues().procedureId,
+          procedureId: ids[0] ?? saved.procedureId ?? '',
         });
       } else {
         onClose();
@@ -584,9 +697,9 @@ export function AppointmentFormDialog({
       toast.warning('Selecione um profissional que realiza atendimentos e esteja disponível neste horário.');
       return;
     }
-    if (values.kind === 'PROCEDURE' && !selectedProcedure) {
+    if (values.kind === 'PROCEDURE' && selectedProcedures.length === 0) {
       setExpanded((prev) => ({ ...prev, service: true }));
-      toast.warning('Selecione um procedimento válido antes de salvar.');
+      toast.warning('Selecione ao menos um procedimento válido antes de salvar.');
       return;
     }
 
@@ -601,20 +714,29 @@ export function AppointmentFormDialog({
     setExpanded((prev) => ({
       ...prev,
       patient: prev.patient || !!formErrors.patientId,
-      service: prev.service || !!formErrors.procedureId || !!formErrors.professionalId,
+      service: prev.service || !!formErrors.procedureIds || !!formErrors.professionalId,
       schedule: prev.schedule || !!formErrors.date || !!formErrors.startTime,
     }));
     toast.warning('Revise os campos destacados antes de salvar.');
   };
 
-  const confirmPaymentAndSave = async (paymentMethodId: string, referenceMonth: string) => {
+  const confirmPaymentAndSave = async (data: {
+    paymentMethodId: string;
+    referenceMonth: string;
+    installments?: number;
+    cardBrand?: string;
+    authorizationCode?: string;
+  }) => {
     if (!pendingFormValues) return;
     await timer.stopTimerIfRunning();
-    const ref = referenceMonth || appointmentMonthKey;
+    const ref = data.referenceMonth || appointmentMonthKey;
     mutation.mutate({
       values: pendingFormValues,
-      paymentMethodId: paymentMethodId || undefined,
+      paymentMethodId: data.paymentMethodId || undefined,
       referenceMonth: ref && ref !== currentMonthKey ? ref : undefined,
+      installments: data.installments,
+      cardBrand: data.cardBrand,
+      authorizationCode: data.authorizationCode,
     });
     setPendingFormValues(null);
   };
@@ -622,20 +744,22 @@ export function AppointmentFormDialog({
   const sectionStates: Record<SectionKey, SectionState> = {
     patient: errors.patientId ? 'error' : selectedPatientId ? 'complete' : 'pending',
     service:
-      errors.procedureId || errors.professionalId || blockingMessage
+      errors.procedureIds || errors.professionalId || blockingMessage
         ? 'error'
-        : (selectedKind !== 'PROCEDURE' || selectedProcedure) &&
+        : (selectedKind !== 'PROCEDURE' || selectedProcedures.length > 0) &&
             (selectedProfessional || (professionals.restrictToOwnAppointments && assignedProfessional))
           ? 'complete'
           : 'pending',
     schedule: errors.date || errors.startTime || !slotValid ? 'error' : 'complete',
     package: selectedPatientPkg ? 'complete' : 'pending',
     materials: materialsEnabled ? (stockBlocksSave ? 'error' : 'complete') : 'pending',
+    applicationMap: mapPoints.length > 0 ? 'complete' : 'pending',
     notes: notes.trim() || clinicalNotes.trim() ? 'complete' : 'pending',
   };
 
+  const visibleSections = SECTION_ORDER.filter((key) => key !== 'applicationMap' || showApplicationMap);
   const section = (key: SectionKey) => ({
-    step: SECTION_ORDER.indexOf(key) + 1,
+    step: visibleSections.indexOf(key) + 1,
     expanded: expanded[key],
     onToggle: () => setExpanded((prev) => ({ ...prev, [key]: !prev[key] })),
     state: sectionStates[key],
@@ -645,18 +769,21 @@ export function AppointmentFormDialog({
     patientName: selectedPatient?.name,
     serviceLabel:
       selectedKind === 'PROCEDURE'
-        ? (selectedProcedure?.name ?? 'Procedimento não selecionado')
+        ? selectedProcedures.length > 0
+          ? selectedProcedures.map((p) => p.name).join(' + ')
+          : 'Procedimento não selecionado'
         : (kindOptions.find((o) => o.value === selectedKind)?.label ?? ''),
     professionalName: professionals.restrictToOwnAppointments
       ? (assignedProfessional?.name ?? professionals.user?.name)
       : selectedProfessional?.name,
     dateLabel: slotValid ? dayjs(selectedDate).locale('pt-br').format('ddd, DD/MM/YYYY') : undefined,
     timeLabel: slotValid ? `${selectedStartTime} – ${slotEnd.format('HH:mm')}` : undefined,
-    durationMinutes: selectedProcedure?.durationMinutes,
+    durationMinutes: totalDurationMinutes,
     packageLabel: selectedPatientPkg
       ? `${selectedPatientPkg.package?.name ?? 'Pacote'} · ${selectedPatientPkg.sessionsUsed}/${selectedPatientPkg.sessionsTotal}`
       : 'Avulso',
     amount: paymentAmountOnComplete,
+    promotion: promotionSummary,
     status: appointment ? selectedStatus : undefined,
     blockingMessage,
     stockWarning: materialsEnabled && stockBlocksSave,
@@ -769,7 +896,8 @@ export function AppointmentFormDialog({
                   control={control}
                   selectedKind={selectedKind}
                   procedureOptions={procedureOptions}
-                  selectedProcedure={selectedProcedure}
+                  selectedProcedures={selectedProcedures}
+                  totalDurationMinutes={totalDurationMinutes}
                   professionals={professionals}
                 />
                 <ScheduleSection
@@ -780,12 +908,12 @@ export function AppointmentFormDialog({
                   slotEnd={slotEnd}
                   slotValid={slotValid}
                   recurrenceEarliestDate={recurrenceEarliestDate}
-                  recurrenceDays={recurrenceLimit?.recurrenceDays}
+                  recurrenceDays={recurrenceDays}
                 />
                 <PackageSection
                   section={section('package')}
                   isEditing={!!appointment}
-                  selectedProcedure={selectedProcedure}
+                  selectedProcedures={selectedProcedures}
                   selectedPackageId={selectedPackageId}
                   onSelectPackage={setSelectedPackageId}
                   filteredPatientPackages={filteredPatientPackages}
@@ -806,6 +934,13 @@ export function AppointmentFormDialog({
                   willDeductMaterials={willDeductMaterials}
                   materialsState={materialsState}
                 />
+                {showApplicationMap && (
+                  <ApplicationMapSection
+                    section={section('applicationMap')}
+                    points={mapPoints}
+                    setPoints={setMapPoints}
+                  />
+                )}
                 <NotesSection
                   section={section('notes')}
                   control={control}
@@ -1012,16 +1147,15 @@ export function AppointmentFormDialog({
         open={!!pendingFormValues}
         isMobile={isMobile}
         patientName={selectedPatient?.name}
-        procedureName={selectedProcedure?.name}
+        procedureName={selectedProcedures.map((p) => p.name).join(' + ') || undefined}
         isPackage={!!(selectedPackageId && selectedPatientPkg)}
         amount={paymentAmountOnComplete}
+        promotion={promotionSummary}
         paymentMethods={paymentMethods}
         appointmentMonthKey={appointmentMonthKey}
         isPending={mutation.isPending}
         onCancel={() => setPendingFormValues(null)}
-        onConfirm={(paymentMethodId, referenceMonth) =>
-          void confirmPaymentAndSave(paymentMethodId, referenceMonth)
-        }
+        onConfirm={(data) => void confirmPaymentAndSave(data)}
       />
 
       <ReturnAppointmentDialog

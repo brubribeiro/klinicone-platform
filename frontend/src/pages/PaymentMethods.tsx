@@ -5,7 +5,6 @@ import {
   Card,
   Chip,
   IconButton,
-  InputBase,
   MenuItem,
   Skeleton,
   Stack,
@@ -17,7 +16,6 @@ import {
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
-import SearchIcon from '@mui/icons-material/Search';
 import CreditCardOutlinedIcon from '@mui/icons-material/CreditCardOutlined';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -29,6 +27,13 @@ import { useAppToast } from '../contexts/AppToastContext';
 import { getApiErrorMessage } from '../utils/apiError';
 import { usePermissions } from '../contexts/usePermissions';
 import type { PaymentMethodEntry } from '../types';
+import { paymentMethodKindLabel, settlementDaysLabel } from '../utils/paymentMethodMeta';
+import {
+  LIST_HEADER_PAPER_SELECT_SX,
+  LIST_HEADER_PRIMARY_ACTION_SX,
+  ListCardHeader,
+  ListSearchField,
+} from '../components/ListCardHeader';
 import { fontSizes } from '../theme/fontSizes';
 import { clickableProps } from '../utils/a11y';
 import { brl } from '../utils/money';
@@ -36,22 +41,10 @@ import { brl } from '../utils/money';
 const ICON_COLORS = ['#15998B', '#E0915B', '#5BA8DE', '#D46B8A', '#9B7BD4', '#4FB3A8'];
 const CARD_GRID_SX = {
   display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fill, minmax(264px, 1fr))',
-  gap: 2.25,
+  gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
+  gap: 2,
 } as const;
 const EXAMPLE_AMOUNT = 100;
-
-const TOOLBAR_SELECT_SX = {
-  flexShrink: 0,
-  width: { xs: 'calc(50% - 5px)', sm: 'auto' },
-  minWidth: { sm: 150 },
-  '& .MuiOutlinedInput-root': {
-    height: 38,
-    borderRadius: '12px',
-    fontSize: fontSizes.sm,
-    bgcolor: 'background.paper',
-  },
-} as const;
 
 const ACTION_BUTTON_SX = {
   width: 30,
@@ -61,7 +54,6 @@ const ACTION_BUTTON_SX = {
   borderColor: 'divider',
   color: 'text.secondary',
 } as const;
-
 
 function colorFor(text: string) {
   let hash = 0;
@@ -135,88 +127,54 @@ export function PaymentMethods() {
 
   return (
     <Stack spacing={2.25}>
-      {/* Resumo + filtros + ações */}
-      <Stack
-        direction={{ xs: 'column', md: 'row' }}
-        alignItems={{ xs: 'stretch', md: 'center' }}
-        justifyContent="space-between"
-        spacing={1.5}
+      {/* Título + filtros + ações */}
+      <ListCardHeader
+        nowrapFrom="md"
+        sx={{ px: 0, py: 0, borderBottom: 0 }}
+        title={
+          <Typography sx={{ fontSize: fontSizes.md, fontWeight: 600, color: 'text.secondary' }}>
+            Taxas configuradas por método e maquininha
+            {!isLoading && methods.length > 0 && (
+              <Box component="span" sx={{ color: 'text.disabled', fontWeight: 500 }}>
+                {` · ${activeCount} de ${methods.length} ${methods.length === 1 ? 'ativa' : 'ativas'}`}
+              </Box>
+            )}
+          </Typography>
+        }
       >
-        <Typography sx={{ fontSize: fontSizes.md, fontWeight: 600, color: 'text.secondary' }}>
-          Taxas configuradas por método e maquininha
-          {!isLoading && methods.length > 0 && (
-            <Box component="span" sx={{ color: 'text.disabled', fontWeight: 500 }}>
-              {` · ${activeCount} de ${methods.length} ${methods.length === 1 ? 'ativa' : 'ativas'}`}
-            </Box>
-          )}
-        </Typography>
-
-        <Stack
-          direction="row"
-          alignItems="center"
-          spacing={1.25}
-          flexWrap={{ xs: 'wrap', md: 'nowrap' }}
-          useFlexGap
-          justifyContent={{ md: 'flex-end' }}
-          sx={{ minWidth: 0 }}
+        <TextField
+          select
+          size="small"
+          value={activeFilter}
+          onChange={(e) => setActiveFilter(e.target.value as ActiveFilter)}
+          sx={LIST_HEADER_PAPER_SELECT_SX}
+          inputProps={{ 'aria-label': 'Status' }}
         >
-          <TextField
-            select
-            size="small"
-            value={activeFilter}
-            onChange={(e) => setActiveFilter(e.target.value as ActiveFilter)}
-            sx={TOOLBAR_SELECT_SX}
-            inputProps={{ 'aria-label': 'Status' }}
-          >
-            <MenuItem value="ALL">Todos os status</MenuItem>
-            <MenuItem value="ACTIVE">Ativas</MenuItem>
-            <MenuItem value="INACTIVE">Inativas</MenuItem>
-          </TextField>
-          <Stack
-            direction="row"
-            alignItems="center"
-            spacing={1}
-            sx={{
-              height: 38,
-              px: 1.75,
-              borderRadius: '12px',
-              border: 1,
-              borderColor: 'divider',
-              bgcolor: 'grey.50',
-              width: { xs: '100%', sm: 210 },
-              minWidth: 0,
+          <MenuItem value="ALL">Todos os status</MenuItem>
+          <MenuItem value="ACTIVE">Ativas</MenuItem>
+          <MenuItem value="INACTIVE">Inativas</MenuItem>
+        </TextField>
+        <ListSearchField value={search} onChange={setSearch} placeholder="Buscar método..." ariaLabel="Buscar método" />
+        {canCreate && (
+          <Button data-tour="payments-new"
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => {
+              setEditing(null);
+              setFormOpen(true);
             }}
+            sx={LIST_HEADER_PRIMARY_ACTION_SX}
           >
-            <SearchIcon sx={{ fontSize: 18, color: 'text.disabled' }} />
-            <InputBase
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar método..."
-              inputProps={{ 'aria-label': 'Buscar método' }}
-              sx={{ fontSize: fontSizes.sm, flex: 1 }}
-            />
-          </Stack>
-          {canCreate && (
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => {
-                setEditing(null);
-                setFormOpen(true);
-              }}
-              sx={{ flexShrink: 0, whiteSpace: 'nowrap', height: 38, px: 2.25, borderRadius: '12px', boxShadow: (t) => `0 6px 16px -6px ${t.palette.primary.main}` }}
-            >
-              Adicionar método
-            </Button>
-          )}
-        </Stack>
-      </Stack>
+            Adicionar método
+          </Button>
+        )}
+      </ListCardHeader>
 
       {/* Lista de cards */}
       {isLoading ? (
         <Box sx={CARD_GRID_SX}>
           {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} variant="rounded" height={156} sx={{ borderRadius: '18px' }} />
+            <Skeleton key={i} variant="rounded" height={148} sx={{ borderRadius: '18px' }} />
           ))}
         </Box>
       ) : filteredMethods.length === 0 ? (
@@ -244,7 +202,7 @@ export function PaymentMethods() {
                 key={m.id}
                 {...(canEdit && clickableProps(() => handleEdit(m)))}
                 sx={{
-                  p: 2.5,
+                  p: 2.25,
                   borderRadius: '18px',
                   border: 1,
                   borderColor: 'divider',
@@ -252,7 +210,7 @@ export function PaymentMethods() {
                   opacity: m.active ? 1 : 0.6,
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: 1.75,
+                  gap: 1.5,
                   cursor: canEdit ? 'pointer' : 'default',
                   transition: 'box-shadow .15s, border-color .15s',
                   '&:hover': { boxShadow: '0 12px 30px -20px rgba(16,40,37,0.45)', borderColor: alpha(color, 0.5) },
@@ -299,7 +257,12 @@ export function PaymentMethods() {
                         />
                       )}
                     </Stack>
-                    <Typography noWrap sx={{ fontSize: fontSizes.xs, color: 'text.secondary' }}>
+                    <Typography sx={{ fontSize: fontSizes.xs, color: 'text.secondary', mt: 0.25 }}>
+                      {paymentMethodKindLabel(m.kind)}
+                      {m.settlementDays != null && m.settlementDays > 0
+                        ? ` · ${settlementDaysLabel(m.settlementDays)}`
+                        : ''}
+                      {' · '}
                       {usageLabel(usage)}
                     </Typography>
                   </Box>
@@ -341,7 +304,7 @@ export function PaymentMethods() {
                   direction="row"
                   alignItems="flex-end"
                   justifyContent="space-between"
-                  sx={{ pt: 1.6, borderTop: 1, borderColor: 'divider' }}
+                  sx={{ pt: 1.5, borderTop: 1, borderColor: 'divider' }}
                 >
                   <Box sx={{ lineHeight: 1 }}>
                     <Typography

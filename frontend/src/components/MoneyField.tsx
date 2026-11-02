@@ -1,6 +1,7 @@
-import { InputAdornment, TextField, type TextFieldProps } from '@mui/material';
+import { TextField, type TextFieldProps } from '@mui/material';
 import { forwardRef } from 'react';
 import { formatMoneyInput, parseMoneyInput } from '../utils/masks';
+import { FieldAdornment } from './FieldAdornment';
 
 type MoneyFieldProps = Omit<TextFieldProps, 'value' | 'onChange' | 'type'> & {
   value: number | string | null | undefined;
@@ -20,7 +21,7 @@ export const MoneyField = forwardRef<HTMLDivElement, MoneyFieldProps>(function M
       onChange={(e) => onChange(parseMoneyInput(e.target.value))}
       placeholder={rest.placeholder ?? '0,00'}
       InputProps={{
-        startAdornment: <InputAdornment position="start">R$</InputAdornment>,
+        startAdornment: <FieldAdornment position="start">R$</FieldAdornment>,
         ...InputProps,
       }}
       inputProps={{ inputMode: 'numeric', autoComplete: 'off', ...inputProps }}

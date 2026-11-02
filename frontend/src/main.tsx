@@ -2,15 +2,9 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { CssBaseline } from '@mui/material';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { BrowserRouter } from 'react-router-dom';
-import { GoogleOAuthProvider } from '@react-oauth/google';
 
-import App from './App';
-import { AuthProvider } from './contexts/AuthContext';
 import { ColorModeProvider } from './contexts/ColorModeContext';
-import { AppDialogProvider } from './contexts/AppDialogContext';
-import { AppToastProvider } from './contexts/AppToastContext';
-import { AppointmentDialogProvider } from './contexts/AppointmentDialogContext';
+import { PanelRoot } from './PanelRoot';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -18,27 +12,19 @@ const queryClient = new QueryClient({
   },
 });
 
-const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? '';
+document.title = 'Mila Barreto - Plataforma';
+const robots = document.createElement('meta');
+robots.name = 'robots';
+robots.content = 'noindex';
+document.head.appendChild(robots);
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <GoogleOAuthProvider clientId={googleClientId}>
-      <ColorModeProvider>
-        <CssBaseline />
-        <QueryClientProvider client={queryClient}>
-          <BrowserRouter basename="/painel" future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-            <AuthProvider>
-              <AppDialogProvider>
-                <AppToastProvider>
-                  <AppointmentDialogProvider>
-                    <App />
-                  </AppointmentDialogProvider>
-                </AppToastProvider>
-              </AppDialogProvider>
-            </AuthProvider>
-          </BrowserRouter>
-        </QueryClientProvider>
-      </ColorModeProvider>
-    </GoogleOAuthProvider>
+    <ColorModeProvider>
+      <CssBaseline />
+      <QueryClientProvider client={queryClient}>
+        <PanelRoot />
+      </QueryClientProvider>
+    </ColorModeProvider>
   </React.StrictMode>,
 );

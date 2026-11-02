@@ -9,7 +9,6 @@ import {
   Dialog,
   DialogActions,
   DialogContent,
-  InputAdornment,
   ListItemText,
   MenuItem,
   Stack,
@@ -28,7 +27,8 @@ import { packagesApi, PackagePayload } from '../../api/packages';
 import { proceduresApi } from '../../api/procedures';
 import { useAppToast } from '../../contexts/AppToastContext';
 import { getApiErrorMessage } from '../../utils/apiError';
-import { DialogHeader, dialogActionsBorderSx, dialogPaperSx } from '../DialogCloseButton';
+import { DialogHeader, dialogActionsBorderSx, dialogFormLayoutSx, formDialogPaperSx } from '../DialogCloseButton';
+import { FieldAdornment } from '../FieldAdornment';
 import { MoneyField } from '../MoneyField';
 import { LabeledField } from '../LabeledField';
 import type { Package, PackageHighlight } from '../../types';
@@ -218,22 +218,17 @@ export function PackageFormDialog({ open, onClose, pkg }: PackageFormDialogProps
       fullWidth
       fullScreen={isMobile}
       PaperProps={{
-        sx: {
-          ...dialogPaperSx(isMobile),
-          display: 'flex',
-          flexDirection: 'column',
-          width: '100%',
-          ...(isMobile
-            ? { height: '100%', maxHeight: '100dvh' }
-            : { maxWidth: DIALOG_MAX_WIDTH, maxHeight: '94dvh' }),
-        },
+        sx: formDialogPaperSx(isMobile, {
+          maxWidth: DIALOG_MAX_WIDTH,
+          height: 'min(86dvh, 680px)',
+        }),
       }}
     >
       <Box
         component="form"
         noValidate
         onSubmit={handleSubmit((v) => mutation.mutate(v))}
-        sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}
+        sx={dialogFormLayoutSx(isMobile)}
       >
         <DialogHeader
           onClose={onClose}
@@ -435,7 +430,7 @@ export function PackageFormDialog({ open, onClose, pkg }: PackageFormDialogProps
                   sx={DISABLED_FIELD_SX}
                   value={fullPrice > 0 ? brl.format(fullPrice).replace('R$', '').trim() : ''}
                   placeholder="0,00"
-                  InputProps={{ startAdornment: <InputAdornment position="start">R$</InputAdornment> }}
+                  InputProps={{ startAdornment: <FieldAdornment position="start">R$</FieldAdornment> }}
                 />
               </LabeledField>
 

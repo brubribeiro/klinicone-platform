@@ -8,8 +8,12 @@ import {
   Patch,
   Post,
   Query,
+  Req,
+  Res,
   UseGuards,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import type { Request, Response } from 'express';
 
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser, type AuthenticatedUser } from '../common/decorators/current-user.decorator';
@@ -17,12 +21,20 @@ import { SuperAdminGuard } from '../tenancy/super-admin.guard';
 import { AdminService, type TenantStatusFilter } from './admin.service';
 import { CreateTenantDto } from './dto/create-tenant.dto';
 import { SuspendTenantDto, UpdateTenantDto } from './dto/update-tenant.dto';
+import {
+  readAccessTokenCookie,
+  setAccessTokenCookie,
+  setAdminTokenCookie,
+} from '../auth/auth-cookies';
 
 /** Painel administrativo da plataforma: só o super-admin (dono do sistema). */
 @UseGuards(JwtAuthGuard, SuperAdminGuard)
 @Controller('admin')
 export class AdminController {
-  constructor(private readonly admin: AdminService) {}
+  constructor(
+    private readonly admin: AdminService,
+    private readonly config: ConfigService,
+  ) {}
 
   @Get('tenants')
   listTenants(@Query('search') search?: string, @Query('status') status?: string) {
@@ -67,8 +79,17 @@ export class AdminController {
 
   /** "Entrar como" a clínica: devolve um token do super-admin agindo como administrador dela. */
   @Post('tenants/:id/enter')
-  enterTenant(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthenticatedUser) {
-    return this.admin.enterTenant(id, user);
+  async enterTenant(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.admin.enterTenant(id, user);
+    const current = readAccessTokenCookie(req);
+    if (current) setAdminTokenCookie(res, current, this.config);
+    setAccessTokenCookie(res, result.access_token, this.config);
+    return result;
   }
 
   @Get('audit')

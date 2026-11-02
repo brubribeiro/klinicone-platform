@@ -39,7 +39,7 @@ import { useAppToast } from '../../contexts/AppToastContext';
 import { getApiErrorMessage } from '../../utils/apiError';
 import { EMAIL_PATTERN } from '../../utils/masks';
 import { ALL_PERMISSIONS, countCatalogPermissions } from '../../contexts/permissions';
-import { DialogHeader, dialogActionsBorderSx, dialogPaperSx } from '../DialogCloseButton';
+import { DialogHeader, dialogActionsBorderSx, dialogPaperSx, formSwitchLabelSx } from '../DialogCloseButton';
 import type { UserSummary } from '../../types';
 import { fontSizes } from '../../theme/fontSizes';
 
@@ -378,6 +378,7 @@ export function ProfessionalFormDialog({ open, onClose, user }: ProfessionalForm
                   control={control}
                   render={({ field }) => (
                     <FormControlLabel
+                      sx={formSwitchLabelSx}
                       control={<Switch checked={field.value} onChange={(e) => field.onChange(e.target.checked)} />}
                       label={field.value ? 'Usuário ativo' : 'Usuário inativo'}
                     />
@@ -396,6 +397,7 @@ export function ProfessionalFormDialog({ open, onClose, user }: ProfessionalForm
                     control={control}
                     render={({ field }) => (
                       <FormControlLabel
+                        sx={formSwitchLabelSx}
                         control={
                           <Switch
                             checked={field.value}
@@ -417,7 +419,7 @@ export function ProfessionalFormDialog({ open, onClose, user }: ProfessionalForm
                       control={control}
                       render={({ field }) => (
                         <FormControlLabel
-                          sx={{ ml: 3 }}
+                          sx={{ ...formSwitchLabelSx, ml: { xs: 0, sm: 3 } }}
                           control={<Switch checked={field.value} onChange={(e) => field.onChange(e.target.checked)} />}
                           label="Profissional principal"
                         />

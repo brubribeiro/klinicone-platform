@@ -179,7 +179,7 @@ export function Users() {
 
   return (
     <Box>
-      <Card sx={{ p: 0, overflow: 'hidden' }}>
+      <Card data-tour="users-list" sx={{ p: 0, overflow: 'hidden' }}>
         <ListCardHeader
           title={
           <Typography sx={{ fontSize: fontSizes.md, color: 'text.secondary', fontWeight: 600 }}>
@@ -250,7 +250,7 @@ export function Users() {
             }}
             placeholder="Buscar usuário..." />
           {canCreate && (
-            <Button
+            <Button data-tour="users-new"
               variant="contained"
               startIcon={<AddIcon />}
               onClick={() => {

@@ -1,6 +1,14 @@
 import dayjs from 'dayjs';
 
-import type { AppointmentKind, AppointmentStatus } from '../../types';
+import type { ApplicationMapPoint, AppointmentKind, AppointmentStatus, Procedure } from '../../types';
+
+export function totalProcedureDurationMinutes(procedures: Procedure[], procedureIds: string[]): number {
+  if (procedureIds.length === 0) return 60;
+  return procedureIds.reduce(
+    (sum, id) => sum + (procedures.find((p) => p.id === id)?.durationMinutes ?? 60),
+    0,
+  );
+}
 
 export interface ExtraMaterialRow {
   itemId: string;
@@ -9,7 +17,8 @@ export interface ExtraMaterialRow {
 
 export interface FormValues {
   patientId: string;
-  procedureId: string;
+  /** IDs dos procedimentos no mesmo agendamento (duração somada). */
+  procedureIds: string[];
   professionalId: string;
   date: string;
   startTime: string;
@@ -21,7 +30,7 @@ export interface FormValues {
 
 export const emptyFormValues: FormValues = {
   patientId: '',
-  procedureId: '',
+  procedureIds: [],
   professionalId: '',
   date: dayjs().format('YYYY-MM-DD'),
   startTime: '09:00',
@@ -31,7 +40,14 @@ export const emptyFormValues: FormValues = {
   clinicalNotes: '',
 };
 
-export type SectionKey = 'patient' | 'service' | 'schedule' | 'package' | 'materials' | 'notes';
+export type SectionKey =
+  | 'patient'
+  | 'service'
+  | 'schedule'
+  | 'package'
+  | 'materials'
+  | 'applicationMap'
+  | 'notes';
 
 export const statusOptions: { value: AppointmentStatus; label: string }[] = [
   { value: 'SCHEDULED', label: 'Agendado' },
@@ -86,4 +102,11 @@ export function normalizeExtraMaterials(rows: ExtraMaterialRow[]) {
   return rows
     .filter((m) => m.itemId && m.quantity > 0)
     .map((m) => ({ itemId: m.itemId, quantity: Number(m.quantity) }));
+}
+
+export function normalizeApplicationMapPoints(points: ApplicationMapPoint[]): ApplicationMapPoint[] {
+  return points.map((p) => {
+    const note = p.note?.trim();
+    return { x: p.x, y: p.y, ...(note ? { note } : {}) };
+  });
 }

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
@@ -9,13 +9,15 @@ import type { User } from '../types';
 const auth = vi.hoisted(() => ({ user: null as Partial<User> | null, loading: false }));
 vi.mock('../contexts/AuthContext', () => ({ useAuth: () => auth }));
 
+const locationReplace = vi.fn();
+
 function renderAt(path: string) {
   render(
     <MemoryRouter initialEntries={[path]} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <Routes>
         <Route path="/login" element={<p>login</p>} />
         <Route path="/" element={<PrivateRoute><p>app da clínica</p></PrivateRoute>} />
-        <Route path="/admin" element={<SuperAdminRoute><p>painel admin</p></SuperAdminRoute>} />
+        <Route path="/clinicas" element={<SuperAdminRoute><p>painel admin</p></SuperAdminRoute>} />
       </Routes>
     </MemoryRouter>,
   );
@@ -27,23 +29,29 @@ const superAdmin = { id: 'root', roleName: '', tenantId: null, isSuperAdmin: tru
 describe('rotas do super-admin', () => {
   beforeEach(() => {
     auth.user = null;
+    locationReplace.mockReset();
+    vi.stubGlobal('location', { ...window.location, replace: locationReplace, href: '' });
   });
 
-  it('super-admin logado vai direto para /admin', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('super-admin no painel da clínica é enviado ao console admin', () => {
     auth.user = superAdmin;
     renderAt('/');
-    expect(screen.getByText('painel admin')).toBeInTheDocument();
+    expect(locationReplace).toHaveBeenCalledWith('/admin/clinicas');
   });
 
-  it('super-admin acessa /admin', () => {
+  it('super-admin acessa rota do console', () => {
     auth.user = superAdmin;
-    renderAt('/admin');
+    renderAt('/clinicas');
     expect(screen.getByText('painel admin')).toBeInTheDocument();
   });
 
-  it('usuário de clínica, mesmo administrador, não acessa /admin', () => {
+  it('usuário de clínica não acessa rota do console', () => {
     auth.user = clinicAdmin;
-    renderAt('/admin');
+    renderAt('/clinicas');
     expect(screen.getByText('app da clínica')).toBeInTheDocument();
     expect(screen.queryByText('painel admin')).not.toBeInTheDocument();
   });
@@ -55,7 +63,7 @@ describe('rotas do super-admin', () => {
   });
 
   it('sem login vai para /login', () => {
-    renderAt('/admin');
+    renderAt('/clinicas');
     expect(screen.getByText('login')).toBeInTheDocument();
   });
 });

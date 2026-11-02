@@ -15,7 +15,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 
-import { SKINCARE_MOMENTS, SKINCARE_RULE_FIELDS, SKINCARE_STEPS, SKINCARE_TAGS } from '../skincare.constants';
+import { SKINCARE_MOMENTS, SKINCARE_RULE_FIELDS, SKINCARE_STEPS } from '../skincare.constants';
 
 export class CreateSkincareProductDto {
   @IsString()
@@ -43,7 +43,8 @@ export class CreateSkincareProductDto {
 
   @IsOptional()
   @IsArray()
-  @IsIn(SKINCARE_TAGS, { each: true })
+  @IsString({ each: true })
+  @MaxLength(64, { each: true })
   tags?: string[];
 
   @IsOptional()
@@ -74,7 +75,8 @@ export class CreateSkincareRuleDto {
 
   @IsOptional()
   @IsArray()
-  @IsIn(SKINCARE_TAGS, { each: true })
+  @IsString({ each: true })
+  @MaxLength(64, { each: true })
   avoidTags?: string[];
 
   @IsOptional()

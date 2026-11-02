@@ -1,5 +1,17 @@
 import type { ReactNode } from 'react';
-import { Box, Dialog, InputBase, Typography, alpha, useMediaQuery, useTheme, type InputBaseProps } from '@mui/material';
+import {
+  Autocomplete,
+  Box,
+  Chip,
+  Dialog,
+  InputBase,
+  TextField,
+  Typography,
+  alpha,
+  useMediaQuery,
+  useTheme,
+  type InputBaseProps,
+} from '@mui/material';
 import type { Theme } from '@mui/material/styles';
 
 import { fontSizes } from '../../theme/fontSizes';
@@ -128,6 +140,74 @@ export function Field({ label, hint, children }: { label: string; hint?: string;
 
 export function TextInput(props: InputBaseProps) {
   return <InputBase {...props} sx={{ ...INPUT_SX, ...(props.sx as object) }} />;
+}
+
+export const SKIN_AUTOCOMPLETE_SX = {
+  '& .MuiOutlinedInput-root': {
+    minHeight: 44,
+    borderRadius: '11px',
+    bgcolor: 'grey.50',
+    fontSize: fontSizes.sm,
+    py: 0.35,
+    '& fieldset': { borderColor: 'divider' },
+    '&:hover fieldset': { borderColor: 'divider' },
+    '&.Mui-focused fieldset': { borderColor: 'primary.main' },
+  },
+} as const;
+
+export type SkincareLabeledOption = { value: string; label: string; hint?: string };
+
+/** Multi-select com busca e chips compactos (produtos / tags das regras). */
+export function SkincareMultiSelect({
+  options,
+  value,
+  onChange,
+  placeholder,
+}: {
+  options: SkincareLabeledOption[];
+  value: string[];
+  onChange: (next: string[]) => void;
+  placeholder?: string;
+}) {
+  const selected = options.filter((o) => value.includes(o.value));
+  return (
+    <Autocomplete
+      multiple
+      disableCloseOnSelect
+      filterSelectedOptions
+      options={options}
+      value={selected}
+      onChange={(_, opts) => onChange(opts.map((o) => o.value))}
+      getOptionLabel={(o) => o.label}
+      isOptionEqualToValue={(a, b) => a.value === b.value}
+      renderOption={(props, option) => (
+        <li {...props} key={option.value}>
+          <Box sx={{ py: 0.25 }}>
+            <Typography sx={{ fontSize: fontSizes.sm, fontWeight: 700, lineHeight: 1.35 }}>{option.label}</Typography>
+            {option.hint && (
+              <Typography sx={{ fontSize: fontSizes.xs, color: 'text.secondary', lineHeight: 1.35 }}>{option.hint}</Typography>
+            )}
+          </Box>
+        </li>
+      )}
+      renderTags={(tagValue, getTagProps) =>
+        tagValue.map((option, index) => (
+          <Chip
+            {...getTagProps({ index })}
+            key={option.value}
+            label={option.label}
+            size="small"
+            sx={{ height: 26, fontSize: fontSizes.xs, fontWeight: 600 }}
+          />
+        ))
+      }
+      renderInput={(params) => (
+        <TextField {...params} placeholder={value.length === 0 ? placeholder : undefined} size="small" />
+      )}
+      slotProps={{ popper: { sx: { zIndex: (t: Theme) => t.zIndex.modal + 4 } } }}
+      sx={SKIN_AUTOCOMPLETE_SX}
+    />
+  );
 }
 
 /** Cartão de opção (radio ou checkbox) das perguntas da anamnese. */
@@ -348,7 +428,9 @@ export function SkinModal({
           width: '100%',
           maxWidth,
           m: isMobile ? 1.5 : 2.5,
-          maxHeight: isMobile ? 'calc(100dvh - 24px)' : 'calc(100vh - 40px)',
+          ...(isMobile
+            ? { height: 'calc(100dvh - 24px)', maxHeight: 'calc(100dvh - 24px)' }
+            : { height: 'min(86dvh, 720px)', maxHeight: 'min(86dvh, 720px)' }),
           borderRadius: '18px',
           boxShadow: '0 8px 40px -16px rgba(16,40,37,.22)',
           display: 'flex',
@@ -366,7 +448,7 @@ export function SkinModal({
           <Typography sx={{ fontSize: fontSizes.xs, color: 'text.secondary', mt: 0.4, lineHeight: 1.5 }}>{subtitle}</Typography>
         )}
       </Box>
-      <Box sx={{ px: 2.75, py: 2.5, display: 'flex', flexDirection: 'column', gap: 2, overflowY: 'auto', minHeight: 0 }}>
+      <Box sx={{ px: 2.75, py: 2.5, display: 'flex', flexDirection: 'column', gap: 2, overflowY: 'auto', flex: 1, minHeight: 0 }}>
         {children}
       </Box>
       <Box

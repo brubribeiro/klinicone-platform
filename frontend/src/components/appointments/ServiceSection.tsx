@@ -1,9 +1,18 @@
 import { Controller, type Control } from 'react-hook-form';
-import { Box, MenuItem, Stack, TextField, ToggleButton, ToggleButtonGroup } from '@mui/material';
+import {
+  Autocomplete,
+  Box,
+  Chip,
+  MenuItem,
+  Stack,
+  TextField,
+  ToggleButton,
+  ToggleButtonGroup,
+} from '@mui/material';
 
 import { fontSizes } from '../../theme/fontSizes';
 import type { AppointmentKind, Procedure } from '../../types';
-import { brl, kindOptions, selectValueIfListed, type FormValues } from './appointmentFormModel';
+import { brl, kindOptions, type FormValues } from './appointmentFormModel';
 import { AppointmentFormSection, LabeledField } from './AppointmentFormSection';
 import type { SectionControl } from './PatientSection';
 import type { AppointmentProfessionals } from './useAppointmentProfessionals';
@@ -13,14 +22,16 @@ export function ServiceSection({
   control,
   selectedKind,
   procedureOptions,
-  selectedProcedure,
+  selectedProcedures,
+  totalDurationMinutes,
   professionals,
 }: {
   section: SectionControl;
   control: Control<FormValues>;
   selectedKind: AppointmentKind;
   procedureOptions: Procedure[];
-  selectedProcedure?: Procedure;
+  selectedProcedures: Procedure[];
+  totalDurationMinutes: number;
   professionals: AppointmentProfessionals;
 }) {
   const {
@@ -43,10 +54,19 @@ export function ServiceSection({
   const professionalName = restrictToOwnAppointments
     ? (assignedProfessional?.name ?? user?.name)
     : selectedProfessional?.name;
-  const summary = [
-    selectedKind === 'PROCEDURE' ? (selectedProcedure?.name ?? 'Procedimento não selecionado') : kindLabel,
-    professionalName ?? 'Sem profissional',
-  ].join(' · ');
+  const procedureSummary =
+    selectedKind === 'PROCEDURE'
+      ? selectedProcedures.length > 0
+        ? selectedProcedures.map((p) => p.name).join(' + ')
+        : 'Procedimento não selecionado'
+      : kindLabel;
+  const summary = [procedureSummary, professionalName ?? 'Sem profissional'].join(' · ');
+
+  const totalPrice = selectedProcedures.reduce((sum, p) => sum + Number(p.price ?? 0), 0);
+  const maxRecurrenceDays = selectedProcedures.reduce<number | null>((max, p) => {
+    if (p.recurrenceDays == null) return max;
+    return max == null ? p.recurrenceDays : Math.max(max, p.recurrenceDays);
+  }, null);
 
   return (
     <AppointmentFormSection {...section} title="Procedimento e profissional" summary={summary}>
@@ -94,42 +114,53 @@ export function ServiceSection({
         />
 
         <Controller
-          name="procedureId"
+          name="procedureIds"
           control={control}
           rules={{
-            required: selectedKind === 'PROCEDURE' ? 'Selecione um procedimento' : false,
+            validate: (value) =>
+              selectedKind !== 'PROCEDURE' || (value?.length ?? 0) > 0 || 'Selecione ao menos um procedimento',
           }}
           render={({ field, fieldState }) => (
-            <LabeledField label="Procedimento" required={selectedKind === 'PROCEDURE'}>
-              <TextField
-                {...field}
-                value={selectValueIfListed(field.value, procedureOptions)}
-                onChange={field.onChange}
-                select
-                fullWidth
+            <LabeledField label="Procedimentos" required={selectedKind === 'PROCEDURE'}>
+              <Autocomplete
+                multiple
+                disableCloseOnSelect
+                options={procedureOptions}
+                getOptionLabel={(p) => p.name}
+                isOptionEqualToValue={(a, b) => a.id === b.id}
+                value={field.value
+                  .map((id) => procedureOptions.find((p) => p.id === id))
+                  .filter((p): p is Procedure => !!p)}
+                onChange={(_, value) => field.onChange(value.map((p) => p.id))}
                 disabled={selectedKind !== 'PROCEDURE'}
-                error={!!fieldState.error}
-                helperText={fieldState.error?.message}
-                SelectProps={{ displayEmpty: true }}
-              >
-                <MenuItem value="" disabled>
-                  Selecione um procedimento
-                </MenuItem>
-                {procedureOptions.map((p) => (
-                  <MenuItem key={p.id} value={p.id}>
-                    {p.name}
-                  </MenuItem>
-                ))}
-              </TextField>
+                renderTags={(value, getTagProps) =>
+                  value.map((option, index) => (
+                    <Chip {...getTagProps({ index })} key={option.id} label={option.name} size="small" />
+                  ))
+                }
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    placeholder={field.value.length === 0 ? 'Selecione um ou mais procedimentos' : undefined}
+                    error={!!fieldState.error}
+                    helperText={
+                      fieldState.error?.message ??
+                      (selectedProcedures.length > 1
+                        ? 'Duração total somada no horário do agendamento'
+                        : undefined)
+                    }
+                  />
+                )}
+              />
             </LabeledField>
           )}
         />
         {selectedKind === 'PROCEDURE' && (
           <Stack direction="row" flexWrap="wrap" gap={1}>
             {[
-              selectedProcedure ? `${selectedProcedure.durationMinutes} min` : '— min',
-              `Retorno: ${selectedProcedure?.recurrenceDays ?? '—'} dias`,
-              selectedProcedure?.price != null ? brl.format(Number(selectedProcedure.price)) : 'R$ —',
+              `${totalDurationMinutes} min${selectedProcedures.length > 1 ? ' (total)' : ''}`,
+              `Retorno: ${maxRecurrenceDays ?? '—'} dias`,
+              selectedProcedures.length > 0 ? brl.format(totalPrice) : 'R$ —',
             ].map((label) => (
               <Box
                 key={label}
@@ -183,7 +214,7 @@ export function ServiceSection({
               <LabeledField label="Profissional" required>
                 <TextField
                   {...field}
-                  value={selectValueIfListed(field.value, professionalOptions)}
+                  value={professionalOptions.some((p) => p.id === field.value) ? field.value : ''}
                   onChange={(event) => {
                     markManualSelection();
                     field.onChange(event);

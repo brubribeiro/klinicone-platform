@@ -6,6 +6,9 @@ export interface FinancialEntryPayload {
   description: string;
   amount: number;
   paymentMethodId?: string;
+  installments?: number;
+  cardBrand?: string;
+  authorizationCode?: string;
   category?: string;
   paidAt?: string;
   dueDate?: string;

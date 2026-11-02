@@ -5,6 +5,36 @@ import WarningAmberRoundedIcon from '@mui/icons-material/WarningAmberRounded';
 import { fontSizes } from '../../theme/fontSizes';
 import { STATUS_DOT, STATUS_LABEL, brl } from './appointmentFormModel';
 
+/** Promoção ativa no dia do atendimento (prévia antes de concluir). */
+export interface PromotionSummary {
+  name: string;
+  originalPrice: number;
+  discount: number;
+}
+
+/** Linhas "valor cheio" e "desconto" exibidas acima do valor final. */
+export function PromotionPriceLines({ promotion }: { promotion: PromotionSummary }) {
+  const lineSx = { fontSize: fontSizes.xs, color: 'text.secondary' } as const;
+  return (
+    <Stack spacing={0.5}>
+      <Stack direction="row" justifyContent="space-between" spacing={1}>
+        <Typography sx={lineSx}>Valor cheio</Typography>
+        <Typography sx={{ ...lineSx, textDecoration: 'line-through' }}>
+          {brl.format(promotion.originalPrice)}
+        </Typography>
+      </Stack>
+      <Stack direction="row" justifyContent="space-between" spacing={1}>
+        <Typography sx={{ ...lineSx, color: 'success.main', fontWeight: 700, minWidth: 0 }} noWrap>
+          Promoção · {promotion.name}
+        </Typography>
+        <Typography sx={{ ...lineSx, color: 'success.main', fontWeight: 700, flexShrink: 0 }}>
+          −{brl.format(promotion.discount)}
+        </Typography>
+      </Stack>
+    </Stack>
+  );
+}
+
 export interface AppointmentSummaryData {
   patientName?: string;
   serviceLabel: string;
@@ -14,6 +44,7 @@ export interface AppointmentSummaryData {
   durationMinutes?: number;
   packageLabel: string;
   amount: number;
+  promotion?: PromotionSummary;
   status?: string;
   blockingMessage: string | null;
   stockWarning: boolean;
@@ -123,11 +154,21 @@ export function AppointmentSummaryPanel({
             />
           )}
         </Stack>
+        {data.promotion && (
+          <Box sx={{ mt: 1.5, pt: 1.5, borderTop: '1px dashed', borderColor: 'divider' }}>
+            <PromotionPriceLines promotion={data.promotion} />
+          </Box>
+        )}
         <Stack
           direction="row"
           alignItems="center"
           justifyContent="space-between"
-          sx={{ mt: 1.5, pt: 1.5, borderTop: '1px dashed', borderColor: 'divider' }}
+          sx={{
+            mt: data.promotion ? 0.75 : 1.5,
+            pt: data.promotion ? 0 : 1.5,
+            borderTop: data.promotion ? 'none' : '1px dashed',
+            borderColor: 'divider',
+          }}
         >
           <Typography sx={{ fontSize: fontSizes.xs, color: 'text.secondary' }}>Valor previsto</Typography>
           <Typography sx={{ fontSize: fontSizes.xl, fontWeight: 800, color: 'primary.dark' }}>
@@ -179,9 +220,16 @@ export function AppointmentSummaryBar({ data }: { data: AppointmentSummaryData }
             {data.professionalName ? ` · ${data.professionalName}` : ''}
           </Typography>
         </Box>
-        <Typography sx={{ fontSize: fontSizes.md, fontWeight: 800, color: 'primary.dark', flexShrink: 0 }}>
-          {data.amount > 0 ? brl.format(data.amount) : ''}
-        </Typography>
+        <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
+          <Typography sx={{ fontSize: fontSizes.md, fontWeight: 800, color: 'primary.dark' }}>
+            {data.amount > 0 ? brl.format(data.amount) : ''}
+          </Typography>
+          {data.promotion && (
+            <Typography sx={{ fontSize: fontSizes['3xs'], fontWeight: 700, color: 'success.main' }}>
+              Promoção −{brl.format(data.promotion.discount)}
+            </Typography>
+          )}
+        </Box>
       </Stack>
       {problem && (
         <Stack direction="row" alignItems="center" spacing={0.5} sx={{ mt: 0.5, color: data.blockingMessage ? 'error.main' : 'warning.dark' }}>

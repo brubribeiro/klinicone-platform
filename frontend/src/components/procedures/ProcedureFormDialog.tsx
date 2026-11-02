@@ -9,7 +9,6 @@ import {
   DialogActions,
   DialogContent,
   IconButton,
-  InputAdornment,
   Stack,
   TextField,
   Typography,
@@ -24,6 +23,7 @@ import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { proceduresApi, ProcedurePayload } from '../../api/procedures';
+import { FieldAdornment } from '../FieldAdornment';
 import { LabeledField } from '../LabeledField';
 import { MoneyField } from '../MoneyField';
 import { FormSection } from '../FormSection';
@@ -32,7 +32,12 @@ import { equipmentApi } from '../../api/equipment';
 import { recurringExpensesApi } from '../../api/recurring-expenses';
 import { useAppToast } from '../../contexts/AppToastContext';
 import { getApiErrorMessage } from '../../utils/apiError';
-import { DialogHeader } from '../DialogCloseButton';
+import {
+  DialogHeader,
+  dialogActionsBorderSx,
+  dialogFormLayoutSx,
+  formDialogPaperSx,
+} from '../DialogCloseButton';
 import { ListTableHeader } from '../ListTableHeader';
 import { ProcedureCostSummary } from './ProcedureCostSummary';
 import { ProcedureToggleCard } from './ProcedureToggleCard';
@@ -222,24 +227,17 @@ export function ProcedureFormDialog({ open, onClose, procedure }: ProcedureFormD
       fullWidth
       fullScreen={isMobile}
       PaperProps={{
-        sx: {
-          borderRadius: isMobile ? 0 : '20px',
-          overflow: 'hidden',
-          width: '100%',
-          ...(isMobile
-            ? { height: '100%', maxHeight: '100dvh' }
-            : {
-                maxWidth: DIALOG_MAX_WIDTH,
-                maxHeight: '94dvh',
-              }),
-        },
+        sx: formDialogPaperSx(isMobile, {
+          maxWidth: DIALOG_MAX_WIDTH,
+          height: 'min(86dvh, 820px)',
+        }),
       }}
     >
       <Box
         component="form"
         noValidate
         onSubmit={handleSubmit((v) => mutation.mutate(v))}
-        sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}
+        sx={dialogFormLayoutSx(isMobile)}
       >
         <DialogHeader
           onClose={onClose}
@@ -334,7 +332,7 @@ export function ProcedureFormDialog({ open, onClose, procedure }: ProcedureFormD
                         error={!!fieldState.error}
                         helperText={fieldState.error?.message}
                         inputProps={{ inputMode: 'numeric', min: 5 }}
-                        InputProps={{ endAdornment: <InputAdornment position="end">min</InputAdornment> }}
+                        InputProps={{ endAdornment: <FieldAdornment>min</FieldAdornment> }}
                       />
                     </LabeledField>
                   )}
@@ -351,7 +349,7 @@ export function ProcedureFormDialog({ open, onClose, procedure }: ProcedureFormD
                         size="small"
                         placeholder="Opcional"
                         inputProps={{ inputMode: 'numeric', min: 0 }}
-                        InputProps={{ endAdornment: <InputAdornment position="end">dias</InputAdornment> }}
+                        InputProps={{ endAdornment: <FieldAdornment>dias</FieldAdornment> }}
                       />
                     </LabeledField>
                   )}
@@ -649,17 +647,7 @@ export function ProcedureFormDialog({ open, onClose, procedure }: ProcedureFormD
           )}
         </DialogContent>
 
-        <DialogActions
-          sx={{
-            px: { xs: 2, sm: 3 },
-            py: { xs: 1.5, sm: 2 },
-            borderTop: 1,
-            borderColor: 'divider',
-            bgcolor: 'background.paper',
-            flexShrink: 0,
-            gap: 1,
-          }}
-        >
+        <DialogActions sx={{ ...dialogActionsBorderSx, flexShrink: 0, gap: 1 }}>
           <Button
             onClick={onClose}
             type="button"

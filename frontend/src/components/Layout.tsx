@@ -1,4 +1,4 @@
-import { Fragment, useState, useMemo } from 'react';
+import { Fragment, useEffect, useState, useMemo } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { alpha, AppBar, Box, Drawer, IconButton, Toolbar, Typography, useTheme } from '@mui/material';
 
@@ -21,6 +21,16 @@ import {
 import { SidebarContent } from './layout/SidebarContent';
 import { HeaderActions } from './layout/HeaderActions';
 import { ImpersonationBanner } from './layout/ImpersonationBanner';
+import { AssistantFab } from './assistant/AssistantFab';
+import { GuidedTour } from './tour/GuidedTour';
+import { getScreenTour } from './tour/screenTours';
+import { isTourSeen, markTourSeen } from './tour/tourStorage';
+
+const CLINIC_ASSISTANT_SUGGESTIONS = [
+  'Como ativo o modo escuro?',
+  'Como funciona o mapa de aplicação?',
+  'Como montar uma rotina de skincare?',
+];
 
 export function Layout() {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -48,17 +58,35 @@ export function Layout() {
         ...group,
         items: group.items.filter(
           (item) =>
+            (!item.adminOnly || isAdmin) &&
             (!item.permission || has(item.permission)) &&
             (!item.feature || features.includes(item.feature)),
         ),
       }))
       .filter((group) => group.items.length > 0);
-  }, [has, userFeatures]);
+  }, [has, isAdmin, userFeatures]);
 
   const theme = useTheme();
 
   const pageMeta = getPageMeta(location.pathname);
   const pageSubtitle = pageSubtitleFor(location.pathname, pageMeta);
+
+  // Tour guiado da tela: abre sozinho na primeira visita; depois só pelo “Como funciona?”.
+  const screenTour = getScreenTour(location.pathname);
+  const tourKey = screenTour?.key;
+  const userId = user?.id;
+  const [tourOpen, setTourOpen] = useState(false);
+  useEffect(() => {
+    setTourOpen(false);
+    if (!tourKey || !userId || isTourSeen(userId, tourKey)) return;
+    // Espera a página montar para os elementos destacados existirem.
+    const timer = window.setTimeout(() => setTourOpen(true), 800);
+    return () => window.clearTimeout(timer);
+  }, [tourKey, userId]);
+  const closeTour = () => {
+    setTourOpen(false);
+    if (tourKey && userId) markTourSeen(userId, tourKey);
+  };
 
   const currentDrawerWidth = collapsed ? DRAWER_COLLAPSED_WIDTH : DRAWER_WIDTH;
   const impersonationOffsetSx = isImpersonating
@@ -178,6 +206,7 @@ export function Layout() {
             moneyHidden={moneyHidden}
             onToggleMoneyHidden={toggleMoneyHidden}
             canSeeAgenda={has('appointments:view')}
+            onOpenTour={screenTour ? () => setTourOpen(true) : undefined}
           />
         </Toolbar>
       </AppBar>
@@ -251,6 +280,12 @@ export function Layout() {
           </Box>
         </Fragment>
       </Box>
+
+      {screenTour && tourOpen && (
+        <GuidedTour key={screenTour.key} steps={screenTour.steps} onClose={closeTour} />
+      )}
+
+      <AssistantFab suggestions={CLINIC_ASSISTANT_SUGGESTIONS} canSendFeedback />
 
       {pageMeta.auditEntity && (
         <AuditHistoryDialog

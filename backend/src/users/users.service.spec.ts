@@ -11,6 +11,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { R2StorageService } from '../documents/r2-storage.service';
+import { PlanLimitsService } from '../plan-limits/plan-limits.service';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { SYSTEM_ADMIN_ROLE_NAME } from '../common/permissions';
 
@@ -23,6 +24,7 @@ describe('UsersService', () => {
   let prisma: any;
   let notifications: any;
   let auditLog: any;
+  let planLimits: any;
 
   const mockUser = {
     id: 'user-1',
@@ -84,6 +86,8 @@ describe('UsersService', () => {
       logDelete: jest.fn().mockResolvedValue(undefined),
     };
 
+    planLimits = { assertCanAddUser: jest.fn().mockResolvedValue(undefined) };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         UsersService,
@@ -91,6 +95,7 @@ describe('UsersService', () => {
         { provide: NotificationsService, useValue: notifications },
         { provide: AuditLogService, useValue: auditLog },
         { provide: R2StorageService, useValue: { upload: jest.fn(), remove: jest.fn(), getPresignedUrl: jest.fn() } },
+        { provide: PlanLimitsService, useValue: planLimits },
       ],
     }).compile();
 
@@ -152,6 +157,27 @@ describe('UsersService', () => {
 
       expect(prisma.user.create).toHaveBeenCalled();
       expect(result).toEqual(mockUser);
+    });
+
+    it('não cria usuário ativo quando o limite do plano foi atingido', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+      planLimits.assertCanAddUser.mockRejectedValue(new ForbiddenException('Limite do plano atingido'));
+
+      await expect(
+        service.create({ name: 'Ana', email: 'new@clinic.com', roleId: 'role-1' } as any, managerActor),
+      ).rejects.toThrow(ForbiddenException);
+      expect(prisma.user.create).not.toHaveBeenCalled();
+    });
+
+    it('usuário criado inativo não consulta o limite', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+
+      await service.create(
+        { name: 'Ana', email: 'new@clinic.com', roleId: 'role-1', active: false } as any,
+        managerActor,
+      );
+      expect(planLimits.assertCanAddUser).not.toHaveBeenCalled();
+      expect(prisma.user.create).toHaveBeenCalled();
     });
 
     it('should unset other primary users when isPrimary is true', async () => {
@@ -228,6 +254,17 @@ describe('UsersService', () => {
       const result = await service.update('user-1', { name: 'Ana Maria' } as any, managerActor);
       expect(prisma.user.update).toHaveBeenCalled();
       expect(result).toBeDefined();
+      expect(planLimits.assertCanAddUser).not.toHaveBeenCalled();
+    });
+
+    it('reativar usuário respeita o limite do plano', async () => {
+      prisma.user.findUnique.mockResolvedValue({ ...mockUser, active: false });
+      planLimits.assertCanAddUser.mockRejectedValue(new ForbiddenException('Limite do plano atingido'));
+
+      await expect(service.update('user-1', { active: true } as any, managerActor)).rejects.toThrow(
+        ForbiddenException,
+      );
+      expect(prisma.user.update).not.toHaveBeenCalled();
     });
 
     it('should forbid self role change', async () => {

@@ -573,7 +573,7 @@ export class PendenciasService {
         subtitle: [d.patient?.name, sent ? 'Enviado ao paciente' : 'Ainda não enviado'].filter(Boolean).join(' · '),
         deadlineLabel: `${sent ? 'Aguardando assinatura desde' : 'Criado em'} ${formatDay(created)}`,
         dueDate: null,
-        link: '/documentos',
+        link: `/documentos?status=${d.status}&busca=${encodeURIComponent(d.name)}`,
       };
     });
   }

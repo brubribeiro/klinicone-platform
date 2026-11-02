@@ -20,12 +20,25 @@ const ACTION_SHORT_LABELS: Record<ActionKey, string> = {
   delete: 'Excluir',
 };
 
+/** Mesmo template no cabeçalho e nas linhas — colunas alinhadas e uniformes ao trocar de grupo. */
+const MATRIX_COLUMNS = 'minmax(180px, 2fr) repeat(4, minmax(88px, 1fr))';
+const MATRIX_MIN_WIDTH = 560;
+const ROW_HEIGHT = 48;
+
 const GRID_SX = {
   display: 'grid',
-  gridTemplateColumns: '1.6fr repeat(4, minmax(64px, 1fr))',
-  gap: 1,
+  gridTemplateColumns: MATRIX_COLUMNS,
+  columnGap: 0,
+  rowGap: 0,
   alignItems: 'center',
   px: { xs: 2, sm: 2.75 },
+} as const;
+
+const ACTION_CELL_SX = {
+  width: '100%',
+  display: 'flex',
+  justifyContent: 'center',
+  justifySelf: 'center',
 } as const;
 
 const CHECK_COLOR = '#11A893';
@@ -77,31 +90,42 @@ export function PermissionsMatrix({ value, onChange, readOnly }: PermissionsMatr
 
   return (
     <Box sx={{ overflowX: 'auto' }}>
-      <Box sx={{ minWidth: 480 }}>
+      <Box sx={{ minWidth: MATRIX_MIN_WIDTH }}>
         <Box
           sx={{
             ...GRID_SX,
-            py: 1.5,
+            height: ROW_HEIGHT,
             borderBottom: 1,
             borderColor: 'divider',
             bgcolor: 'grey.50',
+            position: 'sticky',
+            top: 0,
+            zIndex: 1,
           }}
         >
           <HeaderLabel>Módulo</HeaderLabel>
           {ACTIONS.map((a) => {
             const label = <HeaderLabel center>{ACTION_SHORT_LABELS[a.key]}</HeaderLabel>;
-            return editable ? (
+            const cell = editable ? (
               <Tooltip key={a.key} title={`Marcar/desmarcar "${a.label}" em todos os módulos`}>
                 <ButtonBase
                   onClick={() => apply(RESOURCES.map((r) => `${r.key}:${a.key}` as Permission))}
-                  sx={{ borderRadius: '8px', py: 0.25, '&:hover': { bgcolor: 'grey.100' } }}
+                  sx={{
+                    ...ACTION_CELL_SX,
+                    borderRadius: '8px',
+                    py: 0.25,
+                    '&:hover': { bgcolor: 'grey.100' },
+                  }}
                 >
                   {label}
                 </ButtonBase>
               </Tooltip>
             ) : (
-              <Box key={a.key}>{label}</Box>
+              <Box key={a.key} sx={ACTION_CELL_SX}>
+                {label}
+              </Box>
             );
+            return cell;
           })}
         </Box>
 
@@ -112,7 +136,7 @@ export function PermissionsMatrix({ value, onChange, readOnly }: PermissionsMatr
               key={r.key}
               sx={{
                 ...GRID_SX,
-                py: 1.5,
+                height: ROW_HEIGHT,
                 borderBottom: index === RESOURCES.length - 1 ? 0 : 1,
                 borderColor: 'grey.100',
               }}
@@ -124,6 +148,10 @@ export function PermissionsMatrix({ value, onChange, readOnly }: PermissionsMatr
                     sx={{
                       justifyContent: 'flex-start',
                       textAlign: 'left',
+                      minWidth: 0,
+                      maxWidth: '100%',
+                      justifySelf: 'start',
+                      overflow: 'hidden',
                       borderRadius: '8px',
                       mx: -0.75,
                       px: 0.75,
@@ -138,7 +166,7 @@ export function PermissionsMatrix({ value, onChange, readOnly }: PermissionsMatr
                 <ModuleLabel>{r.label}</ModuleLabel>
               )}
               {rowPerms.map((perm, i) => (
-                <Box key={perm} sx={{ display: 'flex', justifyContent: 'center' }}>
+                <Box key={perm} sx={ACTION_CELL_SX}>
                   {editable ? (
                     <ButtonBase
                       aria-label={`${ACTIONS[i].label} ${r.label}`}
@@ -189,7 +217,12 @@ function HeaderLabel({ children, center }: { children: string; center?: boolean 
 
 function ModuleLabel({ children }: { children: string }) {
   return (
-    <Typography component="span" sx={{ fontSize: fontSizes.sm, fontWeight: 700, color: 'text.primary' }}>
+    <Typography
+      component="span"
+      title={children}
+      noWrap
+      sx={{ display: 'block', minWidth: 0, maxWidth: '100%', fontSize: fontSizes.sm, fontWeight: 700, color: 'text.primary' }}
+    >
       {children}
     </Typography>
   );

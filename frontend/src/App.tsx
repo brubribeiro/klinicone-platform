@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 
 import { Login } from './pages/Login';
+import { ChoosePanel } from './pages/ChoosePanel';
 import { TermsOfUse } from './pages/TermsOfUse';
 import { PrivacyPolicy } from './pages/PrivacyPolicy';
 import { Dashboard } from './pages/Dashboard';
@@ -26,42 +27,19 @@ import { Pendencias } from './pages/Pendencias';
 import { SkincareRoutines } from './pages/SkincareRoutines';
 import { Promotions } from './pages/Promotions';
 import { PaymentMethods } from './pages/PaymentMethods';
-import { FeedbackReports } from './pages/FeedbackReports';
+import { MyPlan } from './pages/MyPlan';
 import { Layout } from './components/Layout';
 import { PrivateRoute } from './components/PrivateRoute';
+import { AdminRoute } from './components/AdminRoute';
 import { PermissionRoute } from './components/PermissionRoute';
 import { FeatureRoute } from './components/FeatureRoute';
-import { SuperAdminRoute } from './components/SuperAdminRoute';
-import { AdminLayout } from './components/admin/AdminLayout';
-import { AdminTenants } from './pages/admin/AdminTenants';
-import { AdminTenantDetail } from './pages/admin/AdminTenantDetail';
-import { AdminAudit } from './pages/admin/AdminAudit';
-import { AdminCatalogs } from './pages/admin/AdminCatalogs';
-import { AdminPlans } from './pages/admin/AdminPlans';
-
 export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/escolher-painel" element={<ChoosePanel />} />
       <Route path="/termos" element={<TermsOfUse />} />
       <Route path="/privacidade" element={<PrivacyPolicy />} />
-      {/* Painel da plataforma (super-admin), separado do app da clínica */}
-      <Route
-        path="/admin"
-        element={
-          <SuperAdminRoute>
-            <AdminLayout />
-          </SuperAdminRoute>
-        }
-      >
-        <Route index element={<Navigate to="clinicas" replace />} />
-        <Route path="clinicas" element={<AdminTenants />} />
-        <Route path="clinicas/:id" element={<AdminTenantDetail />} />
-        <Route path="planos" element={<AdminPlans />} />
-        <Route path="catalogos" element={<AdminCatalogs />} />
-        <Route path="auditoria" element={<AdminAudit />} />
-        <Route path="*" element={<Navigate to="clinicas" replace />} />
-      </Route>
       <Route
         element={
           <PrivateRoute>
@@ -185,6 +163,14 @@ export default function App() {
           }
         />
         <Route
+          path="/meu-plano"
+          element={
+            <AdminRoute>
+              <MyPlan />
+            </AdminRoute>
+          }
+        />
+        <Route
           path="/mensagens"
           element={
             <FeatureRoute feature="messages">
@@ -278,14 +264,6 @@ export default function App() {
               <PaymentMethods />
             </PermissionRoute>
             </FeatureRoute>
-          }
-        />
-        <Route
-          path="/feedback"
-          element={
-            <PermissionRoute permission="feedback:view">
-              <FeedbackReports />
-            </PermissionRoute>
           }
         />
       </Route>

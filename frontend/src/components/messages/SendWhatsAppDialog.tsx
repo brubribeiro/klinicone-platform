@@ -146,6 +146,17 @@ export function SendWhatsAppDialog({
   const handleSend = () => {
     if (!phone) return;
     window.open(whatsappLink(phone, message), '_blank');
+    if (patientId && selectedTemplate) {
+      messagesApi
+        .recordManualDispatch({
+          templateId: selectedTemplate.id,
+          patientId,
+          appointmentId: selectedAppointment?.id ?? null,
+          phone,
+          renderedMessage: message,
+        })
+        .catch(() => undefined);
+    }
     onClose();
   };
 

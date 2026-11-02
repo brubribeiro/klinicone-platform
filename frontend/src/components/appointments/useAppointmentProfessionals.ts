@@ -7,7 +7,7 @@ import { availabilityApi } from '../../api/availability';
 import { usersApi } from '../../api/users';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePermissions } from '../../contexts/usePermissions';
-import type { Appointment, Procedure } from '../../types';
+import type { Appointment } from '../../types';
 import type { FormValues } from './appointmentFormModel';
 
 /**
@@ -19,7 +19,7 @@ export function useAppointmentProfessionals({
   formInitialized,
   appointment,
   appointmentDetail,
-  selectedProcedure,
+  durationMinutes,
   selectedDate,
   selectedStartTime,
   selectedProfessionalId,
@@ -29,7 +29,7 @@ export function useAppointmentProfessionals({
   formInitialized: boolean;
   appointment?: Appointment | null;
   appointmentDetail?: Appointment;
-  selectedProcedure?: Procedure;
+  durationMinutes: number;
   selectedDate: string;
   selectedStartTime: string;
   selectedProfessionalId: string;
@@ -50,8 +50,8 @@ export function useAppointmentProfessionals({
     [selectedDate, selectedStartTime],
   );
   const slotEnd = useMemo(
-    () => slotStart.add(selectedProcedure?.durationMinutes ?? 60, 'minute'),
-    [slotStart, selectedProcedure?.durationMinutes],
+    () => slotStart.add(durationMinutes, 'minute'),
+    [slotStart, durationMinutes],
   );
   const slotValid = slotStart.isValid() && slotEnd.isValid() && slotEnd.isAfter(slotStart);
 
@@ -64,7 +64,7 @@ export function useAppointmentProfessionals({
       'available-professionals',
       selectedDate,
       selectedStartTime,
-      selectedProcedure?.durationMinutes ?? 60,
+      durationMinutes,
       appointment?.id,
     ],
     queryFn: () =>
@@ -196,8 +196,7 @@ export function useAppointmentProfessionals({
   const timeOrProfessionalChanged = useMemo(() => {
     if (!appointment) return true;
     const start = dayjs(`${selectedDate}T${selectedStartTime}`);
-    const duration = selectedProcedure?.durationMinutes ?? 60;
-    const end = start.add(duration, 'minute');
+    const end = start.add(durationMinutes, 'minute');
     return (
       !start.isSame(appointment.startAt) ||
       !end.isSame(appointment.endAt) ||
@@ -207,7 +206,7 @@ export function useAppointmentProfessionals({
     appointment,
     selectedDate,
     selectedStartTime,
-    selectedProcedure?.durationMinutes,
+    durationMinutes,
     selectedProfessionalId,
   ]);
 

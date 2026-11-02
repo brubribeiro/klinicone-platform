@@ -8,6 +8,7 @@ import dayjs from 'dayjs';
 import type { Appointment } from '../../types';
 import { fontSizes } from '../../theme/fontSizes';
 import { brl } from '../../utils/money';
+import { ApplicationMapPreview } from '../application-map/ApplicationMapPreview';
 import { EmptyBlock } from './EmptyBlock';
 import { appointmentKindLabel, appointmentStatusAccent } from './patientChart';
 
@@ -222,6 +223,8 @@ function AppointmentRowCard({ appt }: { appt: Appointment }) {
               )}
             </Box>
           )}
+
+          {!!appt.applicationMap?.points?.length && <ApplicationMapPreview map={appt.applicationMap} />}
         </Box>
       </Stack>
     </Paper>

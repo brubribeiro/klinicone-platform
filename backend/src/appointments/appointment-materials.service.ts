@@ -75,12 +75,12 @@ export class AppointmentMaterialsService {
   /** Devolve materiais do procedimento e extras já baixados de um agendamento. */
   async returnAllForAppointment(
     tx: Tx,
-    appt: { id: string; procedureId: string | null },
+    appt: { id: string; procedureIds: string[] },
     procedureReason: string,
     extrasReason: string,
   ) {
-    if (appt.procedureId) {
-      await this.returnProcedureMaterials(tx, appt.procedureId, procedureReason);
+    for (const procedureId of appt.procedureIds) {
+      await this.returnProcedureMaterials(tx, procedureId, procedureReason);
     }
     const extras = await tx.appointmentMaterial.findMany({ where: { appointmentId: appt.id } });
     await this.returnItems(tx, extras, extrasReason);
@@ -106,19 +106,22 @@ export class AppointmentMaterialsService {
     tx: Tx,
     before: {
       id: string;
-      procedureId: string | null;
+      procedureIds: string[];
       materialsDeducted: boolean;
       extraMaterials: MaterialQuantity[];
     },
     next: {
-      procedureId: string | null;
+      procedureIds: string[];
       willBeActive: boolean;
       willDeduct: boolean;
       extraItems?: MaterialQuantity[];
     },
   ) {
-    const { procedureId: newProcedureId, willBeActive, willDeduct, extraItems } = next;
-    const procedureChanged = before.procedureId !== newProcedureId;
+    const { procedureIds: newProcedureIds, willBeActive, willDeduct, extraItems } = next;
+    const beforeSet = new Set(before.procedureIds);
+    const afterSet = new Set(newProcedureIds);
+    const procedureChanged =
+      beforeSet.size !== afterSet.size || [...beforeSet].some((id) => !afterSet.has(id));
 
     if (before.materialsDeducted && !willBeActive) {
       await this.returnAllForAppointment(
@@ -128,14 +131,20 @@ export class AppointmentMaterialsService {
         'Devolução de materiais extras por cancelamento/no-show',
       );
     } else if (before.materialsDeducted && willBeActive && procedureChanged) {
-      if (before.procedureId) {
-        await this.returnProcedureMaterials(tx, before.procedureId, 'Devolução por troca de procedimento');
+      for (const removedId of before.procedureIds) {
+        if (!afterSet.has(removedId)) {
+          await this.returnProcedureMaterials(tx, removedId, 'Devolução por troca de procedimento');
+        }
       }
-      if (newProcedureId) {
-        await this.deductProcedureMaterials(tx, newProcedureId, 'Materiais do agendamento (novo procedimento)');
+      for (const addedId of newProcedureIds) {
+        if (!beforeSet.has(addedId)) {
+          await this.deductProcedureMaterials(tx, addedId, 'Materiais do agendamento (novo procedimento)');
+        }
       }
-    } else if (!before.materialsDeducted && willDeduct && newProcedureId) {
-      await this.deductProcedureMaterials(tx, newProcedureId, 'Materiais do agendamento (reativado)');
+    } else if (!before.materialsDeducted && willDeduct && newProcedureIds.length > 0) {
+      for (const procedureId of newProcedureIds) {
+        await this.deductProcedureMaterials(tx, procedureId, 'Materiais do agendamento (reativado)');
+      }
     }
 
     if (extraItems !== undefined) {

@@ -33,7 +33,7 @@ mila-barreto-platform/
 │       ├── main.ts
 │       ├── app.module.ts
 │       ├── prisma/         Prisma service global
-│       ├── auth/           Login JWT, guard, strategy
+│       ├── auth/           Google OAuth + JWT, guard, strategy
 │       ├── users/          Usuários do sistema
 │       ├── patients/       Pacientes (CRUD + busca)
 │       ├── appointments/   Agendamentos
@@ -49,6 +49,9 @@ mila-barreto-platform/
 │       ├── contexts/       AuthContext (login/logout)
 │       ├── components/     Layout, PrivateRoute, PageHeader
 │       └── pages/          Login, Dashboard + 5 módulos
+├── apps/
+│   ├── landing/            Site público (/) — VERSION própria
+│   └── admin-console/      Console super-admin — VERSION própria
 ├── docker-compose.yml      PostgreSQL + Adminer
 └── README.md
 ```
@@ -68,23 +71,44 @@ Adminer (interface web do banco) em `http://localhost:8080`.
 
 ```bash
 cd backend
-cp .env.example .env       # ajustar JWT_SECRET para produção
+cp .env.example .env       # JWT_SECRET + GOOGLE_CLIENT_ID (mesmo Client ID do frontend)
 npm install
 npx prisma migrate dev     # cria as tabelas
-npm run prisma:seed        # admin, procedimentos, despesas recorrentes de exemplo, etc.
+npm run prisma:seed        # usuários demo, procedimentos, despesas recorrentes de exemplo, etc.
 npm run start:dev          # API em http://localhost:3333/api
 ```
 
 **Credenciais padrão do seed:** `admin@mila.com` / `admin123`
 
+**Dados de demonstração (só ambiente local):** para preencher as telas vazias (pacientes, agenda, pacotes vendidos, promoções, estoque, equipamentos, financeiro, metas, documentos, pendências, rotinas de skincare etc.), rode depois das migrations:
+
+```bash
+npm run prisma:seed:demo
+```
+
+Roda o seed principal e os seeds de pacientes, pacotes e promoções, e completa o que faltava, tudo com dados fictícios na clínica `TENANT_SLUG` (padrão `mila-barreto`). É idempotente (pode rodar de novo sem duplicar) e não cria arquivos (sem R2). Recusa rodar com `NODE_ENV=production` ou se `DATABASE_URL`/`DIRECT_URL` não apontar para `localhost`. Não faz parte do `prisma:seed` usado no deploy.
+
 ### 3. Frontend
 
 ```bash
 cd frontend
-cp .env.example .env
+cp .env.example .env       # VITE_GOOGLE_CLIENT_ID (OAuth Web Client do Google Cloud)
 npm install
 npm run dev                # http://localhost:5173
 ```
+
+### 4. Autenticação (Google)
+
+O painel **não** tem login por e-mail/senha. O fluxo é:
+
+1. O usuário clica em **Entrar com o Google** na tela de login (`@react-oauth/google`).
+2. O frontend envia o ID token (`credential`) para `POST /api/auth/google`.
+3. O backend valida o token com `GOOGLE_CLIENT_ID`, localiza o usuário pelo **e-mail** do Google e devolve um JWT.
+4. Nas requisições seguintes, o frontend envia `Authorization: Bearer <token>`; ao abrir o app, `GET /api/auth/me` hidrata o contexto.
+
+**Variáveis:** `GOOGLE_CLIENT_ID` no backend e `VITE_GOOGLE_CLIENT_ID` no frontend devem ser o **mesmo** Client ID (tipo *Web application* no [Google Cloud Console](https://console.cloud.google.com/apis/credentials)). Opcional: `VITE_ADMIN_CONTACT_EMAIL` para o link “Fale com o administrador”.
+
+**Desenvolvimento local:** o seed cria usuários de exemplo **só pelo e-mail** (ex.: `admin@mila.com` — ver tabela em [Usuários de exemplo](#usuários-de-exemplo-seed)). Para entrar, a conta Google precisa ter um e-mail **já cadastrado** na tabela `User`. Ajuste os e-mails no `prisma/seed.ts` para um endereço que você controla no Google, ou altere o registro no banco após o seed. O seed ainda grava hash de senha no banco por compatibilidade histórica; **a API não expõe login por senha** — em produção o acesso é exclusivamente Google para e-mails autorizados pela clínica.
 
 ## Comandos úteis
 
@@ -101,6 +125,32 @@ npm run dev                # http://localhost:5173
 - `npm run build` - build de produção (gera `dist/`)
 - `npm run preview` - servir build
 
+## Apps, versões e deploy (Vercel)
+
+O front é um monorepo npm (`workspaces` no `package.json` da raiz) com três apps Vite, cada um com deploy e versão próprios:
+
+| App | Pasta | Versão | Sync da versão | Dev |
+|-----|-------|--------|----------------|-----|
+| Painel da clínica (`/painel`) | `frontend/` | `VERSION` da raiz (junto com o backend) | `npm run version:sync` | `npm run dev:clinic` (5174) |
+| Landing pública (`/`) | `apps/landing/` | `apps/landing/VERSION` | `npm run version:sync:landing` | `npm run dev:landing` (5173) |
+| Console super-admin | `apps/admin-console/` | `apps/admin-console/VERSION` | `npm run version:sync:admin` | `npm run dev:admin` (5175) |
+
+`npm run dev` na raiz sobe backend + os três apps. A versão de cada app aparece no próprio app (rodapé da landing; login e escolha de painel do console admin; login da clínica).
+
+**Versões:** mudança só em `apps/landing` ou `apps/admin-console` **não** bumpa o `VERSION` da raiz nem entra no `RELEASE_NOTES.md` das clínicas — se for o caso, bumpe só o `VERSION` do app e rode o sync dele. O `npm run version:sync` da raiz atualiza só raiz, `frontend/` e `backend/`. O backend do console (`backend/src/admin/`) continua versionando com o backend (`VERSION` da raiz).
+
+**Código compartilhado:** `apps/*` importam tema, contextos, API e páginas comuns (login, escolher painel) de `frontend/src`. O que é só do console fica em `apps/admin-console/src`; o que é só da landing, em `apps/landing/src`. Mexer em código compartilhado de `frontend/src` é mudança do painel (versão da raiz) e reconstrói os apps que o importam.
+
+**Vercel — três projetos**, mesmo repositório, um por app:
+
+| Projeto | Root Directory | Build | Output |
+|---------|----------------|-------|--------|
+| Painel da clínica | `frontend` | `npm run build` | `dist` |
+| Landing | `apps/landing` | `npm run build` | `dist` |
+| Console admin | `apps/admin-console` | `npm run build` | `dist` |
+
+Em cada projeto deixe ligado **Include files outside the Root Directory** (os apps importam de `frontend/src` e de `scripts/`). O `vercel.json` de cada app define o **Ignored Build Step** (`ignoreCommand`), que tem precedência sobre o campo da tela: `scripts/vercel-ignore-build.mjs` compara o commit com o último deploy (`VERCEL_GIT_PREVIOUS_SHA`, ou `HEAD^`) e só constrói se mudou a pasta do app, um arquivo de fora que o código dele importa, `package.json`/`package-lock.json` da raiz ou, no painel, o `VERSION` da raiz. Assim o painel não reconstrói por mudança em `apps/*`, e landing/admin não reconstroem por mudança no painel que não usam. Para construir só certas branches (ex.: produção), defina `VERCEL_BUILD_BRANCHES=main,master` nas variáveis do projeto. Variáveis de URL entre apps: `VITE_CLINIC_APP_URL` e `VITE_ADMIN_CONSOLE_URL` (ver `.env.example` de cada app).
+
 ## Modelos de dados (resumo)
 
 | Modelo            | Descrição                                                    |
@@ -116,8 +166,9 @@ npm run dev                # http://localhost:5173
 ## Endpoints principais
 
 ```
-POST /api/auth/login                  Login (email, password)
-GET  /api/auth/me                     Dados do usuário logado
+POST /api/auth/google                 Login com ID token do Google (body: { credential })
+GET  /api/auth/me                     Dados do usuário logado (JWT)
+POST /api/auth/impersonate/:userId    Personificar outro usuário (admin)
 
 GET  /api/users                       Listar usuários
 POST /api/users                       Criar usuário
@@ -140,7 +191,7 @@ GET  /api/inventory                   Listar itens
 POST /api/inventory/:id/movements     Entrada/saída/ajuste de estoque
 ```
 
-Todos os endpoints (exceto `/auth/login`) exigem `Authorization: Bearer <token>`.
+Todos os endpoints (exceto `POST /auth/google`) exigem `Authorization: Bearer <token>`.
 
 ## Módulos implementados
 
@@ -243,11 +294,13 @@ Grupos do sistema **não podem ser excluídos** (têm `isSystem=true`). O grupo 
 
 ### Usuários de exemplo (seed)
 
-| E-mail                  | Senha      | Grupo          |
-|-------------------------|------------|----------------|
-| `admin@mila.com`        | `admin123` | Administrador  |
-| `profissional@mila.com` | `pro123`   | Profissional   |
-| `recepcao@mila.com`     | `rec123`   | Recepção       |
+E-mails criados no banco para **dev local** (login via Google quando o e-mail da conta coincidir):
+
+| E-mail                  | Grupo          |
+|-------------------------|----------------|
+| `admin@mila.com`        | Administrador  |
+| `profissional@mila.com` | Profissional   |
+| `recepcao@mila.com`     | Recepção       |
 
 ### Migration
 
@@ -304,6 +357,15 @@ npx prisma migrate dev --name add_notifications
 
 Quando perguntar para resetar o banco, responda `y` (em dev). Depois roda `npm run prisma:seed` para recriar os usuários de exemplo.
 
+### Scheduler (jobs em background)
+
+O `SchedulerService` (`backend/src/scheduler/scheduler.service.ts`) inicia com a API NestJS:
+
+- **Intervalo:** a cada **1 hora**, percorre cada clínica ativa (`TenantContext.run`) e roda manutenção de equipamentos, validade de estoque, retorno de pacientes, reativação e **gatilhos de mensagens WhatsApp**.
+- **Gatilhos WhatsApp:** modelos ativos com `trigger` ≠ `MANUAL` geram registros em `message_dispatches` (mensagem renderizada + URL `wa.me`). A deduplicação usa `dedupKey` (ex.: um lembrete `DAY_BEFORE` por agendamento/modelo). Pacientes sem telefone geram registro `SKIPPED`.
+- **Envio:** MVP abre o deep link no navegador (tela **Mensagens** → fila pendente, ou modais manuais). API oficial do WhatsApp fica para uma fase posterior.
+- **Keep-alive:** query `SELECT 1` a cada 4,5 min entre 7h e 21h (fuso do servidor) para evitar cold start em hospedagem serverless.
+
 ### Roadmap
 
 - **Lembretes agendados** (`APPOINTMENT_REMINDER`) — precisa de cron job, ainda não implementado.
@@ -331,5 +393,6 @@ A flag `Appointment.materialsDeducted` mantém a operação idempotente: a lógi
 ## Notas de segurança
 
 - Trocar `JWT_SECRET` em produção (mínimo 32 caracteres aleatórios).
+- Configurar `GOOGLE_CLIENT_ID` (backend) e o mesmo Client ID no frontend; restringir origens autorizadas no Google Cloud.
 - Em produção, habilitar HTTPS, configurar `CORS_ORIGIN` específico e usar variáveis de ambiente seguras.
-- A senha do admin do seed deve ser trocada no primeiro login (criar fluxo de troca de senha).
+- Novos acessos: cadastrar o e-mail Google do profissional em **Profissionais** — só usuários existentes e ativos conseguem autenticar.

@@ -25,6 +25,35 @@ import { ROW_ACTION_BUTTON_SX } from '../RowActionButton';
 
 const hours = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 });
 
+const HOURLY_COST_COLLAPSED_KEY = 'mila.recurring-expenses.hourly-cost-collapsed';
+
+function readHourlyCostCollapsedPref(): boolean {
+  try {
+    const stored = localStorage.getItem(HOURLY_COST_COLLAPSED_KEY);
+    if (stored === '1') return true;
+    if (stored === '0') return false;
+  } catch {
+    /* ignore */
+  }
+  return true;
+}
+
+const HOURLY_COST_ALERT_SX = {
+  py: 0.75,
+  px: 1.5,
+  alignItems: 'center',
+  '& .MuiAlert-icon': { py: 0, mr: 1.25, alignItems: 'center' },
+  '& .MuiAlert-message': {
+    display: 'flex',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 0.5,
+    py: 0,
+    fontSize: fontSizes.sm,
+    lineHeight: 1.35,
+  },
+} as const;
+
 const CELL_LABEL_SX = {
   fontSize: fontSizes['2xs'],
   fontWeight: 700,
@@ -48,7 +77,19 @@ interface HourlyCostCardProps {
 export function HourlyCostCard({ activeFixedMonthly, activeVariableMonthly }: HourlyCostCardProps) {
   const queryClient = useQueryClient();
   const toast = useAppToast();
-  const [hourlyCostCollapsed, setHourlyCostCollapsed] = useState(false);
+  const [hourlyCostCollapsed, setHourlyCostCollapsed] = useState(readHourlyCostCollapsedPref);
+
+  const toggleHourlyCostCollapsed = () => {
+    setHourlyCostCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(HOURLY_COST_COLLAPSED_KEY, next ? '1' : '0');
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  };
 
   const { data: hourlyCostSettings } = useQuery({
     queryKey: ['recurring-expenses', 'hourly-cost-settings'],
@@ -218,7 +259,7 @@ export function HourlyCostCard({ activeFixedMonthly, activeVariableMonthly }: Ho
               )}
               <Tooltip title={hourlyCostCollapsed ? 'Expandir' : 'Minimizar'}>
                 <IconButton
-                  onClick={() => setHourlyCostCollapsed((v) => !v)}
+                  onClick={toggleHourlyCostCollapsed}
                   aria-label={hourlyCostCollapsed ? 'Expandir custo por hora' : 'Minimizar custo por hora'}
                   sx={{ ...ROW_ACTION_BUTTON_SX, width: 34, height: 34, borderRadius: '10px', bgcolor: 'grey.50' }}
                 >
@@ -312,14 +353,11 @@ export function HourlyCostCard({ activeFixedMonthly, activeVariableMonthly }: Ho
               </Box>
 
               <Stack
-                direction={{ xs: 'column', md: 'row' }}
-                alignItems={{ xs: 'stretch', md: 'center' }}
-                justifyContent="space-between"
-                gap={1.5}
+                spacing={1.25}
                 sx={{ px: { xs: 2, sm: '22px' }, py: '15px', borderTop: 1, borderColor: 'grey.100', bgcolor: 'grey.50' }}
               >
                 <Stack direction="row" alignItems="center" spacing={1} sx={{ minWidth: 0 }}>
-                  <InfoOutlinedIcon sx={{ fontSize: 16, color: 'primary.main' }} />
+                  <InfoOutlinedIcon sx={{ fontSize: 16, color: 'primary.main', flexShrink: 0 }} />
                   <Typography sx={{ fontSize: fontSizes.sm, color: 'text.secondary', fontWeight: 600 }}>
                     Procedimentos usam o financeiro do mês atual:{' '}
                     <Box component="b" sx={{ color: 'text.primary' }}>
@@ -329,17 +367,17 @@ export function HourlyCostCard({ activeFixedMonthly, activeVariableMonthly }: Ho
                   </Typography>
                 </Stack>
                 {!hourlyCostSummary.primaryProfessional && (
-                  <Alert severity="warning" sx={{ py: 0 }}>
-                    Nenhum profissional principal cadastrado.{' '}
-                    <Button component={RouterLink} to="/profissionais" size="small">
+                  <Alert severity="warning" sx={HOURLY_COST_ALERT_SX}>
+                    Nenhum profissional principal cadastrado.
+                    <Button component={RouterLink} to="/profissionais" size="small" sx={{ ml: 0.5 }}>
                       Configurar
                     </Button>
                   </Alert>
                 )}
                 {hourlyCostSummary.primaryProfessional && hourlyCostSummary.monthlyHours <= 0 && (
-                  <Alert severity="warning" sx={{ py: 0 }}>
-                    Sem horários de atendimento na agenda.{' '}
-                    <Button component={RouterLink} to="/horarios" size="small">
+                  <Alert severity="warning" sx={HOURLY_COST_ALERT_SX}>
+                    Sem horários de atendimento na agenda.
+                    <Button component={RouterLink} to="/horarios" size="small" sx={{ ml: 0.5 }}>
                       Configurar horários
                     </Button>
                   </Alert>

@@ -16,7 +16,7 @@ export const DOCUMENT_GRID_COLS =
   'minmax(0, 2.6fr) minmax(0, 1.3fr) minmax(0, 1.1fr) minmax(0, 0.9fr) minmax(0, 0.9fr) 44px';
 export const DOCUMENT_GRID_MIN_WIDTH = 860;
 
-function StatusPill({ status }: { status: DocumentStatus }) {
+export function StatusPill({ status }: { status: DocumentStatus }) {
   const theme = useTheme();
   const meta = statusMeta(status);
   const color = theme.palette[meta.tone].main;

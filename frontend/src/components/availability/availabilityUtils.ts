@@ -2,7 +2,7 @@ import dayjs, { type Dayjs } from 'dayjs';
 import 'dayjs/locale/pt-br';
 
 import type { WorkingHours } from '../../types';
-import { DAY_ABBR, DEFAULT_DAY, WEEK_ORDER, type DayScheduleEdit } from './availabilityConfig';
+import { DAY_ABBR, DEFAULT_DAY, WEEK_ORDER, WEEK_PRESETS, type DayScheduleEdit } from './availabilityConfig';
 
 export function initialsOf(name: string): string {
   // Ignora títulos como "Dra." / "Enf." ao montar as iniciais.
@@ -107,6 +107,22 @@ export function nextWeekdayRange(weekdayStart: number, weekdayEnd: number) {
     end = end.add(1, 'day');
   }
   return { start: start.format('YYYY-MM-DD'), end: end.format('YYYY-MM-DD') };
+}
+
+/** Atalho semanal que corresponde à grade atual (para destacar no ToggleButtonGroup). */
+export function detectWeekPreset(schedule: Record<number, DayScheduleEdit>): string | null {
+  for (const preset of WEEK_PRESETS) {
+    let match = true;
+    for (let day = 0; day < 7; day++) {
+      const works = schedule[day]?.works ?? false;
+      if (works !== preset.days.includes(day)) {
+        match = false;
+        break;
+      }
+    }
+    if (match) return preset.label;
+  }
+  return null;
 }
 
 /** Mensagem da API (`response.data.message`) ou o texto padrão. */

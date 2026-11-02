@@ -14,6 +14,13 @@ export class SuperAdminGuard implements CanActivate {
     if (!user?.isSuperAdmin) {
       throw new ForbiddenException('Acesso restrito ao super-admin da plataforma.');
     }
+    if (user.panelSelectionPending) {
+      throw new ForbiddenException('Escolha o painel da plataforma ou da clínica antes de continuar.');
+    }
+    // Super-admin dual no painel da clínica (sem "entrar como") não acessa rotas /admin.
+    if (user.tenantId && user.impersonatorId !== user.id) {
+      throw new ForbiddenException('Use o painel da plataforma para acessar esta área.');
+    }
     return true;
   }
 }

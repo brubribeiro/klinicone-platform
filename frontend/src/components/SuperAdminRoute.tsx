@@ -20,6 +20,7 @@ export function SuperAdminRoute({ children }: { children: ReactNode }) {
   }
 
   if (!user) return <Navigate to="/login" replace />;
+  if (user.panelSelectionPending) return <Navigate to="/escolher-painel" replace />;
   if (!user.isSuperAdmin || user.tenantId) return <Navigate to="/" replace />;
   return <>{children}</>;
 }

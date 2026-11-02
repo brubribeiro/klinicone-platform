@@ -1,6 +1,9 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditLogService, AuditUser } from '../audit-log/audit-log.service';
+import { PromotionsService } from '../promotions/promotions.service';
+import { toBrazilDateAtUtcNoon } from '../common/utils/brazil-time.util';
 import { CreatePackageDto, PackageItemDto } from './dto/create-package.dto';
 import { UpdatePackageDto } from './dto/update-package.dto';
 import {
@@ -29,6 +32,7 @@ export class PackagesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditLog: AuditLogService,
+    private readonly promotions: PromotionsService,
   ) {}
 
   // ─── CRUD de Package (template/catálogo) ───
@@ -217,9 +221,29 @@ export class PackagesService {
     });
   }
 
+  /** Preço de catálogo do pacote com a melhor promoção ativa hoje (vinculada ao pacote). */
+  async saleQuote(packageId: string) {
+    const pkg = await this.findOne(packageId);
+    return this.quoteSale(pkg);
+  }
+
+  private quoteSale(pkg: Awaited<ReturnType<PackagesService['findOne']>>) {
+    return this.promotions.quoteForPackage(
+      pkg.id,
+      this.resolvePackageSalePrice(pkg),
+      toBrazilDateAtUtcNoon(new Date()),
+    );
+  }
+
   async createPatientPackage(dto: CreatePatientPackageDto, user?: AuditUser) {
     const pkg = await this.findOne(dto.packageId);
-    const totalPaid = dto.totalPaid ?? this.resolvePackageSalePrice(pkg);
+    const quote = await this.quoteSale(pkg);
+    const totalPaid = dto.totalPaid ?? quote.finalPrice;
+    // Valor acordado manualmente diferente do promocional não leva o nome da promoção
+    const promoLabel =
+      quote.promotion && Math.abs(totalPaid - quote.finalPrice) < 0.005
+        ? ` (Promoção: ${quote.promotion.name} ${this.promotions.discountLabel(quote.promotion)})`
+        : '';
 
     if (dto.paymentMethodId && totalPaid <= 0) {
       throw new BadRequestException(
@@ -260,7 +284,7 @@ export class PackagesService {
         await tx.financialEntry.create({
           data: {
             type: 'INCOME',
-            description: `Pacote - ${pkg.name} - ${patient?.name ?? 'Paciente'}`,
+            description: `Pacote - ${pkg.name} - ${patient?.name ?? 'Paciente'}${promoLabel}`,
             amount: totalPaid,
             netAmount,
             feePercent,
@@ -318,13 +342,14 @@ export class PackagesService {
     return updated;
   }
 
-  // Chamado pelo módulo de appointments ao completar/cancelar agendamento
-  async incrementSession(patientPackageId: string) {
-    const pp = await this.findPatientPackage(patientPackageId);
+  // Chamado pelo módulo de appointments ao completar/cancelar agendamento. Recebe a transação
+  // do agendamento: fora dela, o update esperaria o lock que a própria transação segura.
+  async incrementSession(patientPackageId: string, tx: Prisma.TransactionClient = this.prisma) {
+    const pp = await this.findPatientPackageForSession(tx, patientPackageId);
     const newUsed = pp.sessionsUsed + 1;
     const isCompleted = newUsed >= pp.sessionsTotal;
 
-    return this.prisma.patientPackage.update({
+    return tx.patientPackage.update({
       where: { id: patientPackageId },
       data: {
         sessionsUsed: newUsed,
@@ -333,16 +358,22 @@ export class PackagesService {
     });
   }
 
-  async decrementSession(patientPackageId: string) {
-    const pp = await this.findPatientPackage(patientPackageId);
+  async decrementSession(patientPackageId: string, tx: Prisma.TransactionClient = this.prisma) {
+    const pp = await this.findPatientPackageForSession(tx, patientPackageId);
     if (pp.sessionsUsed <= 0) return pp;
 
-    return this.prisma.patientPackage.update({
+    return tx.patientPackage.update({
       where: { id: patientPackageId },
       data: {
         sessionsUsed: pp.sessionsUsed - 1,
         status: 'ACTIVE', // reativa se estava COMPLETED
       },
     });
+  }
+
+  private async findPatientPackageForSession(tx: Prisma.TransactionClient, id: string) {
+    const pp = await tx.patientPackage.findUnique({ where: { id } });
+    if (!pp) throw new NotFoundException('Pacote do paciente não encontrado');
+    return pp;
   }
 }

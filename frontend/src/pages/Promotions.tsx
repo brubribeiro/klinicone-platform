@@ -48,10 +48,10 @@ function discountBadge(promo: Promotion): { label: string; color: string } {
   if (promo.discountType === 'PERCENTAGE') {
     return { label: `−${Number(promo.discountValue)}%`, color: '#15998B' };
   }
-  if (promo.discountType === 'COMBO') {
-    return { label: 'Combo', color: '#8B8680' };
-  }
   const v = Number(promo.discountValue);
+  if (promo.discountType === 'COMBO') {
+    return { label: v > 0 ? `Combo R$ ${Number.isInteger(v) ? v : v.toFixed(2)}` : 'Combo', color: '#8B8680' };
+  }
   return { label: `R$ ${Number.isInteger(v) ? v : v.toFixed(2)}`, color: '#9B7BD4' };
 }
 
@@ -206,7 +206,7 @@ export function Promotions() {
             />
           </Stack>
           {canCreate && (
-            <Button
+            <Button data-tour="promotions-new"
               variant="contained"
               startIcon={<AddIcon />}
               onClick={() => {

@@ -60,9 +60,12 @@ export class AppointmentRulesService {
     const lastCompleted = await this.prisma.appointment.findFirst({
       where: {
         patientId,
-        procedureId,
         status: AppointmentStatus.COMPLETED,
         ...(excludeAppointmentId ? { id: { not: excludeAppointmentId } } : {}),
+        OR: [
+          { procedureId },
+          { appointmentProcedures: { some: { procedureId } } },
+        ],
       },
       orderBy: { startAt: 'desc' },
     });
@@ -117,16 +120,21 @@ export class AppointmentRulesService {
       throw new BadRequestException('Profissional não encontrado.');
     }
 
-    if (!dto.procedureId) return;
+    const ids = dto.procedureIds?.length
+      ? dto.procedureIds
+      : dto.procedureId
+        ? [dto.procedureId]
+        : [];
+    if (ids.length === 0) return;
 
-    const procedure = await this.prisma.procedure.findUnique({
-      where: { id: dto.procedureId },
+    const procedures = await this.prisma.procedure.findMany({
+      where: { id: { in: ids } },
       select: { id: true, active: true },
     });
-    if (!procedure) {
-      throw new BadRequestException('Procedimento não encontrado.');
+    if (procedures.length !== ids.length) {
+      throw new BadRequestException('Um ou mais procedimentos não foram encontrados.');
     }
-    if (requiresProcedure(kind) && !procedure.active) {
+    if (requiresProcedure(kind) && procedures.some((p) => !p.active)) {
       throw new BadRequestException('Procedimento inativo.');
     }
   }
@@ -140,8 +148,13 @@ export class AppointmentRulesService {
     }
   }
 
-  assertProcedureProvided(kind: AppointmentKind | null | undefined, procedureId?: string | null) {
-    if (requiresProcedure(kind) && !procedureId) {
+  assertProcedureProvided(
+    kind: AppointmentKind | null | undefined,
+    procedureId?: string | null,
+    procedureIds?: string[],
+  ) {
+    const count = procedureIds?.length ?? (procedureId ? 1 : 0);
+    if (requiresProcedure(kind) && count === 0) {
       throw new BadRequestException('Procedimento é obrigatório para agendamentos do tipo PROCEDURE.');
     }
   }

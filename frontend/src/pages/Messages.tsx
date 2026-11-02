@@ -18,6 +18,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { MessageTemplateFormDialog } from '../components/messages/MessageTemplateFormDialog';
+import { PendingWhatsAppDispatches } from '../components/messages/PendingWhatsAppDispatches';
 import { WhatsAppPreview } from '../components/messages/WhatsAppPreview';
 import { VariableChip } from '../components/messages/VariableChip';
 import {
@@ -239,6 +240,7 @@ export function Messages() {
 
   return (
     <Box>
+      <PendingWhatsAppDispatches />
       <Box
         sx={{
           display: 'grid',
@@ -248,7 +250,7 @@ export function Messages() {
         }}
       >
         {/* Lista de modelos */}
-        <Card sx={CARD_SX}>
+        <Card data-tour="messages-list" sx={CARD_SX}>
           <Stack
             direction={{ xs: 'column', sm: 'row' }}
             alignItems={{ xs: 'stretch', sm: 'center' }}
@@ -285,7 +287,7 @@ export function Messages() {
                 />
               </Stack>
               {canCreate && (
-                <Button
+                <Button data-tour="messages-new"
                   variant="contained"
                   startIcon={<AddIcon />}
                   onClick={openCreate}
@@ -400,7 +402,7 @@ export function Messages() {
         </Card>
 
         {/* Detalhe do modelo selecionado */}
-        <Card sx={{ ...CARD_SX, p: { xs: 2, sm: 2.75 }, position: { md: 'sticky' }, top: { md: 16 } }}>
+        <Card data-tour="messages-detail" sx={{ ...CARD_SX, p: { xs: 2, sm: 2.75 }, position: { md: 'sticky' }, top: { md: 16 } }}>
           {isLoading ? (
             <>
               <Skeleton variant="text" width="45%" sx={{ fontSize: fontSizes.xl }} />

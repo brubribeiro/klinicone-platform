@@ -3,7 +3,6 @@ import {
   Alert,
   Box,
   Button,
-  Chip,
   Dialog,
   DialogActions,
   DialogContent,
@@ -16,6 +15,8 @@ import {
   alpha,
   useMediaQuery,
   useTheme,
+  type SxProps,
+  type Theme,
 } from '@mui/material';
 import EventAvailableOutlinedIcon from '@mui/icons-material/EventAvailableOutlined';
 import EventBusyOutlinedIcon from '@mui/icons-material/EventBusyOutlined';
@@ -24,6 +25,7 @@ import ReportProblemOutlinedIcon from '@mui/icons-material/ReportProblemOutlined
 import { DialogHeader, dialogActionsBorderSx } from '../DialogCloseButton';
 import { LabeledField } from '../LabeledField';
 import { fontSizes } from '../../theme/fontSizes';
+import { AvailabilityShortcutToggles, availabilityShortcutToggleSx } from './AvailabilityShortcutToggles';
 import {
   AVAILABILITY_DIALOG_CONTENT_SX,
   UNAVAIL_DATETIME_FIELD_SX,
@@ -33,6 +35,16 @@ import {
 } from './availabilityConfig';
 import { apiMessageOf } from './availabilityUtils';
 import { useUnavailabilityForm } from './useUnavailabilityForm';
+
+const FIELD_STACK_GAP = 1.25;
+
+const PERIOD_MODE_TOGGLE_SX: SxProps<Theme> = [
+  availabilityShortcutToggleSx,
+  {
+    width: '100%',
+    '& .MuiToggleButtonGroup-grouped': { flex: 1, py: 0.85 },
+  },
+];
 
 export function UnavailabilityDialog({
   open,
@@ -74,6 +86,7 @@ export function UnavailabilityDialog({
     handleSubmit,
   } = useUnavailabilityForm(open, defaultUserId, onClose);
   const professionalName = professionals.find((p) => p.id === userId)?.name;
+  const reasonShortcutValue = (UNAVAIL_REASON_SUGGESTIONS as readonly string[]).includes(reason) ? reason : '';
 
   return (
     <Dialog
@@ -101,7 +114,7 @@ export function UnavailabilityDialog({
           icon={<EventBusyOutlinedIcon fontSize="small" />}
         />
         <DialogContent sx={AVAILABILITY_DIALOG_CONTENT_SX}>
-          <Stack spacing={2}>
+          <Stack spacing={1.75}>
             {canChooseProfessional && professionals.length > 1 && (
               <LabeledField label="Profissional">
                 <TextField
@@ -121,7 +134,7 @@ export function UnavailabilityDialog({
             )}
 
             <LabeledField label="Motivo">
-              <Stack spacing={1}>
+              <Stack spacing={FIELD_STACK_GAP}>
                 <TextField
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
@@ -129,52 +142,35 @@ export function UnavailabilityDialog({
                   inputProps={{ 'aria-label': 'Motivo' }}
                   fullWidth
                 />
-                <Stack direction="row" flexWrap="wrap" useFlexGap sx={{ gap: 0.75 }}>
-                  {UNAVAIL_REASON_SUGGESTIONS.map((suggestion) => (
-                    <Chip
-                      key={suggestion}
-                      label={suggestion}
-                      size="small"
-                      clickable
-                      color={reason === suggestion ? 'primary' : 'default'}
-                      variant={reason === suggestion ? 'filled' : 'outlined'}
-                      onClick={() => setReason(suggestion)}
-                      sx={{ fontWeight: 600 }}
-                    />
-                  ))}
-                </Stack>
+                <AvailabilityShortcutToggles
+                  options={UNAVAIL_REASON_SUGGESTIONS.map((s) => ({ label: s, value: s }))}
+                  value={reasonShortcutValue}
+                  onChange={setReason}
+                />
               </Stack>
             </LabeledField>
 
             <LabeledField label="Período">
-              <Stack spacing={1}>
+              <Stack spacing={FIELD_STACK_GAP}>
                 <ToggleButtonGroup
                   exclusive
                   fullWidth
-                  color="primary"
+                  size="small"
                   value={allDay ? 'allDay' : 'partial'}
                   onChange={(_, val) => {
                     if (val === 'allDay') switchMode(true);
                     if (val === 'partial') switchMode(false);
                   }}
-                  sx={{ '& .MuiToggleButton-root': { textTransform: 'none', fontWeight: 700, py: 1.1 } }}
+                  sx={PERIOD_MODE_TOGGLE_SX}
                 >
                   <ToggleButton value="partial">Horário específico</ToggleButton>
                   <ToggleButton value="allDay">Dia(s) inteiro(s)</ToggleButton>
                 </ToggleButtonGroup>
-                <Stack direction="row" flexWrap="wrap" useFlexGap sx={{ gap: 0.75 }}>
-                  {presets.map((preset) => (
-                    <Chip
-                      key={preset.label}
-                      label={preset.label}
-                      size="small"
-                      clickable
-                      variant="outlined"
-                      onClick={preset.onClick}
-                      sx={{ fontWeight: 600 }}
-                    />
-                  ))}
-                </Stack>
+                <AvailabilityShortcutToggles
+                  options={presets.map((p) => ({ label: p.label, value: p.label }))}
+                  value=""
+                  onChange={(val) => presets.find((p) => p.label === val)?.onClick()}
+                />
               </Stack>
             </LabeledField>
 
@@ -230,10 +226,6 @@ export function UnavailabilityDialog({
               )}
             </Box>
 
-            <Typography sx={{ fontSize: fontSizes.xs, color: 'text.secondary', mt: '6px !important' }}>
-              {allDay ? 'Use a mesma data nos dois campos para bloquear um único dia' : ' '}
-            </Typography>
-
             {periodError ? (
               <PeriodNotice tone="error" visible>
                 {periodError}
@@ -276,7 +268,7 @@ function PeriodNotice({ tone, visible, children }: { tone: 'primary' | 'error'; 
       spacing={1.375}
       sx={{
         px: 1.875,
-        py: 1.625,
+        py: 1.25,
         borderRadius: '12px',
         border: 1,
         bgcolor: (t) => alpha(t.palette[tone].main, 0.08),

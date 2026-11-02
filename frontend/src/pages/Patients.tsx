@@ -17,7 +17,7 @@ import {
 import { PatientListEmptyState } from '../components/patients/PatientListEmptyState';
 import { PatientListPagination } from '../components/patients/PatientListPagination';
 import { PatientListRow } from '../components/patients/PatientListRow';
-import { PatientStatCard } from '../components/patients/PatientStatCard';
+import { StatCard } from '../components/StatCard';
 import { SendWhatsAppDialog } from '../components/messages/SendWhatsAppDialog';
 import {
   LIST_HEADER_ACTION_SX,
@@ -164,6 +164,7 @@ export function Patients() {
     <Box>
       {/* Cards de estatística */}
       <Box
+        data-tour="patients-stats"
         sx={{
           display: 'grid',
           gridTemplateColumns: { xs: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' },
@@ -171,14 +172,14 @@ export function Patients() {
           mb: { xs: 2, sm: 2.5 },
         }}
       >
-        <PatientStatCard label="Total de pacientes" value={String(stats?.total ?? 0)} loading={statsLoading} />
-        <PatientStatCard label="Ativos (90 dias)" value={String(stats?.active90 ?? 0)} loading={statsLoading} />
-        <PatientStatCard label="Novos no mês" value={String(stats?.newThisMonth ?? 0)} loading={statsLoading} />
-        <PatientStatCard label="Ticket médio" value={brl.format(stats?.averageTicket ?? 0)} loading={statsLoading} />
+        <StatCard label="Total de pacientes" value={String(stats?.total ?? 0)} loading={statsLoading} />
+        <StatCard label="Ativos (90 dias)" value={String(stats?.active90 ?? 0)} loading={statsLoading} />
+        <StatCard label="Novos no mês" value={String(stats?.newThisMonth ?? 0)} loading={statsLoading} />
+        <StatCard label="Ticket médio" value={brl.format(stats?.averageTicket ?? 0)} loading={statsLoading} />
       </Box>
 
       {/* Tabela */}
-      <Card sx={{ p: 0, overflow: 'hidden' }}>
+      <Card data-tour="patients-list" sx={{ p: 0, overflow: 'hidden' }}>
         {/* Cabeçalho da tabela */}
         <ListCardHeader title={<Typography sx={{ fontSize: fontSizes.xl, fontWeight: 700 }}>Todos os pacientes</Typography>}>
           <ListSearchField value={searchInput} onChange={setSearchInput} placeholder="Buscar paciente, CPF..." ariaLabel="Buscar paciente por nome, CPF ou telefone" />
@@ -190,6 +191,7 @@ export function Patients() {
                 setEditing(null);
                 setFormOpen(true);
               }}
+              data-tour="patients-new"
               sx={LIST_HEADER_ACTION_SX}
             >
               Adicionar paciente

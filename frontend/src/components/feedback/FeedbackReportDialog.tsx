@@ -25,16 +25,24 @@ import { DialogHeader, dialogActionsBorderSx, dialogPaperSx } from '../DialogClo
 import { LabeledField } from '../LabeledField';
 import type { FeedbackType } from '../../types';
 
+export type FeedbackReportInitial = {
+  type?: FeedbackType;
+  title?: string;
+  description?: string;
+};
+
 interface Props {
   open: boolean;
   onClose: () => void;
+  /** Valores iniciais ao abrir (ex.: solicitação de upgrade em Meu plano). */
+  initial?: FeedbackReportInitial;
 }
 
 const DIALOG_MAX_WIDTH = 560;
 /** Altura mínima do corpo — tipo + campos cabem sem o paper encolher/expandir. */
 const CONTENT_MIN_HEIGHT = 360;
 
-export function FeedbackReportDialog({ open, onClose }: Props) {
+export function FeedbackReportDialog({ open, onClose, initial }: Props) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const location = useLocation();
@@ -47,12 +55,12 @@ export function FeedbackReportDialog({ open, onClose }: Props) {
   const [descriptionError, setDescriptionError] = useState('');
   useEffect(() => {
     if (!open) return;
-    setType('SUGGESTION');
-    setTitle('');
-    setDescription('');
+    setType(initial?.type ?? 'SUGGESTION');
+    setTitle(initial?.title ?? '');
+    setDescription(initial?.description ?? '');
     setTitleError('');
     setDescriptionError('');
-  }, [open]);
+  }, [open, initial?.type, initial?.title, initial?.description]);
 
   const createMutation = useMutation({
     mutationFn: feedbackApi.create,

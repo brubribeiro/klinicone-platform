@@ -11,6 +11,7 @@ import {
   type Theme,
 } from '@mui/material';
 import type { ReactNode } from 'react';
+import { fontSizes } from '../theme/fontSizes';
 
 type DialogCloseButtonProps = {
   onClose: () => void;
@@ -57,6 +58,26 @@ export const dialogContentScrollSx: SxProps<Theme> = {
   flexDirection: 'column',
 };
 
+/** Switch + rótulo alinhados ao centro (modais de formulário). */
+export const formSwitchLabelSx: SxProps<Theme> = {
+  mx: 0,
+  gap: 1,
+  alignItems: 'center',
+  '& .MuiFormControlLabel-label': {
+    fontSize: fontSizes.sm,
+    fontWeight: 600,
+    lineHeight: 1.35,
+  },
+};
+
+export const formSwitchRowSx: SxProps<Theme> = {
+  display: 'flex',
+  flexWrap: 'wrap',
+  alignItems: 'center',
+  columnGap: 3,
+  rowGap: 1,
+};
+
 export const dialogFormLayoutSx = (isMobile: boolean): SxProps<Theme> => ({
   display: 'flex',
   flexDirection: 'column',
@@ -64,6 +85,36 @@ export const dialogFormLayoutSx = (isMobile: boolean): SxProps<Theme> => ({
   minHeight: 0,
   ...(isMobile ? { height: '100%' } : {}),
 });
+
+export type FormDialogPaperOptions = {
+  maxWidth: number;
+  /** Altura fixa no desktop (miolo faz scroll). Padrão: min(86dvh, 720px). */
+  height?: number | string;
+  /** Teto da altura no desktop. Padrão: 94dvh. Com `height: 'auto'` o paper cresce até esse teto. */
+  maxHeight?: number | string;
+};
+
+/** Paper de modal de formulário: altura estável ao abrir, header/footer fixos, conteúdo scrollável. */
+export function formDialogPaperSx(
+  isMobile: boolean,
+  { maxWidth, height = 'min(86dvh, 720px)', maxHeight = '94dvh' }: FormDialogPaperOptions,
+): SxProps<Theme> {
+  return {
+    ...dialogPaperSx(isMobile),
+    display: 'flex',
+    flexDirection: 'column',
+    width: '100%',
+    ...(isMobile
+      ? { height: '100%', maxHeight: '100dvh' }
+      : {
+          maxWidth,
+          width: maxWidth,
+          height,
+          maxHeight,
+          overflow: 'hidden',
+        }),
+  };
+}
 
 export const dialogActionsBorderSx: SxProps<Theme> = {
   px: { xs: 2, sm: 3 },
@@ -157,13 +208,28 @@ export function DialogHeader({
   subtitleWrap = false,
   sx,
 }: DialogHeaderProps) {
-  const titleSx = (sx ? [dialogHeaderTitleSx, sx] : dialogHeaderTitleSx) as SxProps<Theme>;
+  const titleSx = (
+    subtitleWrap
+      ? [dialogHeaderTitleSx, { overflow: 'visible' }, ...(sx ? [sx] : [])]
+      : sx
+        ? [dialogHeaderTitleSx, sx]
+        : dialogHeaderTitleSx
+  ) as SxProps<Theme>;
 
   return (
     <DialogTitle sx={titleSx}>
       <Stack spacing={bottom ? (isMobile ? 1.5 : 0) : 0}>
-        <Stack direction="row" alignItems="center" spacing={1.5} sx={{ minWidth: 0 }}>
-          {icon && !isMobile && <DialogHeaderIcon>{icon}</DialogHeaderIcon>}
+        <Stack
+          direction="row"
+          alignItems={subtitleWrap ? 'flex-start' : 'center'}
+          spacing={1.5}
+          sx={{ minWidth: 0 }}
+        >
+          {icon && !isMobile && (
+            <Box sx={subtitleWrap ? { mt: 0.15, flexShrink: 0 } : undefined}>
+              <DialogHeaderIcon>{icon}</DialogHeaderIcon>
+            </Box>
+          )}
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <Typography
               component="h2"
@@ -183,14 +249,28 @@ export function DialogHeader({
                 color="text.secondary"
                 noWrap={!subtitleWrap}
                 title={subtitleTitle ?? subtitle}
-                sx={{ mt: 0.25 }}
+                sx={{
+                  mt: 0.35,
+                  ...(subtitleWrap
+                    ? {
+                        whiteSpace: 'normal',
+                        overflow: 'visible',
+                        textOverflow: 'unset',
+                        lineHeight: 1.45,
+                        wordBreak: 'break-word',
+                        pr: 0.5,
+                      }
+                    : {}),
+                }}
               >
                 {subtitle}
               </Typography>
             )}
           </Box>
           {trailing}
-          <DialogCloseButton onClose={onClose} />
+          <Box sx={subtitleWrap ? { flexShrink: 0, alignSelf: 'flex-start', mt: 0.15 } : undefined}>
+            <DialogCloseButton onClose={onClose} />
+          </Box>
         </Stack>
         {bottom}
       </Stack>

@@ -13,10 +13,11 @@ import {
 
 import { PLATFORM_FEATURES } from '../../common/platform-features';
 import { SLUG_MESSAGE, SLUG_PATTERN, trimToUndefined } from './create-tenant.dto';
+import { TenantProfileDto } from './tenant-profile.dto';
 
 const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value);
 
-export class UpdateTenantDto {
+export class UpdateTenantDto extends TenantProfileDto {
   @Transform(trim)
   @IsOptional()
   @IsString()

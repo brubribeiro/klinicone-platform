@@ -1,4 +1,13 @@
-import { IsDateString, IsEnum, IsOptional, IsString, IsUUID, ValidateNested, IsArray } from 'class-validator';
+import {
+  ArrayMinSize,
+  IsArray,
+  IsDateString,
+  IsEnum,
+  IsOptional,
+  IsString,
+  IsUUID,
+  ValidateNested,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import { AppointmentStatus, AppointmentKind } from '@prisma/client';
 
@@ -11,6 +20,13 @@ export class CreateAppointmentDto {
   @IsOptional()
   @IsUUID()
   procedureId?: string;
+
+  /** Vários procedimentos no mesmo horário (duração somada). Tem prioridade sobre `procedureId`. */
+  @IsOptional()
+  @IsArray()
+  @ArrayMinSize(1)
+  @IsUUID('4', { each: true })
+  procedureIds?: string[];
 
   @IsUUID()
   professionalId: string;

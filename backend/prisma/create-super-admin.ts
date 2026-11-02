@@ -1,5 +1,6 @@
 /**
- * Cria um super-admin da plataforma (sem clínica, sem grupo). Login via Google com o e-mail.
+ * Cria ou promove super-admin da plataforma. Login via Google com o e-mail.
+ * Se o e-mail já for usuário de clínica, define isSuperAdmin (mantém tenantId e grupo).
  * Uso: npm run prisma:create-super-admin -- --email voce@exemplo.com --name "Seu Nome"
  * (ou SUPER_ADMIN_EMAIL / SUPER_ADMIN_NAME no ambiente)
  */
@@ -7,7 +8,7 @@ import { randomBytes } from 'crypto';
 import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
-// Client sem escopo de clínica: super-admin não pertence a nenhuma.
+// Client sem escopo de tenant (promove dual ou cria super-admin puro).
 const prisma = new PrismaClient();
 
 function arg(name: string): string | undefined {
@@ -17,6 +18,7 @@ function arg(name: string): string | undefined {
 
 async function main() {
   const email = (arg('email') ?? process.env.SUPER_ADMIN_EMAIL ?? '').trim().toLowerCase();
+  const nameProvided = arg('name') !== undefined || process.env.SUPER_ADMIN_NAME !== undefined;
   const name = (arg('name') ?? process.env.SUPER_ADMIN_NAME ?? 'Super-admin').trim();
   if (!email || !email.includes('@')) {
     throw new Error('Informe o e-mail: npm run prisma:create-super-admin -- --email voce@exemplo.com --name "Seu Nome"');
@@ -24,11 +26,21 @@ async function main() {
 
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing?.isSuperAdmin) {
-    console.log(`• Super-admin já existe: ${email}`);
+    if (nameProvided && existing.name !== name) {
+      await prisma.user.update({ where: { email }, data: { name } });
+      console.log(`✓ Nome do super-admin atualizado: ${email} → "${name}"`);
+    } else {
+      console.log(`• Super-admin já existe: ${email}`);
+    }
     return;
   }
   if (existing) {
-    throw new Error(`O e-mail ${email} já pertence a um usuário de clínica. Use outro e-mail para o super-admin.`);
+    const data: { isSuperAdmin: true; name?: string } = { isSuperAdmin: true };
+    if (nameProvided) data.name = name;
+    await prisma.user.update({ where: { email }, data });
+    const nameNote = nameProvided ? ` · nome: "${name}"` : '';
+    console.log(`✓ Usuário de clínica promovido a super-admin: ${email}${nameNote}`);
+    return;
   }
 
   // Login é via Google; a senha só preenche o campo obrigatório.

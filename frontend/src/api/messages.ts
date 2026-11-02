@@ -1,5 +1,5 @@
 import { api } from './client';
-import type { MessageTemplate, MessageTrigger } from '../types';
+import type { MessageDispatch, MessageTemplate, MessageTrigger } from '../types';
 
 export interface MessageTemplatePayload {
   name: string;
@@ -25,5 +25,23 @@ export const messagesApi = {
   },
   remove: async (id: string): Promise<void> => {
     await api.delete(`/messages/${id}`);
+  },
+  listPendingDispatches: async (): Promise<MessageDispatch[]> => {
+    const { data } = await api.get<MessageDispatch[]>('/messages/dispatches/pending');
+    return data;
+  },
+  markDispatchSent: async (id: string): Promise<MessageDispatch> => {
+    const { data } = await api.patch<MessageDispatch>(`/messages/dispatches/${id}/sent`);
+    return data;
+  },
+  recordManualDispatch: async (payload: {
+    templateId: string;
+    patientId: string;
+    appointmentId?: string | null;
+    phone?: string | null;
+    renderedMessage: string;
+  }): Promise<MessageDispatch> => {
+    const { data } = await api.post<MessageDispatch>('/messages/dispatches/manual', payload);
+    return data;
   },
 };

@@ -1,8 +1,15 @@
 import type { ReactNode } from 'react';
 import { Box, Card, Skeleton, Typography } from '@mui/material';
 import { alpha } from '@mui/material/styles';
+import { TOP_STAT_CARD_MIN_HEIGHT } from '../StatCard';
 import { fontSizes } from '../../theme/fontSizes';
 import { clickableProps } from '../../utils/a11y';
+
+/** Financeiro usa rótulo no topo + rodapé; altura mínima alinhada à faixa de KPIs das demais telas. */
+const FINANCE_KPI_MIN_HEIGHT = {
+  xs: TOP_STAT_CARD_MIN_HEIGHT.xs + 28,
+  sm: TOP_STAT_CARD_MIN_HEIGHT.sm + 28,
+} as const;
 
 export function FinancePill({ tone, children }: { tone: string; children: ReactNode }) {
   return (
@@ -44,6 +51,7 @@ export function FinanceKpiCard({ label, tone, loading, value, valueColor, footer
         position: 'relative',
         overflow: 'hidden',
         p: 2.5,
+        minHeight: FINANCE_KPI_MIN_HEIGHT,
         borderRadius: '18px',
         border: 1,
         borderColor: active ? tone : 'divider',

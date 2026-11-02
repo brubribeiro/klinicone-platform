@@ -1,8 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { AppointmentStatus, ExpenseType, FinancialType, Prisma } from '@prisma/client';
 
 import { PrismaService } from '../prisma/prisma.service';
 import { PromotionsService } from '../promotions/promotions.service';
+import { toBrazilDateAtUtcNoon } from '../common/utils/brazil-time.util';
 import { MaterialQuantity, resolveRevenuePaidAt } from './appointment.helpers';
 
 type Tx = Prisma.TransactionClient;
@@ -11,11 +12,14 @@ export interface CompletionFinanceInput {
   appointmentId: string;
   patientId: string;
   startAt: Date;
-  procedureId: string;
+  procedureIds: string[];
   packageId: string | null;
   extraMaterials: MaterialQuantity[];
   referenceMonth?: string;
   paymentMethodId?: string | null;
+  installments?: number | null;
+  cardBrand?: string | null;
+  authorizationCode?: string | null;
 }
 
 /** Lançamentos financeiros (receita e custo de materiais) gerados ao concluir agendamentos. */
@@ -31,88 +35,99 @@ export class AppointmentFinanceService {
    * materiais. Retorna false quando o procedimento não existe (nada é lançado).
    */
   async generateForCompletion(tx: Tx, input: CompletionFinanceInput): Promise<boolean> {
-    const { appointmentId, patientId, procedureId, packageId } = input;
+    const { appointmentId, patientId, procedureIds, packageId } = input;
+    if (procedureIds.length === 0) return false;
 
-    const procedure = await tx.procedure.findUnique({
-      where: { id: procedureId },
+    const found = await tx.procedure.findMany({
+      where: { id: { in: procedureIds } },
       include: { materials: { include: { item: true } } },
     });
+    if (found.length === 0) return false;
+    const byId = new Map(found.map((p) => [p.id, p]));
+    const procedures = procedureIds
+      .map((id) => byId.get(id))
+      .filter((p): p is (typeof found)[number] => !!p);
+
     const patient = await tx.patient.findUnique({ where: { id: patientId } });
-    if (!procedure) return false;
-
     const patientName = patient?.name ?? 'Paciente';
-    let finalAmount = procedure.price;
-    let description = `${procedure.name} - ${patientName}`;
-    let promotionId: string | null = null;
-
-    const activePromo = await this.promotionsService.findActiveForProcedure(procedureId, new Date());
-    if (activePromo) {
-      const discounted = this.promotionsService.applyDiscount(
-        Number(procedure.price),
-        activePromo.discountType,
-        Number(activePromo.discountValue),
-      );
-      finalAmount = new Prisma.Decimal(discounted);
-      const discountLabel =
-        activePromo.discountType === 'PERCENTAGE'
-          ? `${activePromo.discountValue}%`
-          : `R$ ${Number(activePromo.discountValue).toFixed(2)}`;
-      description += ` (Promoção: ${activePromo.name} -${discountLabel})`;
-      promotionId = activePromo.id;
-    }
-
-    // Data de competência da receita (mês de referência p/ agendamentos antigos)
     const revenuePaidAt = resolveRevenuePaidAt(input.referenceMonth, input.startAt);
-
-    // Valor líquido calculado sobre o preço do procedimento (antes da troca pelo valor do pacote)
-    let netAmount: number | undefined;
-    let feePercent: number | undefined;
     const pmId = input.paymentMethodId ?? null;
+    let feePercent: number | undefined;
     if (pmId) {
       const pm = await tx.paymentMethod.findUnique({ where: { id: pmId } });
-      if (pm) {
-        feePercent = Number(pm.feePercent);
-        netAmount = Math.round(Number(finalAmount) * (1 - feePercent / 100) * 100) / 100;
-      }
+      if (pm) feePercent = Number(pm.feePercent);
     }
+    const paymentData = {
+      feePercent,
+      paymentMethodId: pmId,
+      installments: input.installments ?? null,
+      cardBrand: input.cardBrand?.trim() || null,
+      authorizationCode: input.authorizationCode?.trim() || null,
+      paidAt: revenuePaidAt,
+      patientId,
+      appointmentId,
+      invoiceIssued: false,
+    };
+    const netOf = (amount: Prisma.Decimal | number) =>
+      feePercent != null ? Math.round(Number(amount) * (1 - feePercent / 100) * 100) / 100 : undefined;
 
-    // Receita do procedimento (pacotes: apenas no primeiro agendamento, com o valor total do pacote)
+    // O pacote cobre só os procedimentos que estão nos itens dele; os demais são cobrados avulsos.
     const packageRevenue = packageId ? await this.resolvePackageRevenue(tx, packageId) : null;
-    if (!packageRevenue?.alreadyGenerated) {
-      if (packageRevenue?.patientPackage) {
-        finalAmount = packageRevenue.patientPackage.totalPaid;
-        description = `Pacote - ${description}`;
-      }
+    const coveredIds = new Set(packageRevenue?.coveredProcedureIds ?? []);
+    const covered = procedures.filter((p) => coveredIds.has(p.id));
+    const billable = procedures.filter((p) => !coveredIds.has(p.id));
 
+    if (covered.length > 0 && packageRevenue?.patientPackage && !packageRevenue.alreadyGenerated) {
+      const label = covered.map((p) => p.name).join(' + ');
+      const finalAmount = packageRevenue.patientPackage.totalPaid;
       await tx.financialEntry.create({
         data: {
+          ...paymentData,
+          type: FinancialType.INCOME,
+          description: `Pacote - ${label} - ${patientName}`,
+          amount: finalAmount,
+          netAmount: netOf(finalAmount),
+          category: 'Pacotes',
+        },
+      });
+      await this.markPackageFinanceGenerated(tx, packageId!);
+    }
+
+    let promotionId: string | null = null;
+    for (const procedure of billable) {
+      let finalAmount = procedure.price;
+      let description = `${procedure.name} - ${patientName}`;
+      const quote = await this.promotionsService.quoteForProcedure(
+        procedure.id,
+        Number(procedure.price),
+        toBrazilDateAtUtcNoon(input.startAt),
+      );
+      if (quote.promotion) {
+        finalAmount = new Prisma.Decimal(quote.finalPrice);
+        description += ` (Promoção: ${quote.promotion.name} ${this.promotionsService.discountLabel(quote.promotion)})`;
+        // Appointment.promotionId guarda uma só: fica a do primeiro item com promoção.
+        if (!promotionId) promotionId = quote.promotion.id;
+      }
+      await tx.financialEntry.create({
+        data: {
+          ...paymentData,
           type: FinancialType.INCOME,
           description,
           amount: finalAmount,
-          netAmount,
-          feePercent,
-          paymentMethodId: pmId,
-          category: packageId ? 'Pacotes' : 'Atendimentos',
-          paidAt: revenuePaidAt,
-          patientId,
-          appointmentId,
-          invoiceIssued: false,
+          netAmount: netOf(finalAmount),
+          category: 'Atendimentos',
         },
       });
-
-      if (packageId) await this.markPackageFinanceGenerated(tx, packageId);
     }
 
-    const totalMaterialCost = await this.computeMaterialCost(
-      tx,
-      procedure.materials,
-      input.extraMaterials,
-    );
+    const allMaterials = procedures.flatMap((p) => p.materials);
+    const totalMaterialCost = await this.computeMaterialCost(tx, allMaterials, input.extraMaterials);
     if (totalMaterialCost > 0) {
+      const label = procedures.map((p) => p.name).join(' + ');
       await tx.financialEntry.create({
         data: {
           type: FinancialType.EXPENSE,
-          description: `Materiais - ${procedure.name} - ${patientName}`,
+          description: `Materiais - ${label} - ${patientName}`,
           amount: new Prisma.Decimal(Math.round(totalMaterialCost * 100) / 100),
           category: 'Materiais de procedimento',
           expenseType: ExpenseType.VARIABLE,
@@ -129,6 +144,16 @@ export class AppointmentFinanceService {
     }
 
     return true;
+  }
+
+  /** Prévia da promoção de um procedimento avulso no dia do agendamento (`day` em meio-dia UTC). */
+  async previewPromotion(procedureId: string, day: Date) {
+    const procedure = await this.prisma.procedure.findUnique({
+      where: { id: procedureId },
+      select: { price: true },
+    });
+    if (!procedure) throw new NotFoundException('Procedimento não encontrado');
+    return this.promotionsService.quoteForProcedure(procedureId, Number(procedure.price), day);
   }
 
   /** Lança receita de agendamentos concluídos que ainda não geraram financeiro. */
@@ -194,13 +219,19 @@ export class AppointmentFinanceService {
 
   /** Receita de pacote já lançada (pago antecipadamente ou em outro agendamento do pacote)? */
   private async resolvePackageRevenue(tx: Tx, packageId: string) {
-    const patientPackage = await tx.patientPackage.findUnique({ where: { id: packageId } });
-    if (patientPackage?.financeGenerated) return { alreadyGenerated: true, patientPackage };
+    const patientPackage = await tx.patientPackage.findUnique({
+      where: { id: packageId },
+      include: { package: { select: { items: { select: { procedureId: true } } } } },
+    });
+    const coveredProcedureIds = patientPackage?.package?.items.map((i) => i.procedureId) ?? [];
+    if (patientPackage?.financeGenerated) {
+      return { alreadyGenerated: true, patientPackage, coveredProcedureIds };
+    }
 
     const existing = await tx.financialEntry.findFirst({
-      where: { type: FinancialType.INCOME, appointment: { patientPackageId: packageId } },
+      where: { type: FinancialType.INCOME, category: 'Pacotes', appointment: { patientPackageId: packageId } },
     });
-    return { alreadyGenerated: !!existing, patientPackage };
+    return { alreadyGenerated: !!existing, patientPackage, coveredProcedureIds };
   }
 
   private markPackageFinanceGenerated(tx: Tx, packageId: string) {

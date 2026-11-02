@@ -1,4 +1,5 @@
 import { Fragment, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Avatar,
   Box,
@@ -17,9 +18,10 @@ import {
 } from '@mui/material';
 import FeedbackOutlinedIcon from '@mui/icons-material/FeedbackOutlined';
 import LogoutOutlinedIcon from '@mui/icons-material/LogoutOutlined';
+import MoreVertOutlinedIcon from '@mui/icons-material/MoreVertOutlined';
+import SwapHorizOutlinedIcon from '@mui/icons-material/SwapHorizOutlined';
 
 import type { User } from '../../types';
-import { AuroraIcon } from '../AuroraIcon';
 import { FeedbackReportDialog } from '../feedback/FeedbackReportDialog';
 import { fontSizes } from '../../theme/fontSizes';
 import { isNavPathActive, type NavGroup } from './navConfig';
@@ -42,7 +44,7 @@ const USER_AVATAR_SX = {
   fontWeight: 700,
 } as const;
 
-const REPORT_BUTTON_SX = {
+const USER_MENU_TOGGLE_SX = {
   width: 34,
   height: 34,
   borderRadius: '10px',
@@ -72,6 +74,7 @@ interface SidebarContentProps {
 
 export function SidebarContent({ collapsed: isCollapsed, groups, pathname, onNavigate, user, onLogout }: SidebarContentProps) {
   const theme = useTheme();
+  const navigate = useNavigate();
   const initials = userInitials(user?.name);
   const [userMenuAnchor, setUserMenuAnchor] = useState<null | HTMLElement>(null);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
@@ -306,30 +309,18 @@ export function SidebarContent({ collapsed: isCollapsed, groups, pathname, onNav
         }}
       >
         {isCollapsed ? (
-          <Stack alignItems="center" spacing={1}>
-            <Tooltip title={`${user?.name ?? 'Usuário'}${user?.roleName ? ` · ${user.roleName}` : ''}`} placement="right">
-              <Avatar
-                variant="rounded"
-                onClick={(e) => setUserMenuAnchor(e.currentTarget)}
-                aria-haspopup="menu"
-                aria-expanded={userMenuOpen ? 'true' : undefined}
-                aria-label="Menu do usuário"
-                sx={{ ...USER_AVATAR_SX, cursor: 'pointer' }}
-              >
-                {initials}
-              </Avatar>
-            </Tooltip>
-            <Tooltip title="Reportar bug ou sugestão" placement="right">
-              <IconButton
-                aria-label="Reportar bug ou sugestão"
-                size="small"
-                onClick={() => setFeedbackOpen(true)}
-                sx={REPORT_BUTTON_SX}
-              >
-                <AuroraIcon name="feedback" size={18} strokeWidth={2} />
-              </IconButton>
-            </Tooltip>
-          </Stack>
+          <Tooltip title={`${user?.name ?? 'Usuário'}${user?.roleName ? ` · ${user.roleName}` : ''}`} placement="right">
+            <Avatar
+              variant="rounded"
+              onClick={(e) => setUserMenuAnchor(e.currentTarget)}
+              aria-haspopup="menu"
+              aria-expanded={userMenuOpen ? 'true' : undefined}
+              aria-label="Menu do usuário"
+              sx={{ ...USER_AVATAR_SX, cursor: 'pointer' }}
+            >
+              {initials}
+            </Avatar>
+          </Tooltip>
         ) : (
           <Stack direction="row" spacing={1.25} alignItems="center">
             <Box
@@ -371,14 +362,16 @@ export function SidebarContent({ collapsed: isCollapsed, groups, pathname, onNav
                 )}
               </Box>
             </Box>
-            <Tooltip title="Reportar bug ou sugestão">
+            <Tooltip title="Menu do usuário">
               <IconButton
-                aria-label="Reportar bug ou sugestão"
+                aria-label="Menu do usuário"
+                aria-haspopup="menu"
+                aria-expanded={userMenuOpen ? 'true' : undefined}
                 size="small"
-                onClick={() => setFeedbackOpen(true)}
-                sx={{ ...REPORT_BUTTON_SX, flexShrink: 0 }}
+                onClick={(e) => setUserMenuAnchor(e.currentTarget)}
+                sx={{ ...USER_MENU_TOGGLE_SX, flexShrink: 0 }}
               >
-                <AuroraIcon name="feedback" size={18} strokeWidth={2} />
+                <MoreVertOutlinedIcon sx={{ fontSize: 20 }} />
               </IconButton>
             </Tooltip>
           </Stack>
@@ -418,6 +411,22 @@ export function SidebarContent({ collapsed: isCollapsed, groups, pathname, onNav
             primaryTypographyProps={{ fontSize: fontSizes.sm, fontWeight: 600 }}
           />
         </MenuItem>
+        {user?.canChoosePanel && (
+          <MenuItem
+            onClick={() => {
+              setUserMenuAnchor(null);
+              navigate('/escolher-painel');
+            }}
+          >
+            <ListItemIcon sx={{ minWidth: 36 }}>
+              <SwapHorizOutlinedIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText
+              primary="Trocar painel"
+              primaryTypographyProps={{ fontSize: fontSizes.sm, fontWeight: 600 }}
+            />
+          </MenuItem>
+        )}
         <Divider sx={{ my: 0.5 }} />
         <MenuItem
           onClick={() => {

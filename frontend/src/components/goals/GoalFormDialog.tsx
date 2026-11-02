@@ -28,7 +28,12 @@ import { useAppDialog } from '../../contexts/AppDialogContext';
 import { useAppToast } from '../../contexts/AppToastContext';
 import { getApiErrorMessage } from '../../utils/apiError';
 import { AuroraIcon } from '../AuroraIcon';
-import { DialogHeader, dialogActionsBorderSx, dialogPaperSx } from '../DialogCloseButton';
+import {
+  DialogHeader,
+  dialogActionsBorderSx,
+  dialogFormLayoutSx,
+  formDialogPaperSx,
+} from '../DialogCloseButton';
 import { FormSection } from '../FormSection';
 import { LabeledField } from '../LabeledField';
 import type { Goal, GoalFormat, GoalMetric, GoalPeriodType } from '../../types';
@@ -65,7 +70,25 @@ interface FormValues {
   color: string;
 }
 
-const DIALOG_MAX_WIDTH = 760;
+const DIALOG_MAX_WIDTH = 880;
+
+const COMPACT_SECTION_SX = {
+  p: { xs: 1.5, sm: 1.75 },
+  alignSelf: 'flex-start',
+  width: '100%',
+  height: 'fit-content',
+  '& > .MuiStack-root:first-of-type': { mb: 1.25 },
+} as const;
+
+const PERIOD_GRID_SX = (periodType: GoalPeriodType) =>
+  ({
+    display: 'grid',
+    gap: 1.75,
+    gridTemplateColumns:
+      periodType === 'YEAR'
+        ? { xs: '1fr', sm: '1fr minmax(120px, 160px)' }
+        : { xs: '1fr', sm: 'minmax(0, 1fr) minmax(140px, 1.3fr) minmax(100px, 0.8fr)' },
+  }) as const;
 
 const MONTH_LABELS = Array.from({ length: 12 }, (_, i) => {
   const m = dayjs().locale('pt-br').month(i).format('MMMM');
@@ -250,22 +273,13 @@ export function GoalFormDialog({ open, onClose, editing, canDelete }: Props) {
       fullWidth
       fullScreen={isMobile}
       PaperProps={{
-        sx: {
-          ...dialogPaperSx(isMobile),
-          display: 'flex',
-          flexDirection: 'column',
-          width: '100%',
-          ...(isMobile
-            ? { height: '100%', maxHeight: '100dvh' }
-            : { maxWidth: DIALOG_MAX_WIDTH, maxHeight: '94dvh', overflow: 'hidden' }),
-        },
+        sx: formDialogPaperSx(isMobile, {
+          maxWidth: DIALOG_MAX_WIDTH,
+          height: 'min(86dvh, 680px)',
+        }),
       }}
     >
-      <Box
-        component="form"
-        onSubmit={handleSubmit(onSubmit)}
-        sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, ...(isMobile ? { height: '100%' } : {}) }}
-      >
+      <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={dialogFormLayoutSx(isMobile)}>
         <DialogHeader
           onClose={onClose}
           isMobile={isMobile}
@@ -289,8 +303,8 @@ export function GoalFormDialog({ open, onClose, editing, canDelete }: Props) {
             '&.MuiDialogContent-root': { pt: { xs: 2.75, sm: 3 } },
           }}
         >
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2.25, alignItems: 'stretch' }}>
-            <FormSection title="Indicador" sx={{ height: '100%' }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 1.75, alignItems: 'flex-start' }}>
+            <FormSection title="Indicador" sx={COMPACT_SECTION_SX}>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.75 }}>
                 <LabeledField label="O que acompanhar" required>
                   <TextField
@@ -348,9 +362,9 @@ export function GoalFormDialog({ open, onClose, editing, canDelete }: Props) {
               </Box>
             </FormSection>
 
-            <FormSection title="Objetivo e período" sx={{ height: '100%' }}>
+            <FormSection title="Objetivo e período" sx={COMPACT_SECTION_SX}>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.75 }}>
-                <Box sx={{ display: 'grid', gridTemplateColumns: periodType === 'YEAR' ? '1fr 1fr' : '1.25fr 1.25fr 0.9fr', gap: 1.25 }}>
+                <Box sx={PERIOD_GRID_SX(periodType)}>
                   <LabeledField label="Período">
                     <TextField
                       select
@@ -371,7 +385,13 @@ export function GoalFormDialog({ open, onClose, editing, canDelete }: Props) {
                       control={control}
                       render={({ field }) => (
                         <LabeledField label={periodType === 'QUARTER' ? 'Trimestre' : 'Mês'}>
-                          <TextField {...field} select fullWidth onChange={(e) => field.onChange(Number(e.target.value))}>
+                          <TextField
+                            {...field}
+                            select
+                            fullWidth
+                            onChange={(e) => field.onChange(Number(e.target.value))}
+                            sx={{ '& .MuiSelect-select': { textOverflow: 'clip' } }}
+                          >
                             {(periodType === 'QUARTER' ? QUARTER_LABELS : MONTH_LABELS).map((label, i) => (
                               <MenuItem key={label} value={i}>
                                 {label}
@@ -387,7 +407,14 @@ export function GoalFormDialog({ open, onClose, editing, canDelete }: Props) {
                     control={control}
                     render={({ field }) => (
                       <LabeledField label="Ano">
-                        <TextField {...field} select fullWidth onChange={(e) => field.onChange(Number(e.target.value))}>
+                        <TextField
+                          {...field}
+                          select
+                          fullWidth
+                          onChange={(e) => field.onChange(Number(e.target.value))}
+                          SelectProps={{ displayEmpty: false }}
+                          sx={{ '& .MuiSelect-select': { minWidth: 0, pr: 3 } }}
+                        >
                           {yearOptions.map((y) => (
                             <MenuItem key={y} value={y}>
                               {y}

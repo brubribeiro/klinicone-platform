@@ -1,9 +1,16 @@
 import { api } from './client';
-import type { Appointment, AppointmentKind, AppointmentStatus } from '../types';
+import type {
+  ApplicationMap,
+  Appointment,
+  AppointmentKind,
+  AppointmentStatus,
+  PromotionQuote,
+} from '../types';
 
 export interface AppointmentPayload {
   patientId: string;
   procedureId?: string;
+  procedureIds?: string[];
   professionalId: string;
   startAt: string;
   endAt: string;
@@ -12,10 +19,15 @@ export interface AppointmentPayload {
   notes?: string;
   clinicalNotes?: string;
   paymentMethodId?: string;
+  installments?: number;
+  cardBrand?: string;
+  authorizationCode?: string;
   /** Mês de competência da receita ("YYYY-MM"); usado para lançar agendamentos antigos. */
   referenceMonth?: string;
   patientPackageId?: string | null;
   extraMaterials?: { itemId: string; quantity: number }[];
+  /** Só na edição; lista de pontos vazia apaga o mapa. */
+  applicationMap?: ApplicationMap;
 }
 
 export const appointmentsBackfillFinance = async (): Promise<{ created: number }> => {
@@ -43,6 +55,13 @@ export const appointmentsApi = {
   ): Promise<RecurrenceLimitResult> => {
     const { data } = await api.get<RecurrenceLimitResult>('/appointments/recurrence-limit', {
       params: { patientId, procedureId, excludeId },
+    });
+    return data;
+  },
+  /** Prévia da promoção do procedimento avulso no dia `date` (YYYY-MM-DD). */
+  promotionPreview: async (procedureId: string, date: string): Promise<PromotionQuote> => {
+    const { data } = await api.get<PromotionQuote>('/appointments/promotion-preview', {
+      params: { procedureId, date },
     });
     return data;
   },

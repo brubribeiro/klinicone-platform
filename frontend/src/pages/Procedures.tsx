@@ -120,7 +120,7 @@ export function Procedures() {
 
   return (
     <Box>
-      <Card sx={{ p: 0, overflow: 'hidden' }}>
+      <Card data-tour="procedures-list" sx={{ p: 0, overflow: 'hidden' }}>
         <ListCardHeader
           title={
             <Typography sx={{ fontSize: fontSizes.xl, fontWeight: 700 }}>
@@ -152,7 +152,7 @@ export function Procedures() {
             }}
             placeholder="Buscar procedimento..." ariaLabel="Buscar procedimento" />
           {canCreate && (
-            <Button
+            <Button data-tour="procedures-new"
               variant="contained"
               startIcon={<AddIcon />}
               onClick={() => {
