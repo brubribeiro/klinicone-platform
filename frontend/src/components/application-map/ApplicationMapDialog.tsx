@@ -52,6 +52,8 @@ export function ApplicationMapDialog({
     <Dialog
       open={open}
       onClose={onClose}
+      // Mesma camada da anamnese de pele: acima da gaveta da paciente.
+      sx={{ zIndex: (t) => t.zIndex.modal + 2 }}
       fullScreen={isMobile}
       PaperProps={{
         sx: {
@@ -59,11 +61,13 @@ export function ApplicationMapDialog({
           maxWidth: isMobile ? '100%' : 880,
           maxHeight: isMobile ? '100%' : '94vh',
           borderRadius: isMobile ? 0 : '20px',
+          boxShadow: '0 8px 40px -16px rgba(16,40,37,.22)',
           overflow: 'hidden',
           display: 'flex',
           flexDirection: 'column',
         },
       }}
+      slotProps={{ backdrop: { sx: { bgcolor: 'rgba(7,18,17,.55)', backdropFilter: 'blur(3px)' } } }}
     >
       <ApplicationMapEditor
         onClose={onClose}
