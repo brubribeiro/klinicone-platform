@@ -1016,6 +1016,8 @@ export interface SkinAnswers {
   olheira: '' | 'sim' | 'nao';
   olheiraTipo: string;
   idade: string;
+  /** Respostas das perguntas cadastradas pela clínica (além das quatro que geram a rotina). */
+  extra?: Record<string, AnamnesisAnswerValue>;
 }
 
 /** Produto na rotina, copiado do catálogo no momento em que a rotina foi gerada. */
@@ -1055,4 +1057,34 @@ export interface SkincareRoutine {
   createdByName: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+// ---------- Anamnese cadastrável ----------
+
+export type AnamnesisKind = 'GENERAL' | 'SKIN';
+export type AnamnesisQuestionType = 'TEXT' | 'BOOLEAN' | 'SINGLE_CHOICE' | 'MULTIPLE_CHOICE' | 'NUMBER';
+export type AnamnesisAnswerValue = string | number | boolean | string[];
+
+export interface AnamnesisQuestion {
+  id: string;
+  kind: AnamnesisKind;
+  /** Chave da resposta salva (não muda). */
+  key: string;
+  label: string;
+  type: AnamnesisQuestionType;
+  options: string[];
+  section: string | null;
+  placeholder: string | null;
+  required: boolean;
+  sortOrder: number;
+  active: boolean;
+  /** Usada por regra do sistema: só texto e ordem editáveis. */
+  system: boolean;
+}
+
+export interface PublicAnamnesisForm {
+  firstName: string;
+  clinicName: string | null;
+  expiresAt: string;
+  questions: Pick<AnamnesisQuestion, 'key' | 'label' | 'type' | 'options' | 'section' | 'placeholder' | 'required'>[];
 }

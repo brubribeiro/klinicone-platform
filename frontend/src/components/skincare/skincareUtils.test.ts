@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 
-import { canAdvance, emptySkinAnswers, generateRoutine, toggleCondition } from './skincareUtils';
+import type { AnamnesisQuestion } from '../../types';
+import { buildSkinWizardSteps, canAdvance, emptySkinAnswers, generateRoutine, toggleCondition } from './skincareUtils';
 import type { SkincareProduct, SkincareRule } from '../../types';
 
 const product = (id: string, over: Partial<SkincareProduct>): SkincareProduct => ({
@@ -82,5 +83,30 @@ describe('assistente', () => {
     expect(canAdvance(2, { ...a, afecOutra: 'dermatite' }, true, '2026-10-16')).toBe(true);
     expect(canAdvance(3, a, true, '2026-10-16')).toBe(false);
     expect(canAdvance(0, a, false, '2026-10-16')).toBe(false);
+  });
+});
+
+describe('buildSkinWizardSteps', () => {
+  const titles = { pele: 'Pele?', afec: 'Afecção?', olheira: 'Olheiras?', idade: 'Idade?' };
+  const q = (key: string, active = true) => ({ key, label: key.toUpperCase(), active }) as AnamnesisQuestion;
+
+  it('uses the four default questions while the list is not loaded', () => {
+    const steps = buildSkinWizardSteps(undefined, titles);
+    expect(steps.map((s) => (s.kind === 'core' ? s.key : s.kind))).toEqual(['patient', 'pele', 'afec', 'olheira', 'idade', 'review']);
+  });
+
+  it('follows the registered order and groups consecutive clinic questions', () => {
+    const steps = buildSkinWizardSteps([q('pele'), q('fototipo'), q('acidos'), q('afec'), q('olheira'), q('idade'), q('off', false), q('protetor')], titles);
+    expect(steps.map((s) => (s.kind === 'core' ? s.key : s.kind === 'extra' ? s.questions.map((x) => x.key).join('+') : s.kind))).toEqual([
+      'patient',
+      'pele',
+      'fototipo+acidos',
+      'afec',
+      'olheira',
+      'idade',
+      'protetor',
+      'review',
+    ]);
+    expect(steps[1]).toMatchObject({ title: 'PELE' });
   });
 });
