@@ -151,8 +151,8 @@ O front é um monorepo npm (`workspaces` no `package.json` da raiz) com três ap
 
 | App | Pasta | Versão | Sync da versão | Dev |
 |-----|-------|--------|----------------|-----|
-| Painel da clínica (`/painel`) | `frontend/` | `VERSION` da raiz (junto com o backend) | `npm run version:sync` | `npm run dev:clinic` (5174) |
-| Landing pública (`/`) | `apps/landing/` | `apps/landing/VERSION` | `npm run version:sync:landing` | `npm run dev:landing` (5173) |
+| Painel da clínica (`/painel`) | `frontend/` | `VERSION` da raiz (junto com o backend) | `npm run version:sync` | `npm run dev:clinic` (5173) |
+| Landing pública (`/`) | `apps/landing/` | `apps/landing/VERSION` | `npm run version:sync:landing` | `npm run dev:landing` (5174) |
 | Console super-admin | `apps/admin-console/` | `apps/admin-console/VERSION` | `npm run version:sync:admin` | `npm run dev:admin` (5175) |
 
 `npm run dev` na raiz sobe backend + os três apps. A versão de cada app aparece no próprio app (rodapé da landing; login e escolha de painel do console admin; login da clínica).
