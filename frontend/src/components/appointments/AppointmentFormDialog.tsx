@@ -505,6 +505,7 @@ export function AppointmentFormDialog({
   const materialsState = useAppointmentMaterials({
     inventory,
     appointmentSource: appointmentDetail ?? appointment,
+    procedureOptions,
     selectedProcedures,
     extraMaterials,
   });
@@ -1169,7 +1170,7 @@ export function AppointmentFormDialog({
       <ReturnAppointmentDialog
         pendingReturn={pendingReturn}
         procedures={procedures}
-        fallbackProcedure={selectedProcedure}
+        fallbackProcedures={selectedProcedures}
         onClose={() => {
           setPendingReturn(null);
           onClose();

@@ -50,3 +50,25 @@ export function selectedProcedures(procedures: Procedure[], procedureIds: string
     .map((id) => procedures.find((p) => p.id === id))
     .filter((p): p is Procedure => !!p);
 }
+
+/** Procedimentos do atendimento concluído, na ordem dele (catálogo, depois os embutidos no agendamento). */
+export function resolveReturnProcedures(
+  appointment: Appointment,
+  catalog: Procedure[],
+  fallback: Procedure[],
+): Procedure[] {
+  const embedded = [
+    ...(appointment.appointmentProcedures ?? []).map((row) => row.procedure),
+    appointment.procedure,
+    ...fallback,
+  ].filter((p): p is Procedure => !!p);
+  return appointmentProcedureIds(appointment)
+    .map((id) => catalog.find((p) => p.id === id) ?? embedded.find((p) => p.id === id))
+    .filter((p): p is Procedure => !!p);
+}
+
+/** O backend valida o intervalo de cada procedimento: vale o maior deles. */
+export function returnRecurrenceDays(procedures: Procedure[]): number | null {
+  const days = procedures.map((p) => p.recurrenceDays ?? 0).filter((d) => d > 0);
+  return days.length ? Math.max(...days) : null;
+}
