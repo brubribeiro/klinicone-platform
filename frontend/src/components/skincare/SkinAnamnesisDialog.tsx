@@ -46,23 +46,23 @@ export function SkinAnamnesisDialog({ open, onClose, patient, routine }: SkinAna
       sx={{ zIndex: (t) => t.zIndex.modal + 2 }}
       maxWidth={false}
       fullWidth
-      fullScreen={isMobile}
+      // Menor que a modal de baixo (agendamento: 1120px / 94dvh) para ler como camada sobreposta.
       PaperProps={{
         sx: {
-          width: '100%',
-          maxWidth: 1180,
-          height: isMobile ? '100dvh' : 'calc(100vh - 40px)',
-          maxHeight: isMobile ? '100dvh' : 'calc(100vh - 40px)',
-          m: isMobile ? 0 : 2.5,
+          width: isMobile ? 'calc(100% - 24px)' : 'calc(100% - 40px)',
+          maxWidth: isMobile ? 'none' : 1008,
+          height: isMobile ? 'calc(100dvh - 48px)' : 'min(85dvh, 756px)',
+          maxHeight: isMobile ? 'calc(100dvh - 48px)' : '85dvh',
+          m: isMobile ? 1.5 : 2.5,
           bgcolor: 'background.default',
-          borderRadius: isMobile ? 0 : '20px',
-          boxShadow: '0 8px 40px -16px rgba(16,40,37,.22)',
+          borderRadius: isMobile ? '16px' : '20px',
+          boxShadow: '0 24px 80px -12px rgba(0,0,0,.55), 0 0 0 1px rgba(0,0,0,.08)',
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
         },
       }}
-      slotProps={{ backdrop: { sx: { bgcolor: 'rgba(7,18,17,.55)', backdropFilter: 'blur(3px)' } } }}
+      slotProps={{ backdrop: { sx: { bgcolor: 'rgba(7,18,17,.6)', backdropFilter: 'blur(3px)' } } }}
     >
       {open && <GlobalStyles styles={PRINT_STYLES} />}
       <Box

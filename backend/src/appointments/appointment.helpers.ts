@@ -39,6 +39,9 @@ export function toApplicationMapData(
         x: Math.round(p.x * 10) / 10,
         y: Math.round(p.y * 10) / 10,
         ...(note ? { note } : {}),
+        ...(p.product ? { product: p.product } : {}),
+        ...(p.qty !== undefined && p.qty !== null ? { qty: Math.round(p.qty * 100) / 100 } : {}),
+        ...(p.view ? { view: p.view } : {}),
       };
     }),
   };

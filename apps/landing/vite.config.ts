@@ -16,13 +16,13 @@ export default defineConfig({
   },
   plugins: [react()],
   server: {
-    port: 5173,
+    port: 5174,
     allowedHosts: true,
     fs: { allow: [repoRoot] },
     ...apiDevProxy,
   },
   preview: {
-    port: 5173,
+    port: 5174,
     fs: { allow: [repoRoot] },
   },
   build: {
