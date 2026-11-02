@@ -5,6 +5,7 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 ## [Unreleased]
 
 ### Changed
+- Landing (`apps/landing`): seção **Módulos** com um vídeo curto do painel por módulo (agenda com vários procedimentos, pacientes/ficha, financeiro, pacotes e promoções, estoque, mensagens/WhatsApp, documentos, rotinas de skincare, metas e tour guiado), gravados com o seed demo e dados fictícios (`public/videos/*.mp4` + poster `.jpg`, sem áudio). `LandingVideo` usa `preload="none"` e só toca quando aparece na tela (IntersectionObserver), pausando ao sair; com `prefers-reduced-motion` não toca sozinho e mostra os controles. Novas seções **Como funciona** (4 passos), **Para quem é** e “E ainda” (demais módulos), FAQ com mais perguntas e menu com os novos links (hambúrguer até `lg`). Textos em `landingContent.ts` (`MODULES`, `MORE_FEATURES`, `STEPS`, `AUDIENCE`).
 - Assistente de ajuda: quando a documentação cobre a pergunta, a UI mostra só o trecho mais relevante como resposta (texto direto), sem legenda de fonte nem cards de excerpt — em vez de “Encontrei N trechos” (#99).
 
 ### Added
