@@ -5,6 +5,7 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 ## [Unreleased]
 
 ### Changed
+- Landing (`apps/landing`): seção **Módulos** com um vídeo curto do painel por módulo (agenda com vários procedimentos, pacientes/ficha, financeiro, pacotes e promoções, estoque, mensagens/WhatsApp, documentos, rotinas de skincare, metas e tour guiado), gravados com o seed demo e dados fictícios (`public/videos/*.mp4` + poster `.jpg`, sem áudio). `LandingVideo` usa `preload="none"` e só toca quando aparece na tela (IntersectionObserver), pausando ao sair; com `prefers-reduced-motion` não toca sozinho e mostra os controles. Novas seções **Como funciona** (4 passos), **Para quem é** e “E ainda” (demais módulos), FAQ com mais perguntas e menu com os novos links (hambúrguer até `lg`). Textos em `landingContent.ts` (`MODULES`, `MORE_FEATURES`, `STEPS`, `AUDIENCE`).
 - Assistente de ajuda: quando a documentação cobre a pergunta, a UI mostra só o trecho mais relevante como resposta (texto direto), sem legenda de fonte nem cards de excerpt — em vez de “Encontrei N trechos” (#99).
 
 ### Added
@@ -31,6 +32,7 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 - KPIs no topo das listagens: `StatCard` com altura mínima uniforme; Metas e Documentos alinhados a Pacientes, Financeiro, Estoque e Equipamentos (Pacientes passa a usar `StatCard`).
 
 ### Fixed
+- Modal "Anamnese de pele" aberta sobre "Editar agendamento" agora é menor (~90%) que a de baixo, com sombra mais forte e margem visível, para ler como camada sobreposta; também inset no mobile.
 - Agenda/pacotes: concluir sessão de pacote cuja receita ainda não tinha sido lançada travava até o timeout da transação e repetia a contagem de sessões; `incrementSession`/`decrementSession` agora rodam na transação do agendamento.
 - Assistente (FAB): campo de pergunta e botão enviar com a mesma altura (~40px) e alinhamento na barra inferior do painel; ao minimizar, limpa histórico e pergunta em digitação (não persiste entre aberturas).
 - Meu plano: botão **Solicitar upgrade** abre feedback (sugestão) pré-preenchido para a central `/admin/reports`, sem mailto nem menção a variáveis de ambiente na UI.
