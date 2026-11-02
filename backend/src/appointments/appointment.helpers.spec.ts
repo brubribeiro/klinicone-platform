@@ -28,4 +28,24 @@ describe('toApplicationMapData', () => {
       ],
     });
   });
+
+  it('keeps product, quantity and view of each point', () => {
+    expect(
+      toApplicationMapData({
+        template: 'face',
+        points: [
+          { x: 50, y: 30, product: 'toxin', qty: 4, view: 'front' },
+          { x: 20, y: 60, product: 'filler', qty: 0.333, view: 'body' },
+          { x: 70, y: 45, product: 'skinbooster', view: 'left' },
+        ],
+      }),
+    ).toEqual({
+      template: 'face',
+      points: [
+        { x: 50, y: 30, product: 'toxin', qty: 4, view: 'front' },
+        { x: 20, y: 60, product: 'filler', qty: 0.33, view: 'body' },
+        { x: 70, y: 45, product: 'skinbooster', view: 'left' },
+      ],
+    });
+  });
 });

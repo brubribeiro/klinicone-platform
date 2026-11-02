@@ -399,11 +399,20 @@ export interface Appointment {
   finishedAt?: string | null;
 }
 
-/** Ponto do mapa de aplicação; x/y em % da largura/altura do desenho. */
+export type ApplicationMapProduct = 'toxin' | 'filler' | 'biostimulator' | 'bioremodeler' | 'skinbooster';
+export type ApplicationMapView = 'front' | 'left' | 'right' | 'body';
+
+/** Ponto do mapa de aplicação; x/y em % da largura/altura da imagem. */
 export interface ApplicationMapPoint {
   x: number;
   y: number;
+  /** Anotação livre dos mapas anteriores ao seletor de produto. */
   note?: string;
+  product?: ApplicationMapProduct;
+  /** Quantidade na unidade do produto (U ou ml). */
+  qty?: number;
+  /** Sem `view`, o ponto é da frente do rosto. */
+  view?: ApplicationMapView;
 }
 
 export interface ApplicationMap {

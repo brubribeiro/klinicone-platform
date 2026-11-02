@@ -32,6 +32,8 @@ import { useAppDialog } from '../../contexts/AppDialogContext';
 import { useAppToast } from '../../contexts/AppToastContext';
 import { usePermissions } from '../../contexts/usePermissions';
 import { DialogHeader } from '../DialogCloseButton';
+import { ApplicationMapDialog } from '../application-map/ApplicationMapDialog';
+import { guessProducts } from '../application-map/applicationMapModel';
 import { SendWhatsAppDialog } from '../messages/SendWhatsAppDialog';
 import { PatientDetailDrawer } from '../patients/PatientDetailDrawer';
 import { SkinAnamnesisDialog } from '../skincare/SkinAnamnesisDialog';
@@ -64,7 +66,7 @@ import {
   type SectionKey,
 } from './appointmentFormModel';
 import type { SectionState } from './AppointmentFormSection';
-import { ApplicationMapSection } from './ApplicationMapSection';
+import { ApplicationMapShortcut } from './ApplicationMapShortcut';
 import { AppointmentStatusSelect } from './AppointmentStatusSelect';
 import {
   AppointmentSummaryBar,
@@ -102,7 +104,6 @@ const SECTION_ORDER: SectionKey[] = [
   'schedule',
   'package',
   'materials',
-  'applicationMap',
   'notes',
 ];
 
@@ -112,7 +113,6 @@ const DEFAULT_EXPANDED: Record<SectionKey, boolean> = {
   schedule: true,
   package: false,
   materials: false,
-  applicationMap: false,
   notes: false,
 };
 
@@ -147,6 +147,7 @@ export function AppointmentFormDialog({
   const [expanded, setExpanded] = useState<Record<SectionKey, boolean>>(DEFAULT_EXPANDED);
   const [whatsappOpen, setWhatsappOpen] = useState(false);
   const [skinOpen, setSkinOpen] = useState(false);
+  const [mapOpen, setMapOpen] = useState(false);
   const [pendingReturn, setPendingReturn] = useState<Appointment | null>(null);
   const [confirmFinishOpen, setConfirmFinishOpen] = useState(false);
   const [pendingFormValues, setPendingFormValues] = useState<FormValues | null>(null);
@@ -224,7 +225,6 @@ export function AppointmentFormDialog({
       ...DEFAULT_EXPANDED,
       package: !!appointment?.patientPackageId,
       materials: !!appointment?.extraMaterials?.length,
-      applicationMap: appointment?.status === 'IN_PROGRESS' || !!appointment?.applicationMap?.points?.length,
       notes: !!(appointment?.notes?.trim() || appointment?.clinicalNotes?.trim()),
     });
     setFormInitialized(true);
@@ -309,6 +309,11 @@ export function AppointmentFormDialog({
     !!appointment &&
     selectedKind === 'PROCEDURE' &&
     (selectedProcedures.some((p) => p.applicationMap) || initialMapPoints.length > 0);
+  const mapProcedures = selectedProcedures.filter((p) => p.applicationMap);
+  const mapProducts = guessProducts(mapProcedures.map((p) => p.name));
+  const mapRegions = [
+    ...new Set(mapProcedures.map((p): 'face' | 'body' => (p.category === 'Corporal' ? 'body' : 'face'))),
+  ];
 
   const { data: activePatientPackages = [] } = useQuery({
     queryKey: ['patient-packages-active', selectedPatientId],
@@ -753,13 +758,11 @@ export function AppointmentFormDialog({
     schedule: errors.date || errors.startTime || !slotValid ? 'error' : 'complete',
     package: selectedPatientPkg ? 'complete' : 'pending',
     materials: materialsEnabled ? (stockBlocksSave ? 'error' : 'complete') : 'pending',
-    applicationMap: mapPoints.length > 0 ? 'complete' : 'pending',
     notes: notes.trim() || clinicalNotes.trim() ? 'complete' : 'pending',
   };
 
-  const visibleSections = SECTION_ORDER.filter((key) => key !== 'applicationMap' || showApplicationMap);
   const section = (key: SectionKey) => ({
-    step: visibleSections.indexOf(key) + 1,
+    step: SECTION_ORDER.indexOf(key) + 1,
     expanded: expanded[key],
     onToggle: () => setExpanded((prev) => ({ ...prev, [key]: !prev[key] })),
     state: sectionStates[key],
@@ -792,6 +795,9 @@ export function AppointmentFormDialog({
   const showTimerCard = !!appointment && (timer.showSessionControls || timer.isInProgress || timer.hasStartedAt);
   const skinShortcut = appointment && selectedPatient && has('routines:create') && (
     <SkinAnamnesisShortcut onClick={() => setSkinOpen(true)} />
+  );
+  const mapShortcut = showApplicationMap && (
+    <ApplicationMapShortcut pointsCount={mapPoints.length} onClick={() => setMapOpen(true)} />
   );
   const timerCard = showTimerCard && !isMobile && (
     <SessionTimerCard
@@ -883,6 +889,7 @@ export function AppointmentFormDialog({
                   </Alert>
                 )}
                 {!showSidebar && skinShortcut}
+                {!showSidebar && mapShortcut}
                 {!showSidebar && timerCard}
                 <PatientSection
                   section={section('patient')}
@@ -934,13 +941,6 @@ export function AppointmentFormDialog({
                   willDeductMaterials={willDeductMaterials}
                   materialsState={materialsState}
                 />
-                {showApplicationMap && (
-                  <ApplicationMapSection
-                    section={section('applicationMap')}
-                    points={mapPoints}
-                    setPoints={setMapPoints}
-                  />
-                )}
                 <NotesSection
                   section={section('notes')}
                   control={control}
@@ -966,6 +966,7 @@ export function AppointmentFormDialog({
               >
                 <AppointmentSummaryPanel data={summaryData}>
                   {skinShortcut}
+                  {mapShortcut}
                   {timerCard}
                 </AppointmentSummaryPanel>
               </Box>
@@ -1102,6 +1103,18 @@ export function AppointmentFormDialog({
           open={skinOpen}
           onClose={() => setSkinOpen(false)}
           patient={{ id: selectedPatient.id, name: selectedPatient.name, phone: selectedPatient.phone, email: selectedPatient.email }}
+        />
+      )}
+
+      {showApplicationMap && (
+        <ApplicationMapDialog
+          open={mapOpen}
+          onClose={() => setMapOpen(false)}
+          points={mapPoints}
+          setPoints={setMapPoints}
+          products={mapProducts}
+          defaultRegion={mapRegions.length === 1 ? mapRegions[0] : 'face'}
+          regionLocked={mapRegions.length === 1}
         />
       )}
 

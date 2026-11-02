@@ -111,6 +111,7 @@ export class AppointmentsService {
       include: {
         patient: true,
         procedure: true,
+        appointmentProcedures: appointmentRelationsInclude.appointmentProcedures,
         professional: true,
         extraMaterials: { include: { item: true } },
       },
