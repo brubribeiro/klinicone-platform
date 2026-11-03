@@ -1,9 +1,8 @@
 {
   "ignoreCommand": "node ../../scripts/vercel-ignore-build.mjs",
   "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": "/index.html"
-    }
+    { "source": "/termos", "destination": "/index.html" },
+    { "source": "/privacidade", "destination": "/index.html" },
+    { "source": "/(.*)", "destination": "/index.html" }
   ]
 }

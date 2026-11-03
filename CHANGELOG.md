@@ -5,6 +5,7 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 ## [Unreleased]
 
 ### Added
+- Landing (`apps/landing`): páginas públicas **Termos de Uso** (`/termos`) e **Política de Privacidade** (`/privacidade`) reutilizando o texto do painel (`frontend/src/legal/`); links do rodapé passam a apontar para as rotas locais; `vercel.json` com rewrite SPA explícito para essas rotas. As rotas `/termos` e `/privacidade` no painel continuam funcionando.
 - Ambiente **dev/staging** separado de prod: `APP_ENV` / `VITE_APP_ENV`, `GET /api/health` com `env` (`dev`|`prod`), faixa discreta **DEV** no painel e no admin-console, `.env.example` com blocos local/staging/prod, CI em PRs para `develop` / `release/*` / `main` (lint, tsc, testes, `prisma migrate deploy` com Postgres de serviço) e `docs/ambientes.md` (fluxo PR→develop→*.dev→main e passos manuais). Baseline ESLint (`.eslintrc.cjs` em backend/frontend) — o repo ainda não tinha config versionada.
 
 ### Fixed

@@ -37,6 +37,7 @@ import {
   type LandingModule,
 } from '../components/landingContent';
 import { fontSizes } from '../../../../frontend/src/theme/fontSizes';
+import { Link as RouterLink } from 'react-router-dom';
 import { clinicPanelUrl } from '../../../../frontend/src/utils/appUrls';
 import { APP_VERSION } from '../../../../frontend/src/version';
 
@@ -641,10 +642,10 @@ export function Landing() {
               © {year} {BRAND_NAME} · {BRAND_TAGLINE} · v{APP_VERSION}
             </Box>
             <Stack direction="row" spacing={3}>
-              <MuiLink href={clinicPanelUrl('/termos')} color="inherit" underline="hover">
+              <MuiLink component={RouterLink} to="/termos" color="inherit" underline="hover">
                 Termos de uso
               </MuiLink>
-              <MuiLink href={clinicPanelUrl('/privacidade')} color="inherit" underline="hover">
+              <MuiLink component={RouterLink} to="/privacidade" color="inherit" underline="hover">
                 Privacidade
               </MuiLink>
               <MuiLink href={loginHref} color="inherit" underline="hover">
