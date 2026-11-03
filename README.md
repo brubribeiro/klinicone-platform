@@ -2,7 +2,7 @@
 
 Plataforma fullstack (SaaS) para clínicas de estética e saúde: agenda, pacientes, procedimentos, financeiro e estoque.
 
-**Hosts de produção:** landing `klinicone.com.br` (+www), painel `app.klinicone.com.br`, admin `admin.klinicone.com.br`, API opcional `api.klinicone.com.br`.
+**Hosts de produção:** landing `klinicone.com.br` (+www), painel `app.klinicone.com.br`, admin `admin.klinicone.com.br`, API opcional `api.klinicone.com.br`. **Dev/staging:** `dev.` / `app.dev.` / `admin.dev.` / `api.dev.` — ver [`docs/ambientes.md`](docs/ambientes.md).
 
 ## Stack
 
@@ -88,7 +88,7 @@ npm run start:dev          # API em http://localhost:3333/api
 npm run prisma:seed:demo
 ```
 
-Roda o seed principal e os seeds de pacientes, pacotes e promoções, e completa o que faltava, tudo com dados fictícios na clínica `TENANT_SLUG` (padrão `mila-barreto`). É idempotente (pode rodar de novo sem duplicar) e não cria arquivos (sem R2). Recusa rodar com `NODE_ENV=production` ou se `DATABASE_URL`/`DIRECT_URL` não apontar para `localhost`. Não faz parte do `prisma:seed` usado no deploy.
+Roda o seed principal e os seeds de pacientes, pacotes e promoções, e completa o que faltava, tudo com dados fictícios na clínica `TENANT_SLUG` (padrão `mila-barreto`). É idempotente (pode rodar de novo sem duplicar) e não cria arquivos (sem R2). Recusa ambiente de produção (`APP_ENV` / `NODE_ENV`); banco remoto só com `APP_ENV=development` (ou `staging`). Não faz parte do `prisma:seed` nem do start da API em prod.
 
 ### 3. Frontend
 

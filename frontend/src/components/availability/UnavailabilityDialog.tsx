@@ -38,13 +38,11 @@ import { useUnavailabilityForm } from './useUnavailabilityForm';
 
 const FIELD_STACK_GAP = 1.25;
 
-const PERIOD_MODE_TOGGLE_SX: SxProps<Theme> = [
-  availabilityShortcutToggleSx,
-  {
-    width: '100%',
-    '& .MuiToggleButtonGroup-grouped': { flex: 1, py: 0.85 },
-  },
-];
+const PERIOD_MODE_TOGGLE_SX = {
+  ...availabilityShortcutToggleSx,
+  width: '100%',
+  '& .MuiToggleButtonGroup-grouped': { flex: 1, py: 0.85 },
+} satisfies SxProps<Theme>;
 
 export function UnavailabilityDialog({
   open,

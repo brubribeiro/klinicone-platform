@@ -14,6 +14,7 @@ import { getPageMeta, pageSubtitleFor } from './layout/pageMeta';
 import {
   DRAWER_COLLAPSED_WIDTH,
   DRAWER_WIDTH,
+  DEV_BAR_HEIGHT,
   IMPERSONATION_BAR_HEIGHT,
   SIDEBAR_BG,
   drawerTransition,
@@ -25,6 +26,7 @@ import { AssistantFab } from './assistant/AssistantFab';
 import { GuidedTour } from './tour/GuidedTour';
 import { getScreenTour } from './tour/screenTours';
 import { isTourSeen, markTourSeen } from './tour/tourStorage';
+import { isDevEnvironment } from '../utils/appEnv';
 
 const CLINIC_ASSISTANT_SUGGESTIONS = [
   'Como ativo o modo escuro?',
@@ -89,9 +91,10 @@ export function Layout() {
   };
 
   const currentDrawerWidth = collapsed ? DRAWER_COLLAPSED_WIDTH : DRAWER_WIDTH;
-  const impersonationOffsetSx = isImpersonating
-    ? { top: IMPERSONATION_BAR_HEIGHT, height: `calc(100% - ${IMPERSONATION_BAR_HEIGHT}px)` }
-    : {};
+  // PanelRoot já reserva DEV_BAR_HEIGHT no padding; drawers/appbar usam top relativo à viewport.
+  const topChrome = (isDevEnvironment() ? DEV_BAR_HEIGHT : 0) + (isImpersonating ? IMPERSONATION_BAR_HEIGHT : 0);
+  const impersonationOffsetSx =
+    topChrome > 0 ? { top: topChrome, height: `calc(100% - ${topChrome}px)` } : {};
 
   const drawer = (isCollapsed: boolean) => (
     <SidebarContent
@@ -112,6 +115,7 @@ export function Layout() {
       {isImpersonating && (
         // Super-admin "entrou como" a clínica pelo painel: a faixa mostra a clínica
         <ImpersonationBanner
+          top={isDevEnvironment() ? DEV_BAR_HEIGHT : 0}
           userName={user?.tenantName ?? user?.name}
           onStop={stopImpersonating}
           stopLabel={user?.tenantName ? 'Voltar ao painel' : undefined}
@@ -122,7 +126,7 @@ export function Layout() {
         color="inherit"
         elevation={0}
         sx={{
-          top: isImpersonating ? IMPERSONATION_BAR_HEIGHT : 0,
+          top: topChrome,
           width: { md: `calc(100% - ${currentDrawerWidth}px)` },
           ml: { md: `${currentDrawerWidth}px` },
           transition: drawerTransition(theme, ['width', 'margin-left']),

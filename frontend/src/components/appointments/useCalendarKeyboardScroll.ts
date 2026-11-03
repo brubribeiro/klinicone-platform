@@ -8,7 +8,7 @@ const PAGE_RATIO = 0.85;
 export function useCalendarKeyboardScroll(calendarRef: RefObject<FullCalendar | null>) {
   return useCallback(
     (event: React.KeyboardEvent) => {
-      const root = calendarRef.current?.getApi().el as HTMLElement | undefined;
+      const root = (calendarRef.current?.getApi() as { el?: HTMLElement } | undefined)?.el;
       const scroller = root?.querySelector('.fc-view-harness-active .fc-scroller') as HTMLElement | null | undefined;
       const page = scroller ? scroller.clientHeight * PAGE_RATIO : 0;
       const deltas: Record<string, number> = {
