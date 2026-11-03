@@ -47,10 +47,17 @@ async function bootstrap() {
   // Erros do Prisma seguem no PrismaExceptionFilter (o ApiErrorFilter delega)
   app.useGlobalFilters(new ApiErrorFilter(app.get(HttpAdapterHost).httpAdapter));
 
-  const corsOrigin = config.get<string>('CORS_ORIGIN', 'http://localhost:5173');
+  const corsOrigin = config.get<string>(
+    'CORS_ORIGIN',
+    'http://localhost:5173,http://localhost:5174,http://localhost:5175',
+  );
+  const corsOrigins = corsOrigin
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
 
   app.enableCors({
-    origin: corsOrigin.includes(',') ? corsOrigin.split(',') : corsOrigin,
+    origin: corsOrigins.length === 1 ? corsOrigins[0] : corsOrigins,
     credentials: true,
   });
 

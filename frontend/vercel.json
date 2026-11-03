@@ -1,16 +1,20 @@
 {
   "ignoreCommand": "node ../scripts/vercel-ignore-build.mjs ../VERSION",
-  "rewrites": [
-    {
-      "source": "/painel/assets/(.*)",
-      "destination": "/assets/$1"
-    },
-    {
-      "source": "/painel/(.*)",
-      "destination": "/index.html"
-    },
+  "redirects": [
     {
       "source": "/painel",
+      "destination": "/",
+      "permanent": true
+    },
+    {
+      "source": "/painel/:path*",
+      "destination": "/:path*",
+      "permanent": true
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/(.*)",
       "destination": "/index.html"
     }
   ]

@@ -1,12 +1,10 @@
 import type { AuroraIconName } from '../../../../frontend/src/components/AuroraIcon';
 
 /**
- * Textos da landing de divulgação (`/`), num só lugar para a Bruna revisar.
- * O nome da aplicação ainda não foi escolhido: BRAND_NAME é provisório
- * (trocar também o <title> e as metas og:* de frontend/index.html).
+ * Textos da landing de divulgação (`/`), num só lugar.
+ * Manter alinhado a `frontend/src/brand.ts` e ao <title>/og:* de `apps/landing/index.html`.
  */
-export const BRAND_NAME = 'Aurora';
-export const BRAND_TAGLINE = 'Gestão para clínicas';
+export { BRAND_NAME, BRAND_TAGLINE } from '../../../../frontend/src/brand';
 
 export const HERO = {
   eyebrow: 'Plataforma para clínicas de estética e saúde',

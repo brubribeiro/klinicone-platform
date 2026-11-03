@@ -12,7 +12,7 @@ const queryClient = new QueryClient({
   },
 });
 
-document.title = 'Mila Barreto - Plataforma';
+document.title = 'KlinicOne - Plataforma';
 const robots = document.createElement('meta');
 robots.name = 'robots';
 robots.content = 'noindex';

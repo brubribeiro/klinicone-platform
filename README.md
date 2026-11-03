@@ -1,6 +1,8 @@
-# Mila Barreto - Plataforma de Gestão
+# KlinicOne — Plataforma de Gestão
 
-Plataforma fullstack para gestão de clínica de estética: agenda, pacientes, procedimentos, financeiro e estoque.
+Plataforma fullstack (SaaS) para clínicas de estética e saúde: agenda, pacientes, procedimentos, financeiro e estoque.
+
+**Hosts de produção:** landing `klinicone.com.br` (+www), painel `app.klinicone.com.br`, admin `admin.klinicone.com.br`, API opcional `api.klinicone.com.br`.
 
 ## Stack
 
@@ -24,7 +26,7 @@ Plataforma fullstack para gestão de clínica de estética: agenda, pacientes, p
 ## Estrutura
 
 ```
-mila-barreto-platform/
+klinicone-platform/
 ├── backend/                NestJS API
 │   ├── prisma/
 │   │   ├── schema.prisma   Modelos do banco
@@ -64,7 +66,7 @@ mila-barreto-platform/
 docker compose up -d
 ```
 
-Postgres em `localhost:5432` (user `mila`, pass `mila`, db `mila_platform`).
+Postgres em `localhost:5432` (user `klinicone`, pass `klinicone`, db `klinicone_platform` — só defaults locais).
 Adminer (interface web do banco) em `http://localhost:8080`.
 
 ### 2. Backend
@@ -94,7 +96,7 @@ Roda o seed principal e os seeds de pacientes, pacotes e promoções, e completa
 cd frontend
 cp .env.example .env       # VITE_GOOGLE_CLIENT_ID (OAuth Web Client do Google Cloud)
 npm install
-npm run dev                # http://localhost:5174/painel
+npm run dev                # http://localhost:5173
 ```
 
 #### Rodar todos os apps juntos
@@ -104,18 +106,18 @@ Na raiz, `npm run dev` sobe a API e os três apps Vite (saída prefixada por `[b
 | App | URL local | Só este app |
 |-----|-----------|-------------|
 | API (NestJS, `/api`) | http://localhost:3333/api | `npm run dev:backend` |
-| Landing pública (`/`) | http://localhost:5173 | `npm run dev:landing` |
-| Painel da clínica (`/painel`) | http://localhost:5174/painel | `npm run dev:clinic` |
+| Landing pública (`/`) | http://localhost:5174 | `npm run dev:landing` |
+| Painel da clínica (`/`) | http://localhost:5173 | `npm run dev:clinic` |
 | Console super-admin | http://localhost:5175 | `npm run dev:admin` |
 
 ```bash
 npm install                                                 # na raiz: workspaces (frontend, apps/*)
-cp apps/landing/.env.example apps/landing/.env              # VITE_CLINIC_APP_URL: botão "Entrar" leva ao painel
-cp apps/admin-console/.env.example apps/admin-console/.env  # VITE_CLINIC_APP_URL: volta ao painel da clínica
+cp apps/landing/.env.example apps/landing/.env              # VITE_APP_URL: botão "Entrar" leva ao painel
+cp apps/admin-console/.env.example apps/admin-console/.env  # VITE_APP_URL: volta ao painel da clínica
 npm run dev
 ```
 
-Sem os `.env` das apps, o link "Entrar" da landing aponta para a própria landing (o painel fica em 5174). Se uma das portas estiver ocupada, o Vite escolhe outra sem avisar: confira a URL que aparece no log. Se a API parar, o `concurrently` encerra os demais (`-k`).
+Sem os `.env` das apps, o link "Entrar" da landing aponta para a própria landing (o painel fica em 5173). Se uma das portas estiver ocupada, o Vite escolhe outra sem avisar: confira a URL que aparece no log. Se a API parar, o `concurrently` encerra os demais (`-k`).
 
 ### 4. Autenticação (Google)
 
@@ -141,7 +143,7 @@ O painel **não** tem login por e-mail/senha. O fluxo é:
 > **Atualizou o schema?** Sempre que `prisma/schema.prisma` mudar, rode `npx prisma migrate dev --name <descricao>` para aplicar a migration e regenerar o client. Exemplo: após adicionar a tabela `procedure_materials`, rode `npx prisma migrate dev --name add_procedure_materials`.
 
 **Frontend** (painel da clínica; na raiz, `npm run dev` sobe todos os apps)
-- `npm run dev` - dev server do painel (http://localhost:5174/painel)
+- `npm run dev` - dev server do painel (http://localhost:5173)
 - `npm run build` - build de produção (gera `dist/`)
 - `npm run preview` - servir build
 
@@ -151,8 +153,8 @@ O front é um monorepo npm (`workspaces` no `package.json` da raiz) com três ap
 
 | App | Pasta | Versão | Sync da versão | Dev |
 |-----|-------|--------|----------------|-----|
-| Painel da clínica (`/painel`) | `frontend/` | `VERSION` da raiz (junto com o backend) | `npm run version:sync` | `npm run dev:clinic` (5173) |
-| Landing pública (`/`) | `apps/landing/` | `apps/landing/VERSION` | `npm run version:sync:landing` | `npm run dev:landing` (5174) |
+| Painel da clínica (`app.*`, `/`) | `frontend/` | `VERSION` da raiz (junto com o backend) | `npm run version:sync` | `npm run dev:clinic` (5173) |
+| Landing pública (apex, `/`) | `apps/landing/` | `apps/landing/VERSION` | `npm run version:sync:landing` | `npm run dev:landing` (5174) |
 | Console super-admin | `apps/admin-console/` | `apps/admin-console/VERSION` | `npm run version:sync:admin` | `npm run dev:admin` (5175) |
 
 `npm run dev` na raiz sobe backend + os três apps. A versão de cada app aparece no próprio app (rodapé da landing; login e escolha de painel do console admin; login da clínica).
@@ -169,7 +171,7 @@ O front é um monorepo npm (`workspaces` no `package.json` da raiz) com três ap
 | Landing | `apps/landing` | `npm run build` | `dist` |
 | Console admin | `apps/admin-console` | `npm run build` | `dist` |
 
-Em cada projeto deixe ligado **Include files outside the Root Directory** (os apps importam de `frontend/src` e de `scripts/`). O `vercel.json` de cada app define o **Ignored Build Step** (`ignoreCommand`), que tem precedência sobre o campo da tela: `scripts/vercel-ignore-build.mjs` compara o commit com o último deploy (`VERCEL_GIT_PREVIOUS_SHA`, ou `HEAD^`) e só constrói se mudou a pasta do app, um arquivo de fora que o código dele importa, `package.json`/`package-lock.json` da raiz ou, no painel, o `VERSION` da raiz. Assim o painel não reconstrói por mudança em `apps/*`, e landing/admin não reconstroem por mudança no painel que não usam. Para construir só certas branches (ex.: produção), defina `VERCEL_BUILD_BRANCHES=main,master` nas variáveis do projeto. Variáveis de URL entre apps: `VITE_CLINIC_APP_URL` e `VITE_ADMIN_CONSOLE_URL` (ver `.env.example` de cada app).
+Em cada projeto deixe ligado **Include files outside the Root Directory** (os apps importam de `frontend/src` e de `scripts/`). O `vercel.json` de cada app define o **Ignored Build Step** (`ignoreCommand`), que tem precedência sobre o campo da tela: `scripts/vercel-ignore-build.mjs` compara o commit com o último deploy (`VERCEL_GIT_PREVIOUS_SHA`, ou `HEAD^`) e só constrói se mudou a pasta do app, um arquivo de fora que o código dele importa, `package.json`/`package-lock.json` da raiz ou, no painel, o `VERSION` da raiz. Assim o painel não reconstrói por mudança em `apps/*`, e landing/admin não reconstroem por mudança no painel que não usam. Para construir só certas branches (ex.: produção), defina `VERCEL_BUILD_BRANCHES=main,master` nas variáveis do projeto. Variáveis de URL entre apps: `VITE_APP_URL`, `VITE_ADMIN_URL` e `VITE_LANDING_URL` (aliases legados `VITE_CLINIC_APP_URL` / `VITE_ADMIN_CONSOLE_URL` ainda lidos; ver `.env.example` de cada app). Domínios padrão: `klinicone.com.br`, `app.klinicone.com.br`, `admin.klinicone.com.br`.
 
 ## Modelos de dados (resumo)
 

@@ -168,7 +168,7 @@ export function SidebarContent({ collapsed: isCollapsed, groups, pathname, onNav
                 fontWeight={800}
                 sx={{ letterSpacing: '-0.02em', lineHeight: 1.05, color: '#fff' }}
               >
-                Mila Barreto
+                KlinicOne
               </Typography>
               <Typography
                 variant="caption"
@@ -183,7 +183,7 @@ export function SidebarContent({ collapsed: isCollapsed, groups, pathname, onNav
                   textTransform: 'uppercase',
                 }}
               >
-                Estética avançada
+                Gestão para clínicas
               </Typography>
             </Box>
           )}

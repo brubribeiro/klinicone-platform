@@ -8,12 +8,13 @@ import { AuroraIcon } from '../components/AuroraIcon';
 import { APP_VERSION } from '../version';
 import { fontSizes } from '../theme/fontSizes';
 import { ExternalRedirect } from '../components/ExternalRedirect';
+import { BRAND_LEGAL_NAME, BRAND_NAME, BRAND_TAGLINE } from '../brand';
 import { adminConsoleUrl } from '../utils/appUrls';
 import { clearAuthNotice, readAuthNotice, tenantSuspendedMessage } from '../utils/authNotice';
 
 // Painel de marca Aurora (mesmo verde-escuro do menu lateral)
 const BRAND_BG = '#0E2926';
-const BRAND_TAGLINE = '#8FAAA4';
+const BRAND_TAGLINE_COLOR = '#8FAAA4';
 const BRAND_SUBTITLE = '#A9C4BE';
 const BRAND_FOOTER = '#7C928D';
 const TEXT_SOFT = '#94A4A0';
@@ -58,7 +59,7 @@ function BrandLogo({ dark = false }: { dark?: boolean }) {
             color: dark ? '#fff' : 'text.primary',
           }}
         >
-          Mila Barreto
+          {BRAND_NAME}
         </Box>
         <Box
           component="span"
@@ -67,10 +68,10 @@ function BrandLogo({ dark = false }: { dark?: boolean }) {
             fontSize: fontSizes['3xs'],
             letterSpacing: '1.6px',
             textTransform: 'uppercase',
-            color: dark ? BRAND_TAGLINE : 'text.secondary',
+            color: dark ? BRAND_TAGLINE_COLOR : 'text.secondary',
           }}
         >
-          Estética avançada
+          {BRAND_TAGLINE}
         </Box>
       </Box>
     </Stack>
@@ -225,7 +226,7 @@ export function Login() {
       </Box>
 
       <Typography sx={{ position: 'relative', fontSize: fontSizes.xs, color: BRAND_FOOTER, fontWeight: 500 }}>
-        © {year} Mila Barreto Estética Avançada · Todos os direitos reservados · v{APP_VERSION}
+        © {year} {BRAND_LEGAL_NAME} · Todos os direitos reservados · v{APP_VERSION}
       </Typography>
     </Box>
   );
@@ -424,7 +425,7 @@ export function Login() {
       <Typography
         sx={{ display: { xs: 'block', md: 'none' }, fontSize: fontSizes.xs, color: TEXT_SOFT, textAlign: 'center' }}
       >
-        © {year} Mila Barreto · v{APP_VERSION}
+        © {year} {BRAND_NAME} · v{APP_VERSION}
       </Typography>
     </Box>
   );

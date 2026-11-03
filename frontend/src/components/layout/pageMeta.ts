@@ -35,7 +35,7 @@ export function getPageMeta(pathname: string): PageMeta {
   const match = PAGE_META.find((m) =>
     m.exact ? pathname === m.path : pathname === m.path || pathname.startsWith(`${m.path}/`),
   );
-  return match ?? { title: 'Mila Barreto', subtitle: '' };
+  return match ?? { title: 'KlinicOne', subtitle: '' };
 }
 
 /** No Dashboard, o subtítulo ganha a data de hoje. */

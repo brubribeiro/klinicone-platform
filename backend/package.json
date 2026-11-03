@@ -1,5 +1,5 @@
 {
-  "name": "mila-barreto-backend",
+  "name": "klinicone-backend",
   "version": "0.2.0",
   "description": "API NestJS para plataforma de gestão de clínica de estética",
   "private": true,

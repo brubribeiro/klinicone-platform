@@ -1,4 +1,4 @@
-# Release Notes — Mila Barreto Platform
+# Release Notes — KlinicOne
 
 Notas de versão para usuários do painel. Para detalhes técnicos, veja [CHANGELOG.md](./CHANGELOG.md).
 
@@ -6,13 +6,17 @@ Notas de versão para usuários do painel. Para detalhes técnicos, veja [CHANGE
 
 ## Próxima versão
 
+### Marca e endereços
+
+- A plataforma passa a se chamar **KlinicOne**. Site em **klinicone.com.br**, painel em **app.klinicone.com.br** (na raiz do endereço, sem `/painel`) e administração em **admin.klinicone.com.br**.
+
 ### Ajuda
 
 - **Assistente**: o botão com o ícone de brilho no topo do painel abre um chat para tirar dúvidas sobre as telas e funcionalidades. As respostas vêm só da documentação da plataforma (estas notas de versão), com a fonte de cada trecho; quando a documentação não cobre a dúvida, o assistente avisa e oferece **Enviar feedback**. Ele não acessa dados de pacientes nem da agenda.
 
 ### Site de divulgação
 
-- O endereço principal da plataforma (`/`) passa a mostrar uma **página de apresentação** para clínicas interessadas: funcionalidades, planos, perguntas frequentes e botão **Falar com a gente**. O painel continua em `/painel`, e o botão **Entrar** leva ao login. O nome exibido ("Aurora") é provisório até a escolha do nome da aplicação.
+- O site público mostra a **página de apresentação** para clínicas interessadas: funcionalidades, planos, perguntas frequentes e botão **Falar com a gente**. O botão **Entrar** leva ao login do painel.
 
 ### Atendimento
 

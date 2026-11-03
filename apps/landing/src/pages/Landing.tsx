@@ -208,7 +208,7 @@ function ModuleRow({ module, reverse }: { module: LandingModule; reverse: boolea
 }
 
 /**
- * Landing pública de divulgação (`/`, fora do painel em `/painel`): sem login, sem chamadas
+ * Landing pública de divulgação (host apex): sem login, sem chamadas
  * de sessão. Só lê os planos ativos (`GET /public/plans`); sem planos, a seção some.
  */
 export function Landing() {

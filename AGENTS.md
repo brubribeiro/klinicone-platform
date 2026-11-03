@@ -2,12 +2,14 @@
 
 **Leia este arquivo por completo antes de qualquer alteração no repositório.**
 
-Repositório monorepo da plataforma **Mila Barreto** (clínica de estética).
+Repositório monorepo da plataforma **KlinicOne** (gestão para clínicas de estética e saúde).
 
 ```
-mila-barreto-platform/
-├── backend/     NestJS 10 + Prisma + PostgreSQL
-├── frontend/    React 18 + Vite + MUI 5 + TanStack Query
+klinicone-platform/   (repo GitHub ainda mila-barreto-platform até renomear)
+├── backend/              NestJS 10 + Prisma + PostgreSQL
+├── frontend/             React 18 + Vite + MUI 5 — painel (app.klinicone.com.br)
+├── apps/landing/         Site público (klinicone.com.br)
+├── apps/admin-console/   Console super-admin (admin.klinicone.com.br)
 └── docker-compose.yml
 ```
 
@@ -105,9 +107,9 @@ mila-barreto-platform/
 
 ## 8. Ambiente local
 
-- API: `http://localhost:3333/api` (prefixo `/api`)
-- Frontend: Vite (porta padrão do projeto); `VITE_API_URL` em `.env`
-- Banco: Docker Compose — Postgres `localhost:5432`, db `mila_platform`
+- API: `http://localhost:3333/api` (prefixo `/api`); produção opcional `api.klinicone.com.br`
+- Frontends: landing `5174`, painel `5173` (`app.*`), admin `5175` (`admin.*`); `VITE_API_URL` / `VITE_APP_URL` / `VITE_ADMIN_URL` / `VITE_LANDING_URL`
+- Banco local: Docker Compose — Postgres `localhost:5432`, db `klinicone_platform` (defaults do compose/`.env.example`)
 - Auth: login **somente Google** (`POST /api/auth/google`, UI em `Login.tsx`). Seed cria usuários demo por e-mail (ex. `admin@mila.com`) — não há login e-mail/senha na API nem no painel.
 
 ---

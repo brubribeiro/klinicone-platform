@@ -8,9 +8,9 @@ import { apiDevProxy } from '../scripts/vite-api-proxy';
 
 const appVersion = readFileSync(path.resolve(__dirname, '../VERSION'), 'utf8').trim();
 
-/** Painel da clínica — servido em `/painel` (deploy separado da landing e do console admin). */
+/** Painel da clínica — raiz do host `app.*` (deploy separado da landing e do console admin). */
 export default defineConfig({
-  base: '/painel',
+  base: '/',
   define: {
     __APP_VERSION__: JSON.stringify(appVersion),
   },
