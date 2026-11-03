@@ -1,6 +1,6 @@
 const APP_BASE = import.meta.env.BASE_URL.replace(/\/$/, '');
 
-/** Absolute path including the Vite base (e.g. `/painel/login`). */
+/** Absolute path including the Vite base (e.g. `/login` na raiz do host do app). */
 export function appPath(path: string): string {
   const normalized = path.startsWith('/') ? path : `/${path}`;
   return `${APP_BASE}${normalized}`;

@@ -1,13 +1,13 @@
 ---
-description: Instruções obrigatórias do projeto Mila Barreto — ler antes de qualquer alteração
+description: Instruções obrigatórias do projeto KlinicOne — ler antes de qualquer alteração
 alwaysApply: true
 ---
 
-# Mila Barreto — leia antes de alterar
+# KlinicOne — leia antes de alterar
 
-**Obrigatório:** ler e seguir `AGENTS.md` na **raiz do repositório** (`mila-barreto-platform/AGENTS.md`) antes de qualquer mudança.
+**Obrigatório:** ler e seguir `AGENTS.md` na **raiz do repositório** antes de qualquer mudança.
 
-Monorepo: `backend/` (NestJS + Prisma) · `frontend/` (React + Vite + MUI + TanStack Query).
+Monorepo: `backend/` (NestJS + Prisma) · `frontend/` (painel) · `apps/landing` · `apps/admin-console` (React + Vite + MUI + TanStack Query).
 
 ## Regras rápidas (não dispensam o AGENTS.md)
 

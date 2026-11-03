@@ -3,22 +3,22 @@ version: "3.9"
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: mila_postgres
+    container_name: klinicone_postgres
     restart: unless-stopped
     env_file:
       - ./backend/.env
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-mila}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mila}
-      POSTGRES_DB: ${POSTGRES_DB:-mila_platform}
+      POSTGRES_USER: ${POSTGRES_USER:-klinicone}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-klinicone}
+      POSTGRES_DB: ${POSTGRES_DB:-klinicone_platform}
     ports:
       - "5432:5432"
     volumes:
-      - mila_pgdata:/var/lib/postgresql/data
+      - klinicone_pgdata:/var/lib/postgresql/data
 
   adminer:
     image: adminer:latest
-    container_name: mila_adminer
+    container_name: klinicone_adminer
     restart: unless-stopped
     ports:
       - "8080:8080"
@@ -28,4 +28,4 @@ services:
       - dev
 
 volumes:
-  mila_pgdata:
+  klinicone_pgdata:

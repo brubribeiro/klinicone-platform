@@ -9,11 +9,11 @@ import { AppointmentDialogProvider } from './contexts/AppointmentDialogContext';
 
 const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? '';
 
-/** App logado da clínica e do super-admin, servido em `/painel`. */
+/** App logado da clínica — raiz do host `app.*` (deploy separado da landing e do admin). */
 export function PanelRoot() {
   return (
     <GoogleOAuthProvider clientId={googleClientId}>
-      <BrowserRouter basename="/painel" future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <AuthProvider>
           <AppDialogProvider>
             <AppToastProvider>

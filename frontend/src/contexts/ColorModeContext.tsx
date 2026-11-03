@@ -3,12 +3,22 @@ import { ThemeProvider } from '@mui/material';
 
 import { createAppTheme, type ColorMode } from '../theme';
 
-const STORAGE_KEY = 'mila.colorMode';
+const STORAGE_KEY = 'klinicone.colorMode';
+const LEGACY_STORAGE_KEY = 'mila.colorMode';
 
 // Primeira visita: segue o sistema; depois vale a escolha salva no botão da lua.
+// Migra a chave antiga `mila.colorMode` sem perder a preferência.
 function initialMode(): ColorMode {
-  const saved = localStorage.getItem(STORAGE_KEY);
-  if (saved === 'light' || saved === 'dark') return saved;
+  const saved = localStorage.getItem(STORAGE_KEY) ?? localStorage.getItem(LEGACY_STORAGE_KEY);
+  if (saved === 'light' || saved === 'dark') {
+    if (localStorage.getItem(STORAGE_KEY) !== saved) {
+      localStorage.setItem(STORAGE_KEY, saved);
+    }
+    if (localStorage.getItem(LEGACY_STORAGE_KEY) != null) {
+      localStorage.removeItem(LEGACY_STORAGE_KEY);
+    }
+    return saved;
+  }
   return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
 

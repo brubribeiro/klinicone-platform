@@ -17,6 +17,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { AuroraIcon } from '../components/AuroraIcon';
 import { APP_VERSION } from '../version';
 import { fontSizes } from '../theme/fontSizes';
+import { BRAND_NAME } from '../brand';
 import { adminConsoleUrl, clinicPanelUrl } from '../utils/appUrls';
 
 const BRAND_BG = '#0E2926';
@@ -197,7 +198,7 @@ export function ChoosePanel() {
         )}
 
         <Typography sx={{ mt: 3, textAlign: 'center', fontSize: fontSizes['2xs'], color: 'text.secondary' }}>
-          © {year} Mila Barreto · v{APP_VERSION}
+          © {year} {BRAND_NAME} · v{APP_VERSION}
         </Typography>
       </Box>
     </Box>

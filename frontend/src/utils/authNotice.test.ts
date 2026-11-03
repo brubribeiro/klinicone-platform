@@ -10,7 +10,7 @@ const suspendedError = (message?: string) => ({
 describe('authNotice', () => {
   beforeEach(() => {
     sessionStorage.clear();
-    window.history.replaceState(null, '', '/painel/login');
+    window.history.replaceState(null, '', '/login');
   });
 
   it('reconhece TENANT_SUSPENDED e usa a mensagem da API', () => {

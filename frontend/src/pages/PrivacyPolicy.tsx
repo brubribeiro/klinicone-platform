@@ -3,6 +3,7 @@ import { Box, Typography, Link as MuiLink, alpha } from '@mui/material';
 import { Link } from 'react-router-dom';
 import { AuroraIcon } from '../components/AuroraIcon';
 import { fontSizes } from '../theme/fontSizes';
+import { BRAND_LEGAL_NAME, BRAND_NAME } from '../brand';
 const CONTENT_SX = { width: '100%', px: { xs: 2.5, sm: 4 } };
 
 function SectionTitle({ children }: { children: ReactNode }) {
@@ -78,7 +79,7 @@ export function PrivacyPolicy() {
               </svg>
             </Box>
             <Typography noWrap sx={{ fontWeight: 800, fontSize: fontSizes['2xl'], letterSpacing: '-0.4px' }}>
-              Mila Barreto
+              {BRAND_NAME}
             </Typography>
           </Box>
           <MuiLink
@@ -154,11 +155,11 @@ export function PrivacyPolicy() {
             1. Introdução
           </SectionTitle>
           <Paragraph>
-            A Mila Barreto Estética Avançada ("nós", "nosso"), com sede em São Paulo - SP, é
-            responsável pelo tratamento dos dados pessoais coletados por meio desta plataforma de
-            gestão ("Plataforma"). Esta Política de Privacidade descreve como coletamos, utilizamos,
-            armazenamos e protegemos seus dados, em conformidade com a Lei Geral de Proteção de Dados
-            (LGPD - Lei 13.709/2018).
+            A {BRAND_LEGAL_NAME} ("nós", "nosso") é responsável pelo tratamento dos dados pessoais
+            coletados por meio desta plataforma de gestão SaaS para clínicas ("Plataforma"). Esta Política
+            de Privacidade descreve como coletamos, utilizamos, armazenamos e protegemos seus dados, em
+            conformidade com a Lei Geral de Proteção de Dados (LGPD - Lei 13.709/2018). Cada clínica
+            contratante permanece controladora dos dados de suas pacientes no uso diário da Plataforma.
           </Paragraph>
 
           <SectionTitle>
@@ -259,7 +260,7 @@ export function PrivacyPolicy() {
           </SectionTitle>
           <Paragraph>
             Em caso de incidente de segurança que possa acarretar risco ou dano relevante aos
-            titulares, a Mila Barreto Estética Avançada comunicará a Autoridade Nacional de Proteção
+            titulares, a {BRAND_LEGAL_NAME} comunicará a Autoridade Nacional de Proteção
             de Dados (ANPD) e os titulares afetados, conforme previsto na LGPD.
           </Paragraph>
 
@@ -277,12 +278,12 @@ export function PrivacyPolicy() {
           </SectionTitle>
           <Paragraph>
             Para dúvidas, solicitações ou exercício de direitos relacionados a dados pessoais, entre
-            em contato com a administração da clínica Mila Barreto Estética Avançada, São Paulo - SP.
+            em contato com a equipe da {BRAND_LEGAL_NAME} ou com a administração da sua clínica.
           </Paragraph>
         </Box>
 
         <Typography sx={{ mt: 4, textAlign: 'center', fontSize: fontSizes.sm, fontWeight: 500, color: 'grey.400' }}>
-          © {new Date().getFullYear()} Mila Barreto ·{' '}
+          © {new Date().getFullYear()} {BRAND_NAME} ·{' '}
           <MuiLink component={Link} to="/termos" underline="none" sx={{ color: 'text.secondary', fontWeight: 700 }}>
             Termos de Uso
           </MuiLink>
