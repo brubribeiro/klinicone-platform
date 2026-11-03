@@ -108,9 +108,10 @@ klinicone-platform/   (repo GitHub ainda mila-barreto-platform até renomear)
 ## 8. Ambiente local
 
 - API: `http://localhost:3333/api` (prefixo `/api`); produção opcional `api.klinicone.com.br`
-- Frontends: landing `5174`, painel `5173` (`app.*`), admin `5175` (`admin.*`); `VITE_API_URL` / `VITE_APP_URL` / `VITE_ADMIN_URL` / `VITE_LANDING_URL`
+- Frontends: landing `5174`, painel `5173` (`app.*`), admin `5175` (`admin.*`); `VITE_API_URL` / `VITE_APP_URL` / `VITE_ADMIN_URL` / `VITE_LANDING_URL` / `VITE_APP_ENV` só por env
 - Banco local: Docker Compose — Postgres `localhost:5432`, db `klinicone_platform` (defaults do compose/`.env.example`)
 - Auth: login **somente Google** (`POST /api/auth/google`, UI em `Login.tsx`). Seed cria usuários demo por e-mail (ex. `admin@mila.com`) — não há login e-mail/senha na API nem no painel.
+- Dev vs prod (hosts `*.dev`, `APP_ENV`, CI, seed demo, passos manuais): **`docs/ambientes.md`**.
 
 ---
 
@@ -135,7 +136,7 @@ klinicone-platform/   (repo GitHub ainda mila-barreto-platform até renomear)
 - **Release notes:** registrar mudanças para usuários em `RELEASE_NOTES.md` (português).
 - **Quando bumpar:** a partir de agora, avaliar bump SemVer ao entregar funcionalidade, correção relevante ou release; PATCH (bugfix), MINOR (feature), MAJOR (breaking). Ao commitar release, subir versão e atualizar changelog + release notes no mesmo commit.
 - **UI:** versão exibida no menu lateral e na tela de login (`frontend/src/version.ts`).
-- **API:** `GET /api/health` retorna `{ status, version }`.
+- **API:** `GET /api/health` retorna `{ status, version, env }` (`env`: `dev` \| `prod`).
 
 Detalhes completos: `.cursor/rules/versioning.mdc`.
 

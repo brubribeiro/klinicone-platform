@@ -24,6 +24,7 @@ describe('ProceduresService', () => {
     materials: [
       { item: { costPrice: 250 }, quantity: 1 },
     ],
+    equipments: [],
   };
 
   beforeEach(async () => {
@@ -38,6 +39,9 @@ describe('ProceduresService', () => {
       procedureMaterial: {
         deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
         createMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+      appointment: {
+        groupBy: jest.fn().mockResolvedValue([]),
       },
       paymentMethod: {
         findFirst: jest.fn().mockResolvedValue({ feePercent: 5 }),
@@ -70,7 +74,9 @@ describe('ProceduresService', () => {
       expect(result).toHaveLength(1);
       expect(result[0]).toHaveProperty('baseCost');
       expect(result[0]).toHaveProperty('profitMargin');
+      expect(result[0]).toHaveProperty('appointmentsCount', 0);
       expect(result[0].baseCost).toBe(250); // 250 * 1
+      expect(prisma.appointment.groupBy).toHaveBeenCalled();
     });
   });
 

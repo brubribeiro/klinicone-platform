@@ -44,5 +44,5 @@ export async function fetchViaCepDigits(
   const uf = String(body.uf ?? '').trim();
   if (!localidade && !uf) return null;
 
-  return body as ViaCepOk;
+  return body as unknown as ViaCepOk;
 }

@@ -97,7 +97,15 @@ describe('PatientsService', () => {
   describe('list', () => {
     it('should return all patients without search', async () => {
       const result = await service.list();
-      expect(result).toEqual([mockPatient]);
+      expect(result).toEqual([
+        {
+          ...mockPatient,
+          lastVisit: null,
+          totalSpent: 0,
+          reliabilityPercent: 100,
+          appointmentsCount: 0,
+        },
+      ]);
       expect(prisma.patient.findMany).toHaveBeenCalledWith({
         where: undefined,
         orderBy: { name: 'asc' },
@@ -121,6 +129,7 @@ describe('PatientsService', () => {
             { name: { contains: 'João', mode: 'insensitive' } },
             { email: { contains: 'João', mode: 'insensitive' } },
             { phone: { contains: 'João' } },
+            { document: { contains: 'João' } },
           ],
         },
         orderBy: { name: 'asc' },
@@ -131,7 +140,12 @@ describe('PatientsService', () => {
   describe('findOne', () => {
     it('should return patient with appointments', async () => {
       const result = await service.findOne('patient-1');
-      expect(result).toEqual(mockPatient);
+      expect(result).toEqual({
+        ...mockPatient,
+        visits: 0,
+        lastVisit: null,
+        totalSpent: 0,
+      });
     });
 
     it('should throw NotFoundException if not found', async () => {

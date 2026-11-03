@@ -72,20 +72,21 @@ describe('AssistantFab', () => {
   it('limpa o histórico ao minimizar', async () => {
     vi.spyOn(assistantApi, 'ask').mockResolvedValue({
       covered: true,
-      answer: 'Encontrei isto na documentação:',
-      sources: [{ file: 'RELEASE_NOTES.md', section: 'Teste', excerpt: 'Trecho salvo.' }],
+      answer: 'Trecho salvo na documentação.',
+      sources: [{ file: 'RELEASE_NOTES.md', section: 'Teste', excerpt: 'Trecho salvo na documentação.' }],
     });
     renderFab(false);
     await openAssistant();
     await userEvent.click(screen.getByRole('button', { name: 'Como ativo o modo escuro?' }));
-    expect(await screen.findByText('Trecho salvo.')).toBeInTheDocument();
+    expect(await screen.findByText('Trecho salvo na documentação.')).toBeInTheDocument();
 
     const dialog = screen.getByRole('dialog', { name: 'Assistente' });
     await userEvent.click(within(dialog).getByRole('button', { name: 'Minimizar assistente' }));
     expect(screen.queryByRole('dialog', { name: 'Assistente' })).not.toBeInTheDocument();
 
     await openAssistant();
-    expect(screen.queryByText('Trecho salvo.')).not.toBeInTheDocument();
+    expect(screen.queryByText('Trecho salvo na documentação.')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Como ativo o modo escuro?' })).toBeInTheDocument();
   });
 });
+

@@ -69,13 +69,11 @@ const FIELD_HELPER_SX = {
   },
 } as const;
 
-const MOVEMENT_TYPE_TOGGLE_SX: SxProps<Theme> = [
-  availabilityShortcutToggleSx,
-  {
-    width: '100%',
-    '& .MuiToggleButtonGroup-grouped': { flex: 1, py: 0.85 },
-  },
-];
+const MOVEMENT_TYPE_TOGGLE_SX = {
+  ...availabilityShortcutToggleSx,
+  width: '100%',
+  '& .MuiToggleButtonGroup-grouped': { flex: 1, py: 0.85 },
+} satisfies SxProps<Theme>;
 
 const brl = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 

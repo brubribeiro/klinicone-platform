@@ -47,14 +47,17 @@ async function bootstrap() {
   // Erros do Prisma seguem no PrismaExceptionFilter (o ApiErrorFilter delega)
   app.useGlobalFilters(new ApiErrorFilter(app.get(HttpAdapterHost).httpAdapter));
 
-  const corsOrigin = config.get<string>(
-    'CORS_ORIGIN',
-    'http://localhost:5173,http://localhost:5174,http://localhost:5175',
-  );
+  // Origens só por env (vírgula = vários hosts). Sem default hardcoded.
+  const corsOrigin = (config.get<string>('CORS_ORIGIN') ?? '').trim();
   const corsOrigins = corsOrigin
     .split(',')
     .map((origin) => origin.trim())
     .filter(Boolean);
+  if (corsOrigins.length === 0) {
+    throw new Error(
+      'CORS_ORIGIN inválido ou ausente. Defina uma ou mais origens separadas por vírgula no .env (ex.: http://localhost:5173,http://localhost:5174).',
+    );
+  }
 
   app.enableCors({
     origin: corsOrigins.length === 1 ? corsOrigins[0] : corsOrigins,

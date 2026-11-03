@@ -7,7 +7,8 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import ptBrLocale from '@fullcalendar/core/locales/pt-br';
-import type { DatesSetArg, DateSelectArg, EventClickArg, DateClickArg } from '@fullcalendar/core';
+import type { DatesSetArg, DateSelectArg, EventClickArg } from '@fullcalendar/core';
+import type { DateClickArg } from '@fullcalendar/interaction';
 
 import { PageHeader } from '../components/PageHeader';
 import { useUrlState, urlDate, urlEnum, urlList } from '../hooks/useUrlState';

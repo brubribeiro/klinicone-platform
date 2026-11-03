@@ -7,16 +7,23 @@ interface ImpersonationBannerProps {
   userName?: string;
   onStop: () => void;
   stopLabel?: string;
+  /** Deslocamento do topo (ex.: faixa DEV). */
+  top?: number;
 }
 
 /** Faixa fixa no topo enquanto o admin visualiza o sistema como outro usuário. */
-export function ImpersonationBanner({ userName, onStop, stopLabel = 'Voltar à minha conta' }: ImpersonationBannerProps) {
+export function ImpersonationBanner({
+  userName,
+  onStop,
+  stopLabel = 'Voltar à minha conta',
+  top = 0,
+}: ImpersonationBannerProps) {
   const theme = useTheme();
   return (
     <Box
       sx={{
         position: 'fixed',
-        top: 0,
+        top,
         left: 0,
         right: 0,
         zIndex: theme.zIndex.modal + 1,

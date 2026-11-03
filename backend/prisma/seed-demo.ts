@@ -10,33 +10,13 @@
 import 'dotenv/config';
 import { execFileSync } from 'child_process';
 import { Prisma } from '@prisma/client';
+import { assertLocalEnvironment } from './seed-demo-guard';
 import { SKINCARE_DEMO_RULES } from './skincare-demo-data';
 import { createScriptClient, runInScriptTenant } from './tenant-script';
 
-const MARK = 'seedDemo:';
+export { assertLocalEnvironment } from './seed-demo-guard';
 
-/** Recusa rodar em produção ou contra banco que não seja local. */
-export function assertLocalEnvironment(env: NodeJS.ProcessEnv = process.env): void {
-  if (env.NODE_ENV === 'production') {
-    throw new Error('Seed demo recusado: NODE_ENV=production.');
-  }
-  for (const key of ['DATABASE_URL', 'DIRECT_URL'] as const) {
-    const url = env[key];
-    if (!url) {
-      if (key === 'DATABASE_URL') throw new Error('Seed demo recusado: DATABASE_URL não definida.');
-      continue;
-    }
-    let host: string;
-    try {
-      host = new URL(url).hostname;
-    } catch {
-      throw new Error(`Seed demo recusado: ${key} inválida.`);
-    }
-    if (!['localhost', '127.0.0.1', '[::1]', '::1'].includes(host)) {
-      throw new Error(`Seed demo recusado: ${key} aponta para "${host}", não para localhost.`);
-    }
-  }
-}
+const MARK = 'seedDemo:';
 
 function runScript(script: string) {
   execFileSync('npx', ['ts-node', '--transpile-only', `prisma/${script}`], { stdio: 'inherit', env: process.env });
@@ -661,7 +641,7 @@ async function seedExtras() {
 
 async function main() {
   assertLocalEnvironment();
-  console.log('Seed demo (apenas ambiente local).');
+  console.log('Seed demo (apenas fora de produção; não roda no start da API).');
   runBaseSeeds();
   await runInScriptTenant(prisma, async () => seedExtras());
   console.log('\nSeed demo concluído.\n');

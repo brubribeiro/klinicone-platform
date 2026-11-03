@@ -6,10 +6,17 @@ import { useAuth } from '../../../../frontend/src/contexts/AuthContext';
 import { AuroraIcon } from '../../../../frontend/src/components/AuroraIcon';
 import { PAGE_SHELL_SX } from '../../../../frontend/src/theme/layout';
 import type { NavGroup } from '../../../../frontend/src/components/layout/navConfig';
-import { DRAWER_COLLAPSED_WIDTH, DRAWER_WIDTH, SIDEBAR_BG, drawerTransition } from '../../../../frontend/src/components/layout/layoutTheme';
+import {
+  DEV_BAR_HEIGHT,
+  DRAWER_COLLAPSED_WIDTH,
+  DRAWER_WIDTH,
+  SIDEBAR_BG,
+  drawerTransition,
+} from '../../../../frontend/src/components/layout/layoutTheme';
 import { SidebarContent } from '../../../../frontend/src/components/layout/SidebarContent';
 import { AssistantFab } from '../../../../frontend/src/components/assistant/AssistantFab';
 import { adminPath } from '../../../../frontend/src/utils/adminPath';
+import { isDevEnvironment } from '../../../../frontend/src/utils/appEnv';
 
 const ADMIN_NAV_GROUPS: NavGroup[] = [
   {
@@ -95,6 +102,8 @@ export function AdminLayout() {
 
   const pageMeta = adminPageMeta(location.pathname);
   const currentDrawerWidth = collapsed ? DRAWER_COLLAPSED_WIDTH : DRAWER_WIDTH;
+  const topChrome = isDevEnvironment() ? DEV_BAR_HEIGHT : 0;
+  const drawerOffsetSx = topChrome > 0 ? { top: topChrome, height: `calc(100% - ${topChrome}px)` } : {};
 
   const drawer = (isCollapsed: boolean) => (
     <SidebarContent
@@ -125,6 +134,7 @@ export function AdminLayout() {
         color="inherit"
         elevation={0}
         sx={{
+          top: topChrome,
           width: { md: `calc(100% - ${currentDrawerWidth}px)` },
           ml: { md: `${currentDrawerWidth}px` },
           transition: drawerTransition(theme, ['width', 'margin-left']),
@@ -207,7 +217,10 @@ export function AdminLayout() {
           open={mobileOpen}
           onClose={() => setMobileOpen(false)}
           ModalProps={{ keepMounted: true }}
-          sx={{ display: { xs: 'block', md: 'none' }, '& .MuiDrawer-paper': { ...drawerPaperSx, width: DRAWER_WIDTH } }}
+          sx={{
+            display: { xs: 'block', md: 'none' },
+            '& .MuiDrawer-paper': { ...drawerPaperSx, width: DRAWER_WIDTH, ...drawerOffsetSx },
+          }}
         >
           {drawer(false)}
         </Drawer>
@@ -221,6 +234,7 @@ export function AdminLayout() {
               width: currentDrawerWidth,
               overflowX: 'hidden',
               transition: drawerTransition(theme, 'width'),
+              ...drawerOffsetSx,
             },
           }}
         >
