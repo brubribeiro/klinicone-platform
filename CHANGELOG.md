@@ -5,9 +5,11 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 ## [Unreleased]
 
 ### Added
+- **Testes e cobertura**: `npm test` do backend roda unitários (`src/**/*.spec.ts`) e integração (`test/**/*.int-spec.ts`, Postgres real) com `--coverage`, resumo no log e piso global (62/48/47/62 statements/branches/functions/lines); scripts `test:unit` e `test:integration`. Frontend `npm test` = `vitest run --coverage` (v8) com piso 13/65/35/13. Integração nova: agendamento com vários procedimentos, estoque/materiais (baixa, devolução, troca, extras, insuficiente), agendamento antigo só com `procedureId`, intervalo de retorno, financeiro ao concluir (taxa, parcelas, competência, custo de materiais), promoções (melhor do dia, geral, combo), venda de pacote e sessões (pago/a prazo, combo parcial, promoção do pacote), limites de plano e isolamento entre clínicas em pacotes, promoções, formas de pagamento, estoque e anamnese; `test:tenancy` passa a rodar no CI. Frontend: `AppointmentFormDialog` (multi-procedimento), `CompletePaymentDialog`, `SellPackageDialog`, rotas protegidas e troca de painel. Smoke E2E Playwright (`frontend/e2e`, `npm run test:e2e`: agendar → concluir → pagar) com sessão de teste assinada (`backend/test/e2e/e2e-session.ts`); workflow pronto em `docs/ci/e2e.yml` (falta copiar para `.github/workflows/`).
 - Ambiente **dev/staging** separado de prod: `APP_ENV` / `VITE_APP_ENV`, `GET /api/health` com `env` (`dev`|`prod`), faixa discreta **DEV** no painel e no admin-console, `.env.example` com blocos local/staging/prod, CI em PRs para `develop` / `release/*` / `main` (lint, tsc, testes, `prisma migrate deploy` com Postgres de serviço) e `docs/ambientes.md` (fluxo PR→develop→*.dev→main e passos manuais). Baseline ESLint (`.eslintrc.cjs` em backend/frontend) — o repo ainda não tinha config versionada.
 
 ### Fixed
+- Backend: agendamento com o mesmo procedimento repetido em `procedureIds` era recusado com "Um ou mais procedimentos não foram encontrados"; a validação agora usa a lista sem repetidos (a mesma que é gravada).
 - Frontend: `tsc -b` (tipos FullCalendar/`SxProps`/ViaCEP) e teste do Assistente que esperava excerpt em vez da resposta direta.
 
 ### Changed
