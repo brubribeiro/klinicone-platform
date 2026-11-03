@@ -13,6 +13,7 @@ import type {
   PlatformCatalogItem,
   PlatformCatalogKind,
   PlatformUsage,
+  PlatformSuperAdmin,
   FeedbackStatus,
   FeedbackType,
 } from '../../../../frontend/src/types';
@@ -226,6 +227,21 @@ export const adminApi = {
 
   removeMeasurementType: async (id: string): Promise<void> => {
     await api.delete(`/admin/measurement-types/${id}`);
+  },
+
+  listSuperAdmins: async (): Promise<PlatformSuperAdmin[]> => {
+    const { data } = await api.get<PlatformSuperAdmin[]>('/admin/super-admins');
+    return data;
+  },
+
+  createSuperAdmin: async (payload: { email: string; name: string }): Promise<PlatformSuperAdmin> => {
+    const { data } = await api.post<PlatformSuperAdmin>('/admin/super-admins', payload);
+    return data;
+  },
+
+  removeSuperAdmin: async (id: string): Promise<{ ok: true; outcome: string }> => {
+    const { data } = await api.delete<{ ok: true; outcome: string }>(`/admin/super-admins/${id}`);
+    return data;
   },
 
   getUsage: async (params: { from?: string; to?: string; tenantId?: string } = {}): Promise<PlatformUsage> => {

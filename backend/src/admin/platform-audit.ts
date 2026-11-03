@@ -32,7 +32,12 @@ export type PlatformAuditAction =
   | 'ANNOUNCEMENT_DELETE'
   | 'ANNOUNCEMENT_SCHEDULE'
   | 'ANNOUNCEMENT_UNSCHEDULE'
-  | 'ANNOUNCEMENT_SEND';
+  | 'ANNOUNCEMENT_SEND'
+  | 'SUPER_ADMIN_CREATE'
+  | 'SUPER_ADMIN_PROMOTE'
+  | 'SUPER_ADMIN_DEMOTE'
+  | 'SUPER_ADMIN_DEACTIVATE'
+  | 'SUPER_ADMIN_DELETE';
 
 /** Grava uma ação do super-admin em platform_audit_logs. Em ações de plano/catálogo, `tenantId` é nulo. */
 export async function recordPlatformAudit(

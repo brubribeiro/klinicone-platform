@@ -16,11 +16,23 @@ import { ObservabilityService } from './observability.service';
 import { PlatformInsightsController } from './platform-insights.controller';
 import { PlansController } from './plans.controller';
 import { PlansService } from './plans.service';
+import { SuperAdminsController } from './super-admins.controller';
+import { SuperAdminsService } from './super-admins.service';
 import { UsageService } from './usage.service';
 
 @Module({
   imports: [AuthModule],
-  providers: [AdminService, AnnouncementsService, CatalogsService, PlansService, UsageService, FeedbackAdminService, ObservabilityService, MeasurementTypesService],
+  providers: [
+    AdminService,
+    AnnouncementsService,
+    CatalogsService,
+    PlansService,
+    UsageService,
+    FeedbackAdminService,
+    ObservabilityService,
+    MeasurementTypesService,
+    SuperAdminsService,
+  ],
   controllers: [
     AdminController,
     AnnouncementsController,
@@ -30,6 +42,7 @@ import { UsageService } from './usage.service';
     MeasurementTypesReadController,
     PlansController,
     PlatformInsightsController,
+    SuperAdminsController,
   ],
   exports: [CatalogsService],
 })

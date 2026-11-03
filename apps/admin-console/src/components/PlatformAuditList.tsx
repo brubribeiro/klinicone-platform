@@ -39,6 +39,11 @@ export const PLATFORM_AUDIT_LABELS: Record<PlatformAuditAction, { label: string;
   ANNOUNCEMENT_SCHEDULE: { label: 'Agendou o aviso', color: '#D49A3A' },
   ANNOUNCEMENT_UNSCHEDULE: { label: 'Cancelou o agendamento', color: '#C25A4C' },
   ANNOUNCEMENT_SEND: { label: 'Enviou o aviso', color: '#15998B' },
+  SUPER_ADMIN_CREATE: { label: 'Criou super-admin', color: '#15998B' },
+  SUPER_ADMIN_PROMOTE: { label: 'Promoveu a super-admin', color: '#15998B' },
+  SUPER_ADMIN_DEMOTE: { label: 'Removeu permissão de super-admin', color: '#C25A4C' },
+  SUPER_ADMIN_DEACTIVATE: { label: 'Desativou super-admin', color: '#C25A4C' },
+  SUPER_ADMIN_DELETE: { label: 'Excluiu super-admin', color: '#C25A4C' },
 };
 
 const FIELD_LABELS: Record<string, string> = {
@@ -153,6 +158,17 @@ export function auditDetailsText(entry: PlatformAuditLog): string | null {
     case 'CATALOG_ACTIVATE':
     case 'CATALOG_DEACTIVATE':
       return typeof d.kind === 'string' ? String(d.kind) : null;
+    case 'SUPER_ADMIN_CREATE':
+    case 'SUPER_ADMIN_PROMOTE':
+    case 'SUPER_ADMIN_DEMOTE':
+    case 'SUPER_ADMIN_DEACTIVATE':
+    case 'SUPER_ADMIN_DELETE': {
+      const parts = [
+        d.email ? String(d.email) : null,
+        d.dual ? 'login dual (clínica + plataforma)' : d.dual === false ? 'só plataforma' : null,
+      ].filter(Boolean);
+      return parts.join(' · ') || null;
+    }
     default:
       return null;
   }
