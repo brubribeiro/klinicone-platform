@@ -25,6 +25,15 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: './src/test/setup.ts',
     css: false,
+    coverage: {
+      provider: 'v8',
+      all: true,
+      include: ['src/**/*.{ts,tsx}'],
+      exclude: ['src/**/*.test.{ts,tsx}', 'src/test/**', 'src/**/*.d.ts', 'src/main.tsx', 'src/types/**'],
+      reporter: ['text-summary', 'json-summary', 'lcov'],
+      // Piso = cobertura medida no PR de testes, arredondada para baixo. Subir junto quando a cobertura subir.
+      thresholds: { statements: 13, branches: 65, functions: 35, lines: 13 },
+    },
   },
   server: {
     port: 5173,
