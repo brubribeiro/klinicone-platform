@@ -56,6 +56,7 @@ describe('PackagesService', () => {
         create: jest.fn().mockResolvedValue(mockPatientPackage),
         update: jest.fn().mockResolvedValue(mockPatientPackage),
         count: jest.fn().mockResolvedValue(0),
+        groupBy: jest.fn().mockResolvedValue([{ packageId: 'pkg-1', _count: { id: 2 } }]),
       },
       patient: {
         findUnique: jest.fn().mockResolvedValue({ id: 'patient-1', name: 'João' }),
@@ -97,7 +98,21 @@ describe('PackagesService', () => {
   describe('list', () => {
     it('should return packages with item count', async () => {
       const result = await service.list();
-      expect(result).toEqual([mockPackage]);
+      expect(result).toEqual([
+        {
+          ...mockPackage,
+          originalPrice: 2400,
+          salePrice: 2000,
+          savingsPercent: 17,
+          activePatientsCount: 2,
+          bestSeller: true,
+        },
+      ]);
+      expect(prisma.patientPackage.groupBy).toHaveBeenCalledWith({
+        by: ['packageId'],
+        where: { status: 'ACTIVE' },
+        _count: { id: true },
+      });
     });
   });
 
