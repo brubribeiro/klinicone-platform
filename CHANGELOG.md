@@ -7,6 +7,7 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 ### Changed
 - Painel — modal **Novo lançamento** (Financeiro) no design Aurora: campos em seções, corpo com fundo padrão e rodapé de ações igual ao das demais modais. Sem mudança de campos ou lógica.
 - Painel — tela **Mensagens** mais compacta: linhas da lista e cabeçalhos mais baixos (lista com rolagem própria), "Envios automáticos pendentes" e "Variáveis disponíveis" recolhidos por padrão, prévia do WhatsApp menor e editar/excluir como ícones no cabeçalho do modelo. Sem perda de funcionalidade.
+- Painel — modal de **Equipamentos** no design Aurora: campos agrupados em seções (Identificação, Aquisição, Manutenção, Observações) e fundo do conteúdo como nas demais modais. Sem mudança de campos ou lógica.
 
 ### Removed
 - Faixa discreta **DEV** no topo do painel e do admin-console (`DevEnvironmentBanner` / `DEV_BAR_HEIGHT`); layouts sem offset/padding reservado no topo. `APP_ENV`, `VITE_APP_ENV` e `env` em `GET /api/health` permanecem.
