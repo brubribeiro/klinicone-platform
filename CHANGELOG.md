@@ -13,6 +13,7 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 - Ambiente **dev/staging** separado de prod: `APP_ENV` / `VITE_APP_ENV`, `GET /api/health` com `env` (`dev`|`prod`), `.env.example` com blocos local/staging/prod, CI em PRs para `develop` / `release/*` / `main` (lint, tsc, testes, `prisma migrate deploy` com Postgres de serviço) e `docs/ambientes.md` (fluxo PR→develop→*.dev→main e passos manuais). Baseline ESLint (`.eslintrc.cjs` em backend/frontend) — o repo ainda não tinha config versionada.
 
 ### Fixed
+- Login Google: forçar fluxo clássico por popup (`ux_mode="popup"`, `use_fedcm_for_button={false}`) para evitar clique sem efeito no Chrome com FedCM em cooldown/bloqueado; mensagem clara no `onError` e se o botão oficial não renderizar em ~3 s. Mesmo `Login.tsx` do painel e do admin-console.
 - Frontend: `tsc -b` (tipos FullCalendar/`SxProps`/ViaCEP) e teste do Assistente que esperava excerpt em vez da resposta direta.
 
 ### Changed
