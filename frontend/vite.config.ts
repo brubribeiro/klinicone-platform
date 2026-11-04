@@ -32,7 +32,7 @@ export default defineConfig({
       exclude: ['src/**/*.test.{ts,tsx}', 'src/test/**', 'src/**/*.d.ts', 'src/main.tsx', 'src/types/**'],
       reporter: ['text-summary', 'json-summary', 'lcov'],
       // Piso = cobertura medida, arredondada para baixo. Meta: 80%; subir por etapas (cada PR que cobre um bloco de telas sobe o piso).
-      thresholds: { statements: 36, branches: 80, functions: 64, lines: 36 },
+      thresholds: { statements: 65, branches: 87, functions: 85, lines: 65 },
     },
   },
   server: {

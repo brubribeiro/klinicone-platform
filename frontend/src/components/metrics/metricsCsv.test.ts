@@ -95,3 +95,76 @@ describe('buildMetricsCsvRows', () => {
     expect(rows).toContainEqual({ Seção: 'Fluxo diário', Item: '06/10/2026', Indicador: 'Despesa (R$)', Valor: '120.50' });
   });
 });
+
+describe('buildMetricsCsvRows per tab', () => {
+  const rich: MetricsResult = {
+    ...data,
+    patients: {
+      ...data.patients,
+      topPatients: [{ name: 'Maria Silva', appointments: 5 }],
+      topLocations: [{ location: '18035-000', count: 7 }],
+    },
+    procedures: {
+      ...data.procedures,
+      totalCatalog: 15,
+      activeCatalog: 12,
+      averagePrice: 175.5,
+      averageRealDuration: 55,
+      ranking: [{ name: 'Peeling', count: 6, revenue: 1500, avgDuration: 40 }],
+      byProfessional: [{ procedure: 'Peeling', professional: 'Ana', count: 6 }],
+      byMonth: [{ month: '2026-10', count: 12 }],
+      durationByProcedure: [{ name: 'Peeling', avgMinutes: 65, count: 6 }],
+      durationByProfessional: [{ name: 'Ana', avgMinutes: 52, count: 9 }],
+      materialCost: [{ name: 'Peeling', baseCost: 40, price: 250, margin: 84 }],
+    },
+    packages: {
+      ...data.packages,
+      totalSold: 3,
+      totalRevenue: 4500,
+      sessionsUsed: 12,
+      sessionsTotal: 30,
+      completionRate: 40,
+      topPackages: [{ name: 'Noiva', sold: 2, revenue: 3000 }],
+    },
+  };
+
+  it('patients: returns rate and rankings', () => {
+    const rows = buildMetricsCsvRows({ ...base, data: rich, tab: 'patients' });
+    expect(rows).toContainEqual({ Seção: 'Pacientes', Item: 'Taxa de retorno (%)', Indicador: '', Valor: '50.0' });
+    expect(rows).toContainEqual({ Seção: 'Pacientes', Item: 'Média de idade (anos)', Indicador: '', Valor: '' });
+    expect(rows).toContainEqual({ Seção: 'Pacientes com mais agendamentos', Item: 'Maria Silva', Indicador: 'Agendamentos', Valor: 5 });
+    expect(rows).toContainEqual({ Seção: 'Localidades (CEP)', Item: '18035-000', Indicador: 'Pacientes', Valor: 7 });
+    expect(rows.some((r) => r.Seção === 'Agendamentos')).toBe(false);
+  });
+
+  it('procedures: catalog, ranking, real duration and margin', () => {
+    const rows = buildMetricsCsvRows({ ...base, data: rich, tab: 'procedures' });
+    expect(rows).toContainEqual({ Seção: 'Procedimentos', Item: 'Preço médio (R$)', Indicador: '', Valor: '175.50' });
+    expect(rows).toContainEqual({ Seção: 'Procedimentos', Item: 'Tempo real médio (min)', Indicador: '', Valor: 55 });
+    expect(rows).toContainEqual({ Seção: 'Ranking', Item: 'Peeling', Indicador: 'Receita (R$)', Valor: '1500.00' });
+    expect(rows).toContainEqual({ Seção: 'Por profissional', Item: 'Peeling · Ana', Indicador: 'Realizados', Valor: 6 });
+    expect(rows).toContainEqual({ Seção: 'Evolução mensal', Item: '2026-10', Indicador: 'Realizados', Valor: 12 });
+    expect(rows).toContainEqual({ Seção: 'Tempo real por procedimento', Item: 'Peeling', Indicador: 'Média (min)', Valor: 65 });
+    expect(rows).toContainEqual({ Seção: 'Tempo real por profissional', Item: 'Ana', Indicador: 'Atendimentos', Valor: 9 });
+    expect(rows).toContainEqual({ Seção: 'Margem por procedimento', Item: 'Peeling', Indicador: 'Margem (R$)', Valor: '84.00' });
+  });
+
+  it('procedures: omits real duration when unknown', () => {
+    const rows = buildMetricsCsvRows({ ...base, tab: 'procedures' });
+    expect(rows.some((r) => r.Item === 'Tempo real médio (min)')).toBe(false);
+  });
+
+  it('packages: sales, sessions and top packages', () => {
+    const rows = buildMetricsCsvRows({ ...base, data: rich, tab: 'packages' });
+    expect(rows).toContainEqual({ Seção: 'Pacotes', Item: 'Receita no período (R$)', Indicador: '', Valor: '4500.00' });
+    expect(rows).toContainEqual({ Seção: 'Pacotes', Item: 'Sessões consumidas', Indicador: 'Quantidade', Valor: 12 });
+    expect(rows).toContainEqual({ Seção: 'Pacotes mais vendidos', Item: 'Noiva', Indicador: 'Receita (R$)', Valor: '3000.00' });
+  });
+
+  it('appointments: lists professionals, procedures and the hourly series', () => {
+    const rows = buildMetricsCsvRows({ ...base, tab: 'appointments' });
+    expect(rows).toContainEqual({ Seção: 'Por horário', Item: '9:00', Indicador: 'Agendamentos', Valor: 3 });
+    expect(rows).toContainEqual({ Seção: 'Por profissional', Item: 'Mila', Indicador: 'Concluídos', Valor: 8 });
+    expect(rows).toContainEqual({ Seção: 'Por procedimento', Item: 'Limpeza', Indicador: 'Receita (R$)', Valor: '1600.00' });
+  });
+});
