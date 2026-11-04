@@ -29,7 +29,14 @@ export function AdminSuperAdmins() {
   const { user } = useAuth();
   const [formOpen, setFormOpen] = useState(false);
 
-  const { data: admins = [], isLoading } = useQuery({ queryKey: QUERY_KEY, queryFn: adminApi.listSuperAdmins });
+  const {
+    data: admins = [],
+    isLoading,
+    isError,
+    error,
+    refetch,
+    isFetching,
+  } = useQuery({ queryKey: QUERY_KEY, queryFn: adminApi.listSuperAdmins, retry: false });
 
   const removeMutation = useMutation({
     mutationFn: (admin: PlatformSuperAdmin) => adminApi.removeSuperAdmin(admin.id),
@@ -78,6 +85,8 @@ export function AdminSuperAdmins() {
             <Typography sx={{ fontSize: fontSizes.md, color: 'text.secondary', fontWeight: 600 }}>
               {isLoading ? (
                 <Skeleton width={220} />
+              ) : isError ? (
+                'Super-admins'
               ) : (
                 <>
                   <Box component="span" sx={{ color: 'text.primary', fontWeight: 800 }}>
@@ -135,6 +144,15 @@ export function AdminSuperAdmins() {
                 {Array.from({ length: 3 }).map((_, i) => (
                   <Skeleton key={i} height={48} sx={{ my: 0.5 }} />
                 ))}
+              </Stack>
+            ) : isError ? (
+              <Stack alignItems="flex-start" spacing={1.5} sx={{ px: 2.5, py: 3 }}>
+                <Typography role="alert" sx={{ color: 'error.main', fontSize: fontSizes.sm }}>
+                  {getApiErrorMessage(error, 'Não foi possível carregar os super-admins.')}
+                </Typography>
+                <Button variant="outlined" size="small" disabled={isFetching} onClick={() => refetch()}>
+                  Tentar de novo
+                </Button>
               </Stack>
             ) : admins.length === 0 ? (
               <Typography sx={{ px: 2.5, py: 3, color: 'text.secondary', fontSize: fontSizes.sm }}>
