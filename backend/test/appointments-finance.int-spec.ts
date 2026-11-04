@@ -630,11 +630,11 @@ describe('venda de pacote e sessões', () => {
     const pkg = await as(() =>
       packages.create({ name: `Promo pacote ${suffix}`, type: 'SESSIONS', items: [{ procedureId: p.id, quantity: 4 }] } as never),
     );
-    const today = new Date().toISOString().slice(0, 10);
     await as(() =>
       promotions.create({
         name: `Black ${suffix}`,
-        startAt: today,
+        // vigente hoje em qualquer fuso (a cotação usa o dia de Brasília)
+        startAt: '2020-01-01',
         endAt: '2099-12-31',
         discountType: 'FIXED',
         discountValue: 100,
