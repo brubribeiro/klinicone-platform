@@ -6,7 +6,7 @@ import { createAppTheme, type ColorMode } from '../theme';
 const STORAGE_KEY = 'klinicone.colorMode';
 const LEGACY_STORAGE_KEY = 'mila.colorMode';
 
-// Primeira visita: segue o sistema; depois vale a escolha salva no botão da lua.
+// Primeira visita: tema claro (ignora o sistema); depois vale a escolha salva no botão da lua.
 // Migra a chave antiga `mila.colorMode` sem perder a preferência.
 function initialMode(): ColorMode {
   const saved = localStorage.getItem(STORAGE_KEY) ?? localStorage.getItem(LEGACY_STORAGE_KEY);
@@ -19,7 +19,7 @@ function initialMode(): ColorMode {
     }
     return saved;
   }
-  return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  return 'light';
 }
 
 type ColorModeContextValue = {
