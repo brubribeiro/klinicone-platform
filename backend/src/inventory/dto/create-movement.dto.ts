@@ -6,9 +6,10 @@ export class CreateMovementDto {
   @IsEnum(MovementType)
   type: MovementType;
 
+  /** Entrada/saída: quantidade movimentada (> 0). Ajuste: novo total do item (pode ser 0). */
   @Type(() => Number)
   @IsNumber()
-  @Min(0.001)
+  @Min(0)
   quantity: number;
 
   @IsOptional()

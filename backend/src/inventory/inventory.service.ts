@@ -122,6 +122,9 @@ export class InventoryService {
     const item = await this.findOne(itemId);
 
     const currentQty = Number(item.quantity);
+    if (dto.type !== MovementType.ADJUSTMENT && !(dto.quantity > 0)) {
+      throw new BadRequestException('Informe uma quantidade maior que zero.');
+    }
 
     let delta = 0;
     if (dto.type === MovementType.IN) delta = dto.quantity;

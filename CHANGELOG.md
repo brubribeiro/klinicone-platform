@@ -11,6 +11,7 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 - Ambiente **dev/staging** separado de prod: `APP_ENV` / `VITE_APP_ENV`, `GET /api/health` com `env` (`dev`|`prod`), faixa discreta **DEV** no painel e no admin-console, `.env.example` com blocos local/staging/prod, CI em PRs para `develop` / `release/*` / `main` (lint, tsc, testes, `prisma migrate deploy` com Postgres de serviço) e `docs/ambientes.md` (fluxo PR→develop→*.dev→main e passos manuais). Baseline ESLint (`.eslintrc.cjs` em backend/frontend) — o repo ainda não tinha config versionada.
 
 ### Fixed
+- Estoque: o **Ajuste** (nova quantidade total) não deixava zerar o item: o painel exigia no mínimo 1 e a API no mínimo 0,001. Agora o ajuste aceita 0; entrada e saída continuam exigindo quantidade maior que zero (validado também na API).
 - Backend: agendamento com o mesmo procedimento repetido em `procedureIds` era recusado com "Um ou mais procedimentos não foram encontrados"; a validação agora usa a lista sem repetidos (a mesma que é gravada).
 - Frontend: `tsc -b` (tipos FullCalendar/`SxProps`/ViaCEP) e teste do Assistente que esperava excerpt em vez da resposta direta.
 

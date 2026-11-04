@@ -236,6 +236,18 @@ describe('MovementDialog', () => {
     expect(mocked(inventoryApi.createMovement).mock.calls[0][1]).toEqual({ type: 'ADJUSTMENT', quantity: 12 });
   });
 
+  it('ajuste pode zerar o estoque', async () => {
+    mocked(inventoryApi.createMovement).mockResolvedValue({});
+    renderWith(<MovementDialog open onClose={vi.fn()} item={toxina} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Ajuste' }));
+    await userEvent.clear(qty());
+    await userEvent.type(qty(), '0');
+    await userEvent.click(screen.getByRole('button', { name: 'Confirmar' }));
+    await waitFor(() => expect(inventoryApi.createMovement).toHaveBeenCalled());
+    expect(mocked(inventoryApi.createMovement).mock.calls[0][1]).toEqual({ type: 'ADJUSTMENT', quantity: 0 });
+    expect(screen.queryByText('A quantidade mínima é 1')).not.toBeInTheDocument();
+  });
+
   it('quantidade zero mostra a validação', async () => {
     renderWith(<MovementDialog open onClose={vi.fn()} item={{ ...toxina, costPrice: undefined }} />);
     await userEvent.click(screen.getByRole('button', { name: 'Saída' }));
