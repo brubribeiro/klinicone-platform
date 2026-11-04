@@ -35,6 +35,6 @@ module.exports = {
   coverageReporters: ['text-summary', 'json-summary', 'lcov'],
   // Piso = cobertura medida neste PR, arredondada para baixo. Subir junto quando a cobertura subir.
   coverageThreshold: {
-    global: { statements: 62, branches: 48, functions: 47, lines: 62 },
+    global: { statements: 87, branches: 74, functions: 81, lines: 89 },
   },
 };
