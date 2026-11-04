@@ -34,7 +34,7 @@ Não rode seed demo no start da API de produção. Versão (`VERSION`) só sobe 
 | `NODE_ENV` | Backend | Em staging no Render pode ser `production` (perf) com `APP_ENV=development` |
 | `CORS_ORIGIN` | Backend | Obrigatório; vários hosts separados por vírgula |
 | `GOOGLE_CLIENT_ID` | Backend + fronts (`VITE_`) | Client OAuth **do ambiente** (autorizar os hosts da tabela) |
-| `VITE_APP_ENV` | Fronts | `development` mostra faixa **DEV**; `production` esconde |
+| `VITE_APP_ENV` | Fronts | `development` / `staging` → `dev`; `production` → `prod` (alinha com o health da API; sem faixa na UI) |
 | `VITE_API_URL` / `VITE_APP_URL` / `VITE_ADMIN_URL` / `VITE_LANDING_URL` | Fronts | Sem host default no código |
 
 Exemplos por bloco: `backend/.env.example`, `frontend/.env.example`, `apps/landing/.env.example`, `apps/admin-console/.env.example`.
