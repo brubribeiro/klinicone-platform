@@ -13,6 +13,7 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 - Ambiente **dev/staging** separado de prod: `APP_ENV` / `VITE_APP_ENV`, `GET /api/health` com `env` (`dev`|`prod`), `.env.example` com blocos local/staging/prod, CI em PRs para `develop` / `release/*` / `main` (lint, tsc, testes, `prisma migrate deploy` com Postgres de serviço) e `docs/ambientes.md` (fluxo PR→develop→*.dev→main e passos manuais). Baseline ESLint (`.eslintrc.cjs` em backend/frontend) — o repo ainda não tinha config versionada.
 
 ### Fixed
+- Login Google (painel): visual do botão oficial ajustado — tema `filled_black` fixo (antes alternava para `outline` no modo claro), `shape="pill"`, largura do container (máx. 400 px) centralizada e sem a caixa branca/borda ao redor; iframe segue visível e clicável.
 - Login Google (painel e admin): botão oficial do Google agora **visível** (tema `outline`/`filled_black`, largura do container, pt-BR) no lugar do overlay invisível com `scale` que não recebia o clique em alguns navegadores; removido o botão decorativo duplicado. Mantidos o estado "Verificando acesso..." e a dica de bloqueadores após 3 s.
 - Login Google: forçar fluxo clássico por popup (`ux_mode="popup"`, `use_fedcm_for_button={false}`) para evitar clique sem efeito no Chrome com FedCM em cooldown/bloqueado; mensagem clara no `onError` e se o botão oficial não renderizar em ~3 s. Mesmo `Login.tsx` do painel e do admin-console.
 - Frontend: `tsc -b` (tipos FullCalendar/`SxProps`/ViaCEP) e teste do Assistente que esperava excerpt em vez da resposta direta.

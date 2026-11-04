@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Navigate, useNavigate, Link } from 'react-router-dom';
-import { Alert, AlertTitle, Box, CircularProgress, Link as MuiLink, Stack, Typography, useTheme } from '@mui/material';
+import { Alert, AlertTitle, Box, CircularProgress, Link as MuiLink, Stack, Typography } from '@mui/material';
 import { keyframes } from '@mui/system';
 import { GoogleLogin, type CredentialResponse } from '@react-oauth/google';
 import { useAuth } from '../contexts/AuthContext';
@@ -92,9 +92,8 @@ export function Login() {
   const [submitting, setSubmitting] = useState(false);
   const [googleHelp, setGoogleHelp] = useState<string | null>(null);
   const googleBtnHostRef = useRef<HTMLDivElement>(null);
-  const isDark = useTheme().palette.mode === 'dark';
   // O GSI aceita largura de 200 a 400 px; acompanha o container.
-  const [googleBtnWidth, setGoogleBtnWidth] = useState(376);
+  const [googleBtnWidth, setGoogleBtnWidth] = useState(280);
 
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? '';
   const adminEmail = import.meta.env.VITE_ADMIN_CONTACT_EMAIL ?? '';
@@ -259,20 +258,16 @@ export function Login() {
     <Box
       sx={{
         position: 'relative',
-        minHeight: 56,
-        borderRadius: '14px',
-        border: '1px solid',
-        borderColor: 'divider',
-        bgcolor: 'background.paper',
+        minHeight: 44,
+        width: '100%',
+        minWidth: 0,
         color: 'text.primary',
         fontSize: fontSizes.lg,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         gap: '12px',
-        p: '8px',
         opacity: googleClientId ? 1 : 0.55,
-        boxShadow: '0 2px 8px -2px rgba(16,40,37,.1)',
       }}
     >
       {submitting ? (
@@ -285,15 +280,27 @@ export function Login() {
       ) : (
         googleClientId && (
           // Botão oficial do Google, visível: o backend valida o ID token recebido em onSuccess.
-          <Box ref={googleBtnHostRef} sx={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
+          <Box
+            ref={googleBtnHostRef}
+            sx={{
+              width: '100%',
+              maxWidth: 400,
+              minWidth: 0,
+              mx: 'auto',
+              display: 'flex',
+              justifyContent: 'center',
+              // O iframe do GSI vem com fundo transparente; mantém o respiro e centraliza sem cobri-lo.
+              '& > div': { display: 'flex', justifyContent: 'center' },
+            }}
+          >
             <GoogleLogin
               onSuccess={handleGoogleSuccess}
               onError={handleGoogleError}
               ux_mode="popup"
               use_fedcm_for_button={false}
-              theme={isDark ? 'filled_black' : 'outline'}
+              theme="filled_black"
               text="signin_with"
-              shape="rectangular"
+              shape="pill"
               size="large"
               width={String(googleBtnWidth)}
               locale="pt-BR"
