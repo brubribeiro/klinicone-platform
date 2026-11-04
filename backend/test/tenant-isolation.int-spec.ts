@@ -310,7 +310,7 @@ describe('tenant isolation', () => {
     it('suspended clinic: requests and login are refused with a clear message', async () => {
       const strategy = moduleRef.get(JwtStrategy);
       const auth = moduleRef.get(AuthService);
-      (auth as any).googleClient = { verifyIdToken: async () => ({ getPayload: () => ({ email: B.admin.email }) }) };
+      (auth as any).googleClient = { verifyIdToken: async () => ({ getPayload: () => ({ email: B.admin.email, email_verified: true }) }) };
 
       await base.tenant.update({ where: { id: B.tenant.id }, data: { active: false, suspendedAt: new Date() } });
       try {
