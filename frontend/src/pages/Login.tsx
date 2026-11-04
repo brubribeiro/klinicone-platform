@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Navigate, useNavigate, Link } from 'react-router-dom';
-import { Alert, AlertTitle, Box, CircularProgress, Link as MuiLink, Stack, Typography } from '@mui/material';
+import { Alert, AlertTitle, Box, CircularProgress, Link as MuiLink, Stack, Typography, useTheme } from '@mui/material';
 import { keyframes } from '@mui/system';
 import { GoogleLogin, type CredentialResponse } from '@react-oauth/google';
 import { useAuth } from '../contexts/AuthContext';
@@ -82,26 +82,6 @@ function BrandLogo({ dark = false }: { dark?: boolean }) {
   );
 }
 
-function GoogleGIcon() {
-  return (
-    <svg width="23" height="23" viewBox="0 0 24 24" aria-hidden="true">
-      <path
-        fill="#4285F4"
-        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.76h3.56c2.08-1.92 3.28-4.74 3.28-8.09z"
-      />
-      <path
-        fill="#34A853"
-        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.56-2.76c-.98.66-2.23 1.06-3.72 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23z"
-      />
-      <path fill="#FBBC05" d="M5.84 14.11a6.6 6.6 0 0 1 0-4.22V7.05H2.18a11 11 0 0 0 0 9.9l3.66-2.84z" />
-      <path
-        fill="#EA4335"
-        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1A11 11 0 0 0 2.18 7.05l3.66 2.84c.87-2.6 3.3-4.51 6.16-4.51z"
-      />
-    </svg>
-  );
-}
-
 export function Login() {
   const { user, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
@@ -112,6 +92,9 @@ export function Login() {
   const [submitting, setSubmitting] = useState(false);
   const [googleHelp, setGoogleHelp] = useState<string | null>(null);
   const googleBtnHostRef = useRef<HTMLDivElement>(null);
+  const isDark = useTheme().palette.mode === 'dark';
+  // O GSI aceita largura de 200 a 400 px; acompanha o container.
+  const [googleBtnWidth, setGoogleBtnWidth] = useState(376);
 
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? '';
   const adminEmail = import.meta.env.VITE_ADMIN_CONTACT_EMAIL ?? '';
@@ -131,6 +114,19 @@ export function Login() {
       if (!rendered) setGoogleHelp(GOOGLE_BUTTON_HELP);
     }, 3000);
     return () => window.clearTimeout(timer);
+  }, [googleClientId, submitting, user]);
+
+  useEffect(() => {
+    const host = googleBtnHostRef.current;
+    if (!host || typeof ResizeObserver === 'undefined') return;
+    const update = () => {
+      const w = Math.floor(host.getBoundingClientRect().width);
+      if (w > 0) setGoogleBtnWidth(Math.min(400, Math.max(200, w)));
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(host);
+    return () => ro.disconnect();
   }, [googleClientId, submitting, user]);
 
   if (user) {
@@ -263,34 +259,20 @@ export function Login() {
     <Box
       sx={{
         position: 'relative',
-        height: 56,
+        minHeight: 56,
         borderRadius: '14px',
         border: '1px solid',
         borderColor: 'divider',
         bgcolor: 'background.paper',
         color: 'text.primary',
         fontSize: fontSizes.lg,
-        fontWeight: 700,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         gap: '12px',
-        overflow: 'hidden',
-        cursor: googleClientId ? 'pointer' : 'default',
+        p: '8px',
         opacity: googleClientId ? 1 : 0.55,
         boxShadow: '0 2px 8px -2px rgba(16,40,37,.1)',
-        transition: 'border-color .15s, box-shadow .15s',
-        ...(googleClientId && {
-          '&:hover': {
-            borderColor: 'primary.main',
-            boxShadow: '0 6px 20px -6px rgba(21,153,139,.4)',
-          },
-        }),
-        '&:focus-within': {
-          outline: '2px solid',
-          outlineColor: 'primary.main',
-          outlineOffset: 2,
-        },
       }}
     >
       {submitting ? (
@@ -301,38 +283,23 @@ export function Login() {
           </Box>
         </>
       ) : (
-        <>
-          <GoogleGIcon />
-          Entrar com o Google
-        </>
-      )}
-
-      {/* O backend valida o ID token do Google: o botão oficial fica invisível por cima do visual Aurora e recebe o clique. */}
-      {googleClientId && !submitting && (
-        <Box
-          ref={googleBtnHostRef}
-          sx={{
-            position: 'absolute',
-            inset: 0,
-            opacity: 0,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            '& > div': { transform: 'scale(1.1, 1.45)' },
-          }}
-        >
-          <GoogleLogin
-            onSuccess={handleGoogleSuccess}
-            onError={handleGoogleError}
-            ux_mode="popup"
-            use_fedcm_for_button={false}
-            text="signin_with"
-            shape="rectangular"
-            size="large"
-            width="400"
-            locale="pt-BR"
-          />
-        </Box>
+        googleClientId && (
+          // Botão oficial do Google, visível: o backend valida o ID token recebido em onSuccess.
+          <Box ref={googleBtnHostRef} sx={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
+            <GoogleLogin
+              onSuccess={handleGoogleSuccess}
+              onError={handleGoogleError}
+              ux_mode="popup"
+              use_fedcm_for_button={false}
+              theme={isDark ? 'filled_black' : 'outline'}
+              text="signin_with"
+              shape="rectangular"
+              size="large"
+              width={String(googleBtnWidth)}
+              locale="pt-BR"
+            />
+          </Box>
+        )
       )}
     </Box>
   );

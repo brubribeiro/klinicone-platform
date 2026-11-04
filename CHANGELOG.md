@@ -16,6 +16,7 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 ### Fixed
 - Estoque: o **Ajuste** (nova quantidade total) não deixava zerar o item: o painel exigia no mínimo 1 e a API no mínimo 0,001. Agora o ajuste aceita 0; entrada e saída continuam exigindo quantidade maior que zero (validado também na API).
 - Backend: agendamento com o mesmo procedimento repetido em `procedureIds` era recusado com "Um ou mais procedimentos não foram encontrados"; a validação agora usa a lista sem repetidos (a mesma que é gravada).
+- Login Google (painel e admin): botão oficial do Google agora **visível** (tema `outline`/`filled_black`, largura do container, pt-BR) no lugar do overlay invisível com `scale` que não recebia o clique em alguns navegadores; removido o botão decorativo duplicado. Mantidos o estado "Verificando acesso..." e a dica de bloqueadores após 3 s.
 - Login Google: forçar fluxo clássico por popup (`ux_mode="popup"`, `use_fedcm_for_button={false}`) para evitar clique sem efeito no Chrome com FedCM em cooldown/bloqueado; mensagem clara no `onError` e se o botão oficial não renderizar em ~3 s. Mesmo `Login.tsx` do painel e do admin-console.
 - Frontend: `tsc -b` (tipos FullCalendar/`SxProps`/ViaCEP) e teste do Assistente que esperava excerpt em vez da resposta direta.
 
