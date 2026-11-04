@@ -9,6 +9,7 @@ import { AdminFeedback } from './pages/AdminFeedback';
 import { AdminMeasurementTypes } from './pages/AdminMeasurementTypes';
 import { AdminObservability } from './pages/AdminObservability';
 import { AdminPlans } from './pages/AdminPlans';
+import { AdminSuperAdmins } from './pages/AdminSuperAdmins';
 import { AdminTenantDetail } from './pages/AdminTenantDetail';
 import { AdminTenants } from './pages/AdminTenants';
 import { AdminUsage } from './pages/AdminUsage';
@@ -33,6 +34,7 @@ export default function AdminApp() {
         <Route path="planos" element={<AdminPlans />} />
         <Route path="catalogos" element={<AdminCatalogs />} />
         <Route path="medidas" element={<AdminMeasurementTypes />} />
+        <Route path="super-admins" element={<AdminSuperAdmins />} />
         <Route path="uso" element={<AdminUsage />} />
         <Route path="saude" element={<AdminObservability />} />
         <Route path="reports" element={<AdminFeedback />} />

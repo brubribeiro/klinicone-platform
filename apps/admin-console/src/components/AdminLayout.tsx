@@ -26,6 +26,7 @@ const ADMIN_NAV_GROUPS: NavGroup[] = [
       { label: 'Planos', path: adminPath('/planos'), icon: <AuroraIcon name="pacotes" /> },
       { label: 'Catálogos', path: adminPath('/catalogos'), icon: <AuroraIcon name="documentos" /> },
       { label: 'Medidas', path: adminPath('/medidas'), icon: <AuroraIcon name="metas" /> },
+      { label: 'Super-admins', path: adminPath('/super-admins'), icon: <AuroraIcon name="lock" /> },
       { label: 'Uso', path: adminPath('/uso'), icon: <AuroraIcon name="relatorios" /> },
       { label: 'Saúde da API', path: adminPath('/saude'), icon: <AuroraIcon name="eye" /> },
       { label: 'Reports', path: adminPath('/reports'), icon: <AuroraIcon name="feedback" /> },
@@ -53,6 +54,11 @@ const ADMIN_PAGE_META: { path: string; title: string; subtitle: string }[] = [
     path: adminPath('/medidas'),
     title: 'Medidas corporais',
     subtitle: 'Tipos de medida do card “Medidas corporais” da ficha (todas as clínicas)',
+  },
+  {
+    path: adminPath('/super-admins'),
+    title: 'Super-admins',
+    subtitle: 'Quem acessa o console da plataforma (criar, promover e remover)',
   },
   {
     path: adminPath('/uso'),

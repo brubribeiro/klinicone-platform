@@ -133,7 +133,27 @@ export type PlatformAuditAction =
   | 'ANNOUNCEMENT_DELETE'
   | 'ANNOUNCEMENT_SCHEDULE'
   | 'ANNOUNCEMENT_UNSCHEDULE'
-  | 'ANNOUNCEMENT_SEND';
+  | 'ANNOUNCEMENT_SEND'
+  | 'SUPER_ADMIN_CREATE'
+  | 'SUPER_ADMIN_PROMOTE'
+  | 'SUPER_ADMIN_DEMOTE'
+  | 'SUPER_ADMIN_DEACTIVATE'
+  | 'SUPER_ADMIN_DELETE';
+
+/** Super-admin da plataforma (listagem /admin/super-admins). */
+export interface PlatformSuperAdmin {
+  id: string;
+  name: string;
+  email: string;
+  /** Login dual: também é usuário de uma clínica. */
+  hasClinic: boolean;
+  tenantId: string | null;
+  tenantName: string | null;
+  tenantSlug: string | null;
+  active: boolean;
+  createdAt: string;
+  lastAccessAt: string | null;
+}
 
 /** Aviso de novidades/correções do super-admin para as clínicas (vira notificação no sino). */
 export type AnnouncementKind = 'FEATURE' | 'FIX';
