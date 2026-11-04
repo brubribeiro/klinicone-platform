@@ -4,6 +4,9 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ## [Unreleased]
 
+### Changed
+- Painel — tela **Mensagens** mais compacta: linhas da lista e cabeçalhos mais baixos (lista com rolagem própria), "Envios automáticos pendentes" e "Variáveis disponíveis" recolhidos por padrão, prévia do WhatsApp menor e editar/excluir como ícones no cabeçalho do modelo. Sem perda de funcionalidade.
+
 ### Removed
 - Faixa discreta **DEV** no topo do painel e do admin-console (`DevEnvironmentBanner` / `DEV_BAR_HEIGHT`); layouts sem offset/padding reservado no topo. `APP_ENV`, `VITE_APP_ENV` e `env` em `GET /api/health` permanecem.
 

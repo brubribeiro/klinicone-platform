@@ -3,6 +3,7 @@ import {
   Box,
   Button,
   Card,
+  Collapse,
   IconButton,
   InputBase,
   alpha,
@@ -13,6 +14,8 @@ import {
 } from '@mui/material';
 import type { Theme } from '@mui/material/styles';
 import AddIcon from '@mui/icons-material/Add';
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import SearchIcon from '@mui/icons-material/Search';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -61,9 +64,9 @@ function ChatIcon() {
     <Box
       component="span"
       sx={{
-        width: 38,
-        height: 38,
-        borderRadius: '11px',
+        width: 30,
+        height: 30,
+        borderRadius: '9px',
         bgcolor: 'rgba(37,211,102,.14)',
         color: WHATSAPP_GREEN,
         display: 'flex',
@@ -73,8 +76,8 @@ function ChatIcon() {
       }}
     >
       <svg
-        width="19"
-        height="19"
+        width="16"
+        height="16"
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"
@@ -110,8 +113,8 @@ function StatusBadge({
         fontWeight: 700,
         color: active ? WHATSAPP_GREEN : 'text.secondary',
         bgcolor: active ? 'rgba(37,211,102,.13)' : 'grey.100',
-        px: 1.5,
-        py: 0.625,
+        px: 1.25,
+        py: 0.375,
         border: 'none',
         borderRadius: '8px',
         whiteSpace: 'nowrap',
@@ -142,6 +145,7 @@ export function Messages() {
   const [search, setSearch] = useUrlState('busca', '');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
+  const [varsOpen, setVarsOpen] = useState(false);
   const [editing, setEditing] = useState<MessageTemplate | null>(null);
 
   const { data: templates = [], isLoading } = useQuery({
@@ -245,7 +249,7 @@ export function Messages() {
         sx={{
           display: 'grid',
           gridTemplateColumns: { xs: '1fr', md: '1fr 1.1fr' },
-          gap: { xs: 2, sm: 2.25 },
+          gap: { xs: 1.5, sm: 2 },
           alignItems: 'start',
         }}
       >
@@ -256,10 +260,13 @@ export function Messages() {
             alignItems={{ xs: 'stretch', sm: 'center' }}
             justifyContent="space-between"
             spacing={1.5}
-            sx={{ px: { xs: 2, sm: 2.75 }, py: 2.25, borderBottom: 1, borderColor: 'divider' }}
+            sx={{ px: { xs: 1.5, sm: 2 }, py: 1.25, borderBottom: 1, borderColor: 'divider' }}
           >
-            <Typography sx={{ fontSize: fontSizes.xl, fontWeight: 700, whiteSpace: 'nowrap' }}>
-              Modelos de mensagem
+            <Typography sx={{ fontSize: fontSizes.lg, fontWeight: 700, whiteSpace: 'nowrap' }}>
+              Modelos{' '}
+              <Box component="span" sx={{ color: 'text.secondary', fontWeight: 600, fontSize: fontSizes.sm }}>
+                {templates.length}
+              </Box>
             </Typography>
             <Stack direction="row" alignItems="center" spacing={1.125} sx={{ minWidth: 0 }}>
               <Stack
@@ -267,13 +274,13 @@ export function Messages() {
                 alignItems="center"
                 spacing={1}
                 sx={{
-                  height: 36,
-                  px: 1.5,
+                  height: 32,
+                  px: 1.25,
                   borderRadius: '10px',
                   border: 1,
                   borderColor: 'divider',
                   bgcolor: 'grey.50',
-                  width: { xs: '100%', sm: 170 },
+                  width: { xs: '100%', sm: 150 },
                   minWidth: 0,
                 }}
               >
@@ -293,8 +300,8 @@ export function Messages() {
                   onClick={openCreate}
                   sx={{
                     flexShrink: 0,
-                    height: 36,
-                    px: 1.75,
+                    height: 32,
+                    px: 1.5,
                     borderRadius: '10px',
                     fontSize: fontSizes.sm,
                     fontWeight: 700,
@@ -306,6 +313,7 @@ export function Messages() {
             </Stack>
           </Stack>
 
+          <Box sx={{ maxHeight: { xs: 300, md: 'calc(100vh - 220px)' }, overflowY: 'auto' }}>
           {isLoading ? (
             Array.from({ length: 5 }).map((_, i) => (
               <Stack
@@ -313,9 +321,9 @@ export function Messages() {
                 direction="row"
                 alignItems="center"
                 spacing={1.5}
-                sx={{ px: 2.75, py: 1.75, borderBottom: 1, borderColor: 'grey.100' }}
+                sx={{ px: 2, py: 1, borderBottom: 1, borderColor: 'grey.100' }}
               >
-                <Skeleton variant="rounded" width={38} height={38} sx={{ borderRadius: '11px' }} />
+                <Skeleton variant="rounded" width={30} height={30} sx={{ borderRadius: '9px' }} />
                 <Box sx={{ flex: 1 }}>
                   <Skeleton variant="text" width="55%" />
                   <Skeleton variant="text" width="35%" />
@@ -323,14 +331,12 @@ export function Messages() {
               </Stack>
             ))
           ) : filteredTemplates.length === 0 ? (
-            <Box sx={{ px: 3, py: 6, textAlign: 'center' }}>
-              <Typography sx={{ fontWeight: 700 }}>
+            <Box sx={{ px: 3, py: 4, textAlign: 'center' }}>
+              <Typography sx={{ fontWeight: 700, fontSize: fontSizes.md }}>
                 {templates.length === 0 ? 'Nenhum modelo cadastrado' : 'Nenhum modelo encontrado'}
               </Typography>
-              <Typography color="text.secondary" sx={{ fontSize: fontSizes.md, mt: 0.5 }}>
-                {templates.length === 0
-                  ? 'Crie modelos para agilizar confirmações, lembretes e aniversários.'
-                  : 'Tente outra busca.'}
+              <Typography color="text.secondary" sx={{ fontSize: fontSizes.sm, mt: 0.25 }}>
+                {templates.length === 0 ? 'Crie o primeiro modelo.' : 'Tente outra busca.'}
               </Typography>
             </Box>
           ) : (
@@ -352,9 +358,9 @@ export function Messages() {
                   sx={{
                     display: 'flex',
                     alignItems: 'center',
-                    gap: 1.5,
-                    px: { xs: 2, sm: 2.75 },
-                    py: 1.75,
+                    gap: 1.25,
+                    px: { xs: 1.5, sm: 2 },
+                    py: 1,
                     borderBottom: 1,
                     borderColor: 'grey.100',
                     cursor: 'pointer',
@@ -372,7 +378,7 @@ export function Messages() {
                     <Typography
                       noWrap
                       sx={{
-                        fontSize: fontSizes.md,
+                        fontSize: fontSizes.sm,
                         fontWeight: 700,
                         color: t.active ? 'text.primary' : 'text.secondary',
                       }}
@@ -380,7 +386,7 @@ export function Messages() {
                       {t.name}
                     </Typography>
                     <Typography noWrap sx={{ fontSize: fontSizes.xs, color: 'text.secondary' }}>
-                      Gatilho: {triggerLabel[t.trigger]}
+                      {triggerLabel[t.trigger]}
                       {!t.active && ' · Inativa'}
                     </Typography>
                   </Box>
@@ -399,10 +405,11 @@ export function Messages() {
               );
             })
           )}
+          </Box>
         </Card>
 
         {/* Detalhe do modelo selecionado */}
-        <Card data-tour="messages-detail" sx={{ ...CARD_SX, p: { xs: 2, sm: 2.75 }, position: { md: 'sticky' }, top: { md: 16 } }}>
+        <Card data-tour="messages-detail" sx={{ ...CARD_SX, p: { xs: 1.5, sm: 2 }, position: { md: 'sticky' }, top: { md: 16 } }}>
           {isLoading ? (
             <>
               <Skeleton variant="text" width="45%" sx={{ fontSize: fontSizes.xl }} />
@@ -423,14 +430,14 @@ export function Messages() {
                 alignItems="flex-start"
                 justifyContent="space-between"
                 spacing={1.5}
-                sx={{ mb: 2 }}
+                sx={{ mb: 1.25 }}
               >
                 <Box sx={{ minWidth: 0, lineHeight: 1.3 }}>
-                  <Typography sx={{ fontSize: fontSizes.xl, fontWeight: 700 }}>
+                  <Typography sx={{ fontSize: fontSizes.lg, fontWeight: 700 }}>
                     {selected.name}
                   </Typography>
                   <Typography sx={{ fontSize: fontSizes.xs, color: 'text.secondary' }}>
-                    Enviada: {triggerLabel[selected.trigger]}
+                    {triggerLabel[selected.trigger]}
                     {selected.category && ` · ${categoryLabel[selected.category] ?? selected.category}`}
                   </Typography>
                 </Box>
@@ -440,6 +447,17 @@ export function Messages() {
                     onClick={canEdit ? () => toggleMutation.mutate(selected) : undefined}
                     disabled={toggleMutation.isPending}
                   />
+                  {canEdit && (
+                    <Tooltip title="Editar modelo">
+                      <IconButton
+                        aria-label={`Editar modelo ${selected.name}`}
+                        onClick={() => openEdit(selected)}
+                        sx={{ ...ICON_BUTTON_SX, width: 30, height: 30, borderRadius: '9px' }}
+                      >
+                        <EditOutlinedIcon sx={{ fontSize: 17 }} />
+                      </IconButton>
+                    </Tooltip>
+                  )}
                   {canDelete && (
                     <Tooltip title="Excluir modelo">
                       <IconButton
@@ -460,29 +478,28 @@ export function Messages() {
                 procedure={selected.procedure}
               />
 
-              <Box sx={{ mt: 2.25 }}>
-                <Typography
-                  sx={{ fontSize: fontSizes.xs, fontWeight: 700, color: 'text.secondary', mb: 1.125 }}
+              <Box sx={{ mt: 1 }}>
+                <Button
+                  size="small"
+                  onClick={() => setVarsOpen((v) => !v)}
+                  aria-expanded={varsOpen}
+                  endIcon={
+                    <ExpandMoreIcon
+                      sx={{ transform: varsOpen ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }}
+                    />
+                  }
+                  sx={{ color: 'text.secondary', fontSize: fontSizes.xs, fontWeight: 700, px: 0.5 }}
                 >
                   Variáveis disponíveis
-                </Typography>
-                <Stack direction="row" flexWrap="wrap" useFlexGap sx={{ gap: 0.875 }}>
-                  {TEMPLATE_VARIABLES.map((v) => (
-                    <VariableChip key={v} label={v} />
-                  ))}
-                </Stack>
-              </Box>
-
-              {canEdit && (
-                <Button
-                  fullWidth
-                  variant="contained"
-                  onClick={() => openEdit(selected)}
-                  sx={{ mt: 2.5, height: 44, borderRadius: '12px', fontSize: fontSizes.md, fontWeight: 700 }}
-                >
-                  Editar mensagem
                 </Button>
-              )}
+                <Collapse in={varsOpen} unmountOnExit>
+                  <Stack direction="row" flexWrap="wrap" useFlexGap sx={{ gap: 0.625, pt: 0.5 }}>
+                    {TEMPLATE_VARIABLES.map((v) => (
+                      <VariableChip key={v} label={v} />
+                    ))}
+                  </Stack>
+                </Collapse>
+              </Box>
             </>
           )}
         </Card>
