@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Navigate, useNavigate, Link } from 'react-router-dom';
 import { Alert, AlertTitle, Box, CircularProgress, Link as MuiLink, Stack, Typography } from '@mui/material';
 import { keyframes } from '@mui/system';
@@ -11,6 +11,10 @@ import { ExternalRedirect } from '../components/ExternalRedirect';
 import { BRAND_LEGAL_NAME, BRAND_NAME, BRAND_TAGLINE } from '../brand';
 import { adminConsoleUrl } from '../utils/appUrls';
 import { clearAuthNotice, readAuthNotice, tenantSuspendedMessage } from '../utils/authNotice';
+
+/** Dica quando o botão GSI não monta ou o popup/FedCM falha (bloqueadores, pop-ups). */
+const GOOGLE_BUTTON_HELP =
+  'Não abre? Desative bloqueadores de anúncio ou permita pop-ups neste site.';
 
 // Painel de marca Aurora (mesmo verde-escuro do menu lateral)
 const BRAND_BG = '#0E2926';
@@ -106,9 +110,28 @@ export function Login() {
   const [suspendedNotice, setSuspendedNotice] = useState<string | null>(readAuthNotice);
   useEffect(clearAuthNotice, []);
   const [submitting, setSubmitting] = useState(false);
+  const [googleHelp, setGoogleHelp] = useState<string | null>(null);
+  const googleBtnHostRef = useRef<HTMLDivElement>(null);
 
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? '';
   const adminEmail = import.meta.env.VITE_ADMIN_CONTACT_EMAIL ?? '';
+
+  // Se o iframe/botão oficial do Google não aparecer em ~3 s, orientar sobre bloqueadores/pop-ups.
+  useEffect(() => {
+    if (!googleClientId || submitting || user) {
+      setGoogleHelp(null);
+      return;
+    }
+    setGoogleHelp(null);
+    const timer = window.setTimeout(() => {
+      const host = googleBtnHostRef.current;
+      const rendered = Boolean(
+        host?.querySelector('iframe, div[role="button"], [data-is-touch-wrapper]'),
+      );
+      if (!rendered) setGoogleHelp(GOOGLE_BUTTON_HELP);
+    }, 3000);
+    return () => window.clearTimeout(timer);
+  }, [googleClientId, submitting, user]);
 
   if (user) {
     if (user.panelSelectionPending) return <Navigate to="/escolher-painel" replace />;
@@ -121,6 +144,7 @@ export function Login() {
   async function handleGoogleSuccess(response: CredentialResponse) {
     if (!response.credential) return;
     setError(null);
+    setGoogleHelp(null);
     setSuspendedNotice(null);
     setSubmitting(true);
     try {
@@ -140,6 +164,10 @@ export function Login() {
     } finally {
       setSubmitting(false);
     }
+  }
+
+  function handleGoogleError() {
+    setError(`Erro ao conectar com o Google. ${GOOGLE_BUTTON_HELP}`);
   }
 
   const year = new Date().getFullYear();
@@ -282,6 +310,7 @@ export function Login() {
       {/* O backend valida o ID token do Google: o botão oficial fica invisível por cima do visual Aurora e recebe o clique. */}
       {googleClientId && !submitting && (
         <Box
+          ref={googleBtnHostRef}
           sx={{
             position: 'absolute',
             inset: 0,
@@ -294,7 +323,9 @@ export function Login() {
         >
           <GoogleLogin
             onSuccess={handleGoogleSuccess}
-            onError={() => setError('Erro ao conectar com o Google')}
+            onError={handleGoogleError}
+            ux_mode="popup"
+            use_fedcm_for_button={false}
             text="signin_with"
             shape="rectangular"
             size="large"
@@ -354,6 +385,12 @@ export function Login() {
         {error && (
           <Alert severity="error" sx={{ mt: 2 }}>
             {error}
+          </Alert>
+        )}
+
+        {googleHelp && !error && (
+          <Alert severity="warning" sx={{ mt: 2 }}>
+            {googleHelp}
           </Alert>
         )}
 

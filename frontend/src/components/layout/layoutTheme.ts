@@ -2,8 +2,6 @@ import type { Theme } from '@mui/material';
 
 export const DRAWER_WIDTH = 258;
 export const DRAWER_COLLAPSED_WIDTH = 68;
-/** Altura da faixa discreta "DEV" (só em ambiente de desenvolvimento/staging). */
-export const DEV_BAR_HEIGHT = 22;
 /** Altura da faixa "Você está visualizando como…". */
 export const IMPERSONATION_BAR_HEIGHT = 40;
 
