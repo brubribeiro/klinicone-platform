@@ -1,4 +1,4 @@
-import { Box, alpha, type Theme } from '@mui/material';
+import { Box, alpha, darken, lighten, type Theme } from '@mui/material';
 
 import { fontSizes } from '../../../../frontend/src/theme/fontSizes';
 import type { FeedbackStatus, FeedbackType } from '../../../../frontend/src/types';
@@ -47,6 +47,11 @@ function pillFromPalette(theme: Theme, paletteKey: PaletteMainKey) {
   } as const;
 }
 
+/** Cor de texto legível sobre o fundo tingido do chip (as cores de marca são claras demais no tema claro). */
+export function pillTextColor(theme: Theme, color: string) {
+  return theme.palette.mode === 'dark' ? lighten(color, 0.25) : darken(color, 0.4);
+}
+
 export function ColorPill({ label, color }: { label: string; color: string }) {
   return (
     <Box
@@ -59,7 +64,7 @@ export function ColorPill({ label, color }: { label: string; color: string }) {
         py: 0.4,
         borderRadius: '8px',
         whiteSpace: 'nowrap',
-        color,
+        color: (t) => pillTextColor(t, color),
         bgcolor: alpha(color, 0.12),
       }}
     >
