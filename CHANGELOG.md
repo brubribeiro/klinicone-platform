@@ -6,6 +6,7 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ### Changed
 - Painel — modal **Novo lançamento** (Financeiro) no design Aurora: campos em seções, corpo com fundo padrão e rodapé de ações igual ao das demais modais. Sem mudança de campos ou lógica.
+- Console KlinicOne — painel da plataforma renomeado para **Console KlinicOne** em todo texto visível (escolha de painel, título, sidebar, "Voltar ao Console", mensagens da API) e diferenciado do **Painel da clínica**: selo "Console" ao lado da marca e acento índigo (`createAppTheme(mode, 'console')`) só no layout admin, claro e escuro. Rotas, pastas e variáveis inalteradas.
 - Painel — tela **Mensagens** mais compacta: linhas da lista e cabeçalhos mais baixos (lista com rolagem própria), "Envios automáticos pendentes" e "Variáveis disponíveis" recolhidos por padrão, prévia do WhatsApp menor e editar/excluir como ícones no cabeçalho do modelo. Sem perda de funcionalidade.
 - Painel — modal de **Equipamentos** no design Aurora: campos agrupados em seções (Identificação, Aquisição, Manutenção, Observações) e fundo do conteúdo como nas demais modais. Sem mudança de campos ou lógica.
 

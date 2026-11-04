@@ -21,7 +21,7 @@ const QUERY_KEY = ['admin', 'super-admins'];
 const GRID_COLS = 'minmax(0, 1.4fr) minmax(0, 1.6fr) minmax(0, 1.2fr) 110px 120px 56px';
 const GRID_MIN_WIDTH = 720;
 
-/** Gerenciar quem acessa o console /admin da plataforma. */
+/** Gerenciar quem acessa o Console KlinicOne (/admin). */
 export function AdminSuperAdmins() {
   const queryClient = useQueryClient();
   const { confirm } = useAppDialog();
