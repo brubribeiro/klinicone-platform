@@ -1,7 +1,7 @@
 import { Injectable, UnauthorizedException, ForbiddenException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { OAuth2Client } from 'google-auth-library';
+import { OAuth2Client, type TokenPayload } from 'google-auth-library';
 
 import { UsersService } from '../users/users.service';
 import { GoogleLoginDto } from './dto/google-login.dto';
@@ -29,10 +29,14 @@ export interface JwtPayload {
 /** Duração do token de "entrar como" uma clínica (super-admin). */
 export const TENANT_ACCESS_EXPIRES_IN = '2h';
 
+/** redirect_uri do fluxo auth-code em popup do Google Identity Services (dispensa URIs de redirecionamento). */
+export const GOOGLE_POPUP_REDIRECT_URI = 'postmessage';
+
 @Injectable()
 export class AuthService {
   private readonly googleClient: OAuth2Client;
   private readonly googleClientId: string;
+  private readonly hasGoogleClientSecret: boolean;
 
   constructor(
     private readonly users: UsersService,
@@ -41,7 +45,13 @@ export class AuthService {
     private readonly prisma: PrismaService,
   ) {
     this.googleClientId = (this.config.get<string>('GOOGLE_CLIENT_ID') ?? '').trim();
-    this.googleClient = new OAuth2Client(this.googleClientId || undefined);
+    const googleClientSecret = (this.config.get<string>('GOOGLE_CLIENT_SECRET') ?? '').trim();
+    this.hasGoogleClientSecret = !!googleClientSecret;
+    this.googleClient = new OAuth2Client({
+      clientId: this.googleClientId || undefined,
+      clientSecret: googleClientSecret || undefined,
+      redirectUri: GOOGLE_POPUP_REDIRECT_URI,
+    });
   }
 
   private canChoosePanel(user: { isSuperAdmin?: boolean; tenantId?: string | null }) {
@@ -77,21 +87,57 @@ export class AuthService {
     return this.jwt.signAsync(payload, expiresIn ? { expiresIn } : undefined);
   }
 
+  /**
+   * Troca o código de autorização (popup do GIS, redirect_uri 'postmessage') pelo id_token.
+   * Nunca registrar code, tokens nem o secret em log.
+   */
+  private async idTokenFromCode(code: string): Promise<string> {
+    if (!this.hasGoogleClientSecret) {
+      throw new UnauthorizedException('Login Google não configurado no servidor.');
+    }
+    let idToken: string | null | undefined;
+    try {
+      const { tokens } = await this.googleClient.getToken(code);
+      idToken = tokens.id_token;
+    } catch {
+      throw new UnauthorizedException('Código do Google inválido ou expirado. Tente entrar novamente.');
+    }
+    if (!idToken) {
+      throw new UnauthorizedException('Token Google inválido');
+    }
+    return idToken;
+  }
+
+  /** Verifica o ID token (assinatura, audiência = nosso client) e exige e-mail verificado. */
+  private async verifyGoogleIdToken(idToken: string) {
+    let googlePayload: TokenPayload | undefined;
+    try {
+      const ticket = await this.googleClient.verifyIdToken({ idToken, audience: this.googleClientId });
+      googlePayload = ticket.getPayload();
+    } catch {
+      throw new UnauthorizedException('Token Google inválido');
+    }
+    if (!googlePayload?.email || googlePayload.email_verified !== true) {
+      throw new UnauthorizedException('Token Google inválido');
+    }
+    return { email: googlePayload.email, name: googlePayload.name };
+  }
+
   async loginWithGoogle(dto: GoogleLoginDto) {
     if (!this.googleClientId) {
       throw new UnauthorizedException('Login Google não configurado no servidor.');
     }
 
-    // Verifica o token recebido do Google (audience obrigatória — sem omitir a checagem)
-    const ticket = await this.googleClient.verifyIdToken({
-      idToken: dto.credential,
-      audience: this.googleClientId,
-    });
-
-    const googlePayload = ticket.getPayload();
-    if (!googlePayload?.email) {
+    let idToken: string;
+    if (dto.code) {
+      idToken = await this.idTokenFromCode(dto.code);
+    } else if (dto.credential) {
+      idToken = dto.credential;
+    } else {
       throw new UnauthorizedException('Token Google inválido');
     }
+
+    const googlePayload = await this.verifyGoogleIdToken(idToken);
 
     // Busca o profissional pelo email na base de usuários
     let user = await this.users.findByEmail(googlePayload.email);

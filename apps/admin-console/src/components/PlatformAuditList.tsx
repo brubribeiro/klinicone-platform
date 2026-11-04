@@ -5,7 +5,7 @@ import { adminPath } from '../../../../frontend/src/utils/adminPath';
 import { fontSizes } from '../../../../frontend/src/theme/fontSizes';
 import { formatDateTime, formatPlanLimits } from './adminUi';
 import { formatFeatureList, formatPlanPrice } from '../../../../frontend/src/features/platformFeatures';
-import { FEEDBACK_STATUS_META } from './feedbackUi';
+import { FEEDBACK_STATUS_META, pillTextColor } from './feedbackUi';
 import { ANNOUNCEMENT_KIND_LABELS } from './announcementUi';
 import type { AnnouncementKind, FeedbackStatus, PlanLimits, PlatformAuditAction, PlatformAuditLog } from '../../../../frontend/src/types';
 
@@ -232,7 +232,7 @@ export function PlatformAuditList({ entries, loading, showTenant, emptyText = 'N
                     px: 1,
                     py: 0.3,
                     borderRadius: '8px',
-                    color: meta.color,
+                    color: (t) => pillTextColor(t, meta.color),
                     bgcolor: alpha(meta.color, 0.12),
                   }}
                 >

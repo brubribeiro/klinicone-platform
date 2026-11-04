@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Navigate, useNavigate, Link } from 'react-router-dom';
-import { Alert, AlertTitle, Box, CircularProgress, Link as MuiLink, Stack, Typography, useTheme } from '@mui/material';
+import { Alert, AlertTitle, Box, ButtonBase, CircularProgress, Link as MuiLink, Stack, Typography } from '@mui/material';
 import { keyframes } from '@mui/system';
-import { GoogleLogin, type CredentialResponse } from '@react-oauth/google';
+import { useGoogleLogin, useGoogleOAuth, type CodeResponse, type NonOAuthError } from '@react-oauth/google';
 import { useAuth } from '../contexts/AuthContext';
 import { AuroraIcon } from '../components/AuroraIcon';
 import { APP_VERSION } from '../version';
@@ -12,9 +12,11 @@ import { BRAND_LEGAL_NAME, BRAND_NAME, BRAND_TAGLINE } from '../brand';
 import { adminConsoleUrl } from '../utils/appUrls';
 import { clearAuthNotice, readAuthNotice, tenantSuspendedMessage } from '../utils/authNotice';
 
-/** Dica quando o botão GSI não monta ou o popup/FedCM falha (bloqueadores, pop-ups). */
-const GOOGLE_BUTTON_HELP =
-  'Não abre? Desative bloqueadores de anúncio ou permita pop-ups neste site.';
+const GOOGLE_SCRIPT_BLOCKED =
+  'Não foi possível carregar o login do Google. Desative bloqueadores de anúncio neste site e recarregue a página.';
+const GOOGLE_POPUP_BLOCKED =
+  'O navegador bloqueou a janela do Google. Permita pop-ups neste site e clique em "Entrar com o Google" de novo.';
+const GOOGLE_GENERIC_ERROR = 'Erro ao conectar com o Google. Tente novamente.';
 
 // Painel de marca Aurora (mesmo verde-escuro do menu lateral)
 const BRAND_BG = '#0E2926';
@@ -82,6 +84,26 @@ function BrandLogo({ dark = false }: { dark?: boolean }) {
   );
 }
 
+function GoogleGIcon() {
+  return (
+    <svg width="23" height="23" viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        fill="#4285F4"
+        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.76h3.56c2.08-1.92 3.28-4.74 3.28-8.09z"
+      />
+      <path
+        fill="#34A853"
+        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.56-2.76c-.98.66-2.23 1.06-3.72 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23z"
+      />
+      <path fill="#FBBC05" d="M5.84 14.11a6.6 6.6 0 0 1 0-4.22V7.05H2.18a11 11 0 0 0 0 9.9l3.66-2.84z" />
+      <path
+        fill="#EA4335"
+        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1A11 11 0 0 0 2.18 7.05l3.66 2.84c.87-2.6 3.3-4.51 6.16-4.51z"
+      />
+    </svg>
+  );
+}
+
 export function Login() {
   const { user, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
@@ -90,44 +112,20 @@ export function Login() {
   const [suspendedNotice, setSuspendedNotice] = useState<string | null>(readAuthNotice);
   useEffect(clearAuthNotice, []);
   const [submitting, setSubmitting] = useState(false);
-  const [googleHelp, setGoogleHelp] = useState<string | null>(null);
-  const googleBtnHostRef = useRef<HTMLDivElement>(null);
-  const isDark = useTheme().palette.mode === 'dark';
-  // O GSI aceita largura de 200 a 400 px; acompanha o container.
-  const [googleBtnWidth, setGoogleBtnWidth] = useState(376);
+  const { scriptLoadedSuccessfully } = useGoogleOAuth();
 
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? '';
   const adminEmail = import.meta.env.VITE_ADMIN_CONTACT_EMAIL ?? '';
 
-  // Se o iframe/botão oficial do Google não aparecer em ~3 s, orientar sobre bloqueadores/pop-ups.
-  useEffect(() => {
-    if (!googleClientId || submitting || user) {
-      setGoogleHelp(null);
-      return;
-    }
-    setGoogleHelp(null);
-    const timer = window.setTimeout(() => {
-      const host = googleBtnHostRef.current;
-      const rendered = Boolean(
-        host?.querySelector('iframe, div[role="button"], [data-is-touch-wrapper]'),
-      );
-      if (!rendered) setGoogleHelp(GOOGLE_BUTTON_HELP);
-    }, 3000);
-    return () => window.clearTimeout(timer);
-  }, [googleClientId, submitting, user]);
-
-  useEffect(() => {
-    const host = googleBtnHostRef.current;
-    if (!host || typeof ResizeObserver === 'undefined') return;
-    const update = () => {
-      const w = Math.floor(host.getBoundingClientRect().width);
-      if (w > 0) setGoogleBtnWidth(Math.min(400, Math.max(200, w)));
-    };
-    update();
-    const ro = new ResizeObserver(update);
-    ro.observe(host);
-    return () => ro.disconnect();
-  }, [googleClientId, submitting, user]);
+  // Fluxo auth-code em popup: o backend troca o code (redirect_uri 'postmessage') e valida o id_token.
+  const requestGoogleCode = useGoogleLogin({
+    flow: 'auth-code',
+    ux_mode: 'popup',
+    select_account: true,
+    onSuccess: (response) => void handleGoogleCode(response),
+    onError: handleGoogleOAuthError,
+    onNonOAuthError: handleGoogleNonOAuthError,
+  });
 
   if (user) {
     if (user.panelSelectionPending) return <Navigate to="/escolher-painel" replace />;
@@ -137,14 +135,23 @@ export function Login() {
     return <Navigate to="/" replace />;
   }
 
-  async function handleGoogleSuccess(response: CredentialResponse) {
-    if (!response.credential) return;
+  function startGoogleLogin() {
+    if (!googleClientId || submitting) return;
     setError(null);
-    setGoogleHelp(null);
+    if (!scriptLoadedSuccessfully) {
+      setError(GOOGLE_SCRIPT_BLOCKED);
+      return;
+    }
+    requestGoogleCode();
+  }
+
+  async function handleGoogleCode(response: Pick<CodeResponse, 'code'>) {
+    if (!response.code) return;
+    setError(null);
     setSuspendedNotice(null);
     setSubmitting(true);
     try {
-      const { needsPanelSelection } = await loginWithGoogle(response.credential);
+      const { needsPanelSelection } = await loginWithGoogle({ code: response.code });
       if (needsPanelSelection) navigate('/escolher-painel');
       else navigate('/', { replace: true });
     } catch (err: any) {
@@ -162,8 +169,15 @@ export function Login() {
     }
   }
 
-  function handleGoogleError() {
-    setError(`Erro ao conectar com o Google. ${GOOGLE_BUTTON_HELP}`);
+  function handleGoogleOAuthError(response: Pick<CodeResponse, 'error'>) {
+    // Usuário cancelou na tela de consentimento: não é erro.
+    if (response.error === 'access_denied') return;
+    setError(GOOGLE_GENERIC_ERROR);
+  }
+
+  function handleGoogleNonOAuthError(err: NonOAuthError) {
+    if (err.type === 'popup_closed') return;
+    setError(err.type === 'popup_failed_to_open' ? GOOGLE_POPUP_BLOCKED : GOOGLE_GENERIC_ERROR);
   }
 
   const year = new Date().getFullYear();
@@ -256,23 +270,37 @@ export function Login() {
   );
 
   const googleButton = (
-    <Box
+    <ButtonBase
+      onClick={startGoogleLogin}
+      disabled={!googleClientId || submitting}
+      aria-busy={submitting}
       sx={{
-        position: 'relative',
-        minHeight: 56,
+        width: '100%',
+        height: 56,
         borderRadius: '14px',
         border: '1px solid',
         borderColor: 'divider',
         bgcolor: 'background.paper',
         color: 'text.primary',
+        fontFamily: 'inherit',
         fontSize: fontSizes.lg,
+        fontWeight: 700,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         gap: '12px',
-        p: '8px',
-        opacity: googleClientId ? 1 : 0.55,
         boxShadow: '0 2px 8px -2px rgba(16,40,37,.1)',
+        transition: 'border-color .15s, box-shadow .15s',
+        '&:hover': {
+          borderColor: 'primary.main',
+          boxShadow: '0 6px 20px -6px rgba(21,153,139,.4)',
+        },
+        '&.Mui-focusVisible': {
+          outline: '2px solid',
+          outlineColor: 'primary.main',
+          outlineOffset: 2,
+        },
+        '&.Mui-disabled': { opacity: googleClientId ? 1 : 0.55 },
       }}
     >
       {submitting ? (
@@ -283,25 +311,12 @@ export function Login() {
           </Box>
         </>
       ) : (
-        googleClientId && (
-          // Botão oficial do Google, visível: o backend valida o ID token recebido em onSuccess.
-          <Box ref={googleBtnHostRef} sx={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
-            <GoogleLogin
-              onSuccess={handleGoogleSuccess}
-              onError={handleGoogleError}
-              ux_mode="popup"
-              use_fedcm_for_button={false}
-              theme={isDark ? 'filled_black' : 'outline'}
-              text="signin_with"
-              shape="rectangular"
-              size="large"
-              width={String(googleBtnWidth)}
-              locale="pt-BR"
-            />
-          </Box>
-        )
+        <>
+          <GoogleGIcon />
+          Entrar com o Google
+        </>
       )}
-    </Box>
+    </ButtonBase>
   );
 
   const loginPanel = (
@@ -352,12 +367,6 @@ export function Login() {
         {error && (
           <Alert severity="error" sx={{ mt: 2 }}>
             {error}
-          </Alert>
-        )}
-
-        {googleHelp && !error && (
-          <Alert severity="warning" sx={{ mt: 2 }}>
-            {googleHelp}
           </Alert>
         )}
 

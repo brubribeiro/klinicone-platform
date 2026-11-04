@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { alpha, AppBar, Box, Drawer, IconButton, Toolbar, Typography, useTheme } from '@mui/material';
+import { alpha, AppBar, Box, Drawer, IconButton, Toolbar, Tooltip, Typography, useTheme } from '@mui/material';
 
+import { useColorMode } from '../../../../frontend/src/contexts/ColorModeContext';
 import { useAuth } from '../../../../frontend/src/contexts/AuthContext';
 import { AuroraIcon } from '../../../../frontend/src/components/AuroraIcon';
 import { PAGE_SHELL_SX } from '../../../../frontend/src/theme/layout';
@@ -102,6 +103,8 @@ export function AdminLayout() {
   const location = useLocation();
   const theme = useTheme();
   const { user, logout } = useAuth();
+  const { mode: colorMode, toggleColorMode } = useColorMode();
+  const themeLabel = colorMode === 'dark' ? 'Mudar para o tema claro' : 'Mudar para o tema escuro';
   const sidebarUser = useMemo(() => (user ? { ...user, roleName: 'Super-admin' } : null), [user]);
 
   const pageMeta = adminPageMeta(location.pathname);
@@ -206,6 +209,24 @@ export function AdminLayout() {
           </Box>
 
           <Box sx={{ flex: 1 }} />
+
+          <Tooltip title={themeLabel}>
+            <IconButton
+              onClick={toggleColorMode}
+              aria-label={themeLabel}
+              sx={{
+                width: 40,
+                height: 40,
+                color: 'text.secondary',
+                border: '1px solid',
+                borderColor: 'divider',
+                borderRadius: '11px',
+                '&:hover': { color: 'primary.main', borderColor: 'primary.main' },
+              }}
+            >
+              <AuroraIcon name={colorMode === 'dark' ? 'sun' : 'moon'} size={20} strokeWidth={1.8} />
+            </IconButton>
+          </Tooltip>
         </Toolbar>
       </AppBar>
 
