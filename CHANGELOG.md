@@ -5,6 +5,7 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 ## [Unreleased]
 
 ### Changed
+- Painel — modal **Novo lançamento** (Financeiro) no design Aurora: campos em seções, corpo com fundo padrão e rodapé de ações igual ao das demais modais. Sem mudança de campos ou lógica.
 - Painel — tela **Mensagens** mais compacta: linhas da lista e cabeçalhos mais baixos (lista com rolagem própria), "Envios automáticos pendentes" e "Variáveis disponíveis" recolhidos por padrão, prévia do WhatsApp menor e editar/excluir como ícones no cabeçalho do modelo. Sem perda de funcionalidade.
 
 ### Removed
