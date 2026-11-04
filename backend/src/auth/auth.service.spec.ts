@@ -11,6 +11,7 @@ import { PrismaService } from '../prisma/prisma.service';
 jest.mock('google-auth-library', () => ({
   OAuth2Client: jest.fn().mockImplementation(() => ({
     verifyIdToken: jest.fn(),
+    getToken: jest.fn(),
   })),
 }));
 
@@ -85,7 +86,7 @@ describe('AuthService', () => {
     it('should throw if user not found', async () => {
       const googleClient = (service as any).googleClient;
       googleClient.verifyIdToken.mockResolvedValue({
-        getPayload: () => ({ email: 'unknown@test.com' }),
+        getPayload: () => ({ email_verified: true, email: 'unknown@test.com' }),
       });
       usersService.findByEmail.mockResolvedValue(null);
 
@@ -97,7 +98,7 @@ describe('AuthService', () => {
     it('should throw if user is inactive', async () => {
       const googleClient = (service as any).googleClient;
       googleClient.verifyIdToken.mockResolvedValue({
-        getPayload: () => ({ email: 'maria@clinic.com' }),
+        getPayload: () => ({ email_verified: true, email: 'maria@clinic.com' }),
       });
       usersService.findByEmail.mockResolvedValue({ ...mockUser, active: false } as any);
 
@@ -109,7 +110,7 @@ describe('AuthService', () => {
     it('should require panel selection for dual clinic + super-admin user', async () => {
       const googleClient = (service as any).googleClient;
       googleClient.verifyIdToken.mockResolvedValue({
-        getPayload: () => ({ email: 'owner@clinic.com' }),
+        getPayload: () => ({ email_verified: true, email: 'owner@clinic.com' }),
       });
       usersService.findByEmail.mockResolvedValue({
         ...mockUser,
@@ -137,7 +138,7 @@ describe('AuthService', () => {
     it('should sync display name from Google when it differs', async () => {
       const googleClient = (service as any).googleClient;
       googleClient.verifyIdToken.mockResolvedValue({
-        getPayload: () => ({ email: 'maria@clinic.com', name: 'Maria Silva' }),
+        getPayload: () => ({ email_verified: true, email: 'maria@clinic.com', name: 'Maria Silva' }),
       });
       usersService.findByEmail.mockResolvedValue(mockUser as any);
       usersService.syncNameFromGoogle.mockResolvedValue({ ...mockUser, name: 'Maria Silva' } as any);
@@ -151,7 +152,7 @@ describe('AuthService', () => {
     it('should return access_token and user on success', async () => {
       const googleClient = (service as any).googleClient;
       googleClient.verifyIdToken.mockResolvedValue({
-        getPayload: () => ({ email: 'maria@clinic.com' }),
+        getPayload: () => ({ email_verified: true, email: 'maria@clinic.com' }),
       });
       usersService.findByEmail.mockResolvedValue(mockUser as any);
       usersService.syncNameFromGoogle.mockResolvedValue(null);
@@ -180,7 +181,7 @@ describe('AuthService', () => {
     it('should refuse login when the clinic is suspended', async () => {
       const googleClient = (service as any).googleClient;
       googleClient.verifyIdToken.mockResolvedValue({
-        getPayload: () => ({ email: 'maria@clinic.com' }),
+        getPayload: () => ({ email_verified: true, email: 'maria@clinic.com' }),
       });
       usersService.findByEmail.mockResolvedValue({
         ...mockUser,
@@ -191,6 +192,108 @@ describe('AuthService', () => {
         'O acesso da clínica Clínica Um está suspenso',
       );
       expect(jwtService.signAsync).not.toHaveBeenCalled();
+    });
+
+    it('should refuse an unverified Google e-mail', async () => {
+      const googleClient = (service as any).googleClient;
+      googleClient.verifyIdToken.mockResolvedValue({
+        getPayload: () => ({ email_verified: false, email: 'maria@clinic.com' }),
+      });
+      usersService.findByEmail.mockResolvedValue(mockUser as any);
+
+      await expect(service.loginWithGoogle({ credential: 'token' })).rejects.toThrow(UnauthorizedException);
+      expect(usersService.findByEmail).not.toHaveBeenCalled();
+    });
+
+    it('should map an invalid ID token to UnauthorizedException', async () => {
+      const googleClient = (service as any).googleClient;
+      googleClient.verifyIdToken.mockRejectedValue(new Error('Wrong recipient'));
+
+      await expect(service.loginWithGoogle({ credential: 'token' })).rejects.toThrow(UnauthorizedException);
+    });
+  });
+
+  describe('loginWithGoogle (auth-code)', () => {
+    let googleClient: { verifyIdToken: jest.Mock; getToken: jest.Mock };
+
+    beforeEach(() => {
+      googleClient = (service as any).googleClient;
+      googleClient.getToken.mockResolvedValue({ tokens: { id_token: 'id-token-from-code', access_token: 'at' } });
+    });
+
+    function googleReturns(email: string) {
+      googleClient.verifyIdToken.mockResolvedValue({
+        getPayload: () => ({ email_verified: true, email }),
+      });
+    }
+
+    it('exchanges a valid code and verifies the resulting id_token with the same audience', async () => {
+      googleReturns('maria@clinic.com');
+      usersService.findByEmail.mockResolvedValue(mockUser as any);
+
+      const result = await service.loginWithGoogle({ code: 'auth-code' });
+
+      expect(googleClient.getToken).toHaveBeenCalledWith('auth-code');
+      expect(googleClient.verifyIdToken).toHaveBeenCalledWith({
+        idToken: 'id-token-from-code',
+        audience: 'google-client-id-abcdefghijklmnop',
+      });
+      expect(result.access_token).toBe('jwt-token');
+      expect(result.user.tenantId).toBe('tenant-1');
+      expect(result).not.toHaveProperty('needsPanelSelection');
+    });
+
+    it('rejects an invalid or expired code without echoing it', async () => {
+      googleClient.getToken.mockRejectedValue(new Error('invalid_grant'));
+
+      const err = await service.loginWithGoogle({ code: 'bad-code' }).catch((e) => e);
+
+      expect(err).toBeInstanceOf(UnauthorizedException);
+      expect(err.message).not.toContain('bad-code');
+      expect(googleClient.verifyIdToken).not.toHaveBeenCalled();
+      expect(jwtService.signAsync).not.toHaveBeenCalled();
+    });
+
+    it('rejects when Google returns no id_token', async () => {
+      googleClient.getToken.mockResolvedValue({ tokens: { access_token: 'at' } });
+
+      await expect(service.loginWithGoogle({ code: 'auth-code' })).rejects.toThrow(UnauthorizedException);
+      expect(googleClient.verifyIdToken).not.toHaveBeenCalled();
+    });
+
+    it('rejects an e-mail that is not registered', async () => {
+      googleReturns('unknown@test.com');
+      usersService.findByEmail.mockResolvedValue(null);
+
+      await expect(service.loginWithGoogle({ code: 'auth-code' })).rejects.toThrow(
+        'Nenhum profissional cadastrado com este e-mail',
+      );
+    });
+
+    it('refuses login when the clinic is suspended', async () => {
+      googleReturns('maria@clinic.com');
+      usersService.findByEmail.mockResolvedValue({
+        ...mockUser,
+        tenant: { ...mockUser.tenant, active: false },
+      } as any);
+
+      await expect(service.loginWithGoogle({ code: 'auth-code' })).rejects.toThrow(
+        'O acesso da clínica Clínica Um está suspenso',
+      );
+      expect(jwtService.signAsync).not.toHaveBeenCalled();
+    });
+
+    it('requires panel selection for a dual clinic + super-admin user', async () => {
+      googleReturns('owner@clinic.com');
+      usersService.findByEmail.mockResolvedValue({ ...mockUser, email: 'owner@clinic.com', isSuperAdmin: true } as any);
+
+      const result = await service.loginWithGoogle({ code: 'auth-code' });
+
+      expect(result.needsPanelSelection).toBe(true);
+      expect(jwtService.signAsync).toHaveBeenCalledWith(
+        expect.objectContaining({ tenantId: null, panelSelectionPending: true }),
+        undefined,
+      );
     });
   });
 

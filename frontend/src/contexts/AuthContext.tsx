@@ -9,7 +9,8 @@ type LoginResult = { needsPanelSelection?: boolean };
 interface AuthContextValue {
   user: User | null;
   loading: boolean;
-  loginWithGoogle: (credential: string) => Promise<LoginResult>;
+  /** `code`: fluxo auth-code do botão próprio; `credential`: ID token (compatibilidade). */
+  loginWithGoogle: (google: { code: string } | { credential: string }) => Promise<LoginResult>;
   selectPanel: (panel: 'clinic' | 'admin') => Promise<void>;
   impersonate: (userId: string) => Promise<void>;
   /** Super-admin: entra numa clínica como administrador (modo "visualizando como"). */
@@ -42,10 +43,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  async function loginWithGoogle(credential: string): Promise<LoginResult> {
+  async function loginWithGoogle(google: { code: string } | { credential: string }): Promise<LoginResult> {
     const { data } = await api.post<{ access_token: string; user: User; needsPanelSelection?: boolean }>(
       '/auth/google',
-      { credential },
+      google,
     );
     await handleLoginResponse(data);
     return { needsPanelSelection: data.needsPanelSelection };
