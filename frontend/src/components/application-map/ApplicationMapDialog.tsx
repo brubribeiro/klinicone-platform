@@ -1,50 +1,86 @@
-import { useState, type Dispatch, type SetStateAction } from 'react';
+import { useState, type Dispatch, type ReactNode, type SetStateAction } from 'react';
 import {
+  Alert,
   Box,
   Button,
   ButtonBase,
+  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
+  IconButton,
   Stack,
+  Tooltip,
   Typography,
   useMediaQuery,
   useTheme,
 } from '@mui/material';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import UndoIcon from '@mui/icons-material/Undo';
+import { useQuery } from '@tanstack/react-query';
 
+import { patientsApi } from '../../api/patients';
 import { fontSizes } from '../../theme/fontSizes';
-import type { ApplicationMapPoint, ApplicationMapProduct, ApplicationMapView } from '../../types';
+import type {
+  ApplicationMapProduct,
+  ApplicationMapRegion,
+  ApplicationMapStroke,
+  ApplicationMapView,
+} from '../../types';
 import { DialogHeader, dialogActionsBorderSx } from '../DialogCloseButton';
-import { ApplicationMapCanvas } from './ApplicationMapCanvas';
-import { MAP_PRODUCTS, formatProductTotal } from './applicationMapModel';
+import { ApplicationMapCanvas, type MapTool } from './ApplicationMapCanvas';
+import {
+  BODY_REGIONS,
+  FACE_REGIONS,
+  FACE_VIEWS,
+  FULL_CROP,
+  MAP_PRODUCTS,
+  MAP_VIEWS,
+  STROKE_COLORS,
+  STROKE_WIDTHS,
+  formatProductTotal,
+  regionDef,
+  type ApplicationMapDraft,
+  type IllustratedView,
+} from './applicationMapModel';
+import { useMapPhoto } from './useMapPhoto';
 
-type Region = 'face' | 'body';
+type Area = 'face' | 'body' | 'photo';
 
-const REGIONS: { key: Region; label: string }[] = [
-  { key: 'face', label: 'Facial' },
-  { key: 'body', label: 'Corporal' },
+const AREA_LABEL: Record<Area, string> = {
+  face: 'Facial',
+  body: 'Corporal',
+  photo: 'Foto da paciente',
+};
+
+const TOOLS: { key: MapTool; label: string }[] = [
+  { key: 'point', label: 'Pontos' },
+  { key: 'draw', label: 'Desenho' },
+  { key: 'erase', label: 'Borracha' },
 ];
 
-/** Editor do mapa de aplicação do atendimento; os pontos são gravados ao salvar o agendamento. */
+/** Editor do mapa de aplicação do atendimento; o mapa é gravado ao salvar o agendamento. */
 export function ApplicationMapDialog({
   open,
   onClose,
-  points,
-  setPoints,
+  map,
+  setMap,
   products,
   defaultRegion,
   regionLocked,
+  patientId,
 }: {
   open: boolean;
   onClose: () => void;
-  points: ApplicationMapPoint[];
-  setPoints: Dispatch<SetStateAction<ApplicationMapPoint[]>>;
+  map: ApplicationMapDraft;
+  setMap: Dispatch<SetStateAction<ApplicationMapDraft>>;
   /** Produtos do atendimento; vazio lista todos. */
   products: ApplicationMapProduct[];
-  defaultRegion: Region;
+  defaultRegion: 'face' | 'body';
   /** Esconde Facial/Corporal quando os procedimentos são de uma região só. */
   regionLocked: boolean;
+  /** Paciente do atendimento: habilita marcar sobre a foto dela . */
+  patientId?: string;
 }) {
   const isMobile = useMediaQuery(useTheme().breakpoints.down('sm'));
 
@@ -58,8 +94,8 @@ export function ApplicationMapDialog({
       PaperProps={{
         sx: {
           width: '100%',
-          maxWidth: isMobile ? '100%' : 880,
-          maxHeight: isMobile ? '100%' : '94vh',
+          maxWidth: isMobile ? '100%' : 960,
+          maxHeight: isMobile ? '100%' : '96vh',
           borderRadius: isMobile ? 0 : '20px',
           boxShadow: '0 8px 40px -16px rgba(16,40,37,.22)',
           overflow: 'hidden',
@@ -67,53 +103,298 @@ export function ApplicationMapDialog({
           flexDirection: 'column',
         },
       }}
-      slotProps={{ backdrop: { sx: { bgcolor: 'rgba(7,18,17,.55)', backdropFilter: 'blur(3px)' } } }}
+      slotProps={{
+        backdrop: {
+          sx: { bgcolor: 'rgba(7,18,17,.55)', backdropFilter: 'blur(3px)' },
+        },
+      }}
     >
       <ApplicationMapEditor
         onClose={onClose}
-        points={points}
-        setPoints={setPoints}
+        map={map}
+        setMap={setMap}
         products={products}
         defaultRegion={defaultRegion}
         regionLocked={regionLocked}
+        patientId={patientId}
         isMobile={isMobile}
       />
     </Dialog>
   );
 }
 
+function Segmented<T extends string>({
+  options,
+  value,
+  onChange,
+  size = 'md',
+}: {
+  options: { key: T; label: string }[];
+  value: T;
+  onChange: (key: T) => void;
+  size?: 'sm' | 'md';
+}) {
+  return (
+    <Stack
+      direction="row"
+      spacing={0.5}
+      sx={{
+        bgcolor: 'grey.100',
+        p: 0.5,
+        borderRadius: '11px',
+        alignSelf: 'flex-start',
+        maxWidth: '100%',
+        overflowX: 'auto',
+      }}
+    >
+      {options.map((o) => {
+        const active = o.key === value;
+        return (
+          <ButtonBase
+            key={o.key}
+            aria-pressed={active}
+            onClick={() => onChange(o.key)}
+            sx={{
+              height: size === 'sm' ? 32 : 36,
+              px: size === 'sm' ? 1.5 : 2.25,
+              whiteSpace: 'nowrap',
+              fontSize: size === 'sm' ? fontSizes.xs : fontSizes.sm,
+              fontWeight: 700,
+              borderRadius: '9px',
+              bgcolor: active ? 'background.paper' : 'transparent',
+              color: active ? 'primary.main' : 'text.secondary',
+              boxShadow: active ? 1 : 'none',
+            }}
+          >
+            {o.label}
+          </ButtonBase>
+        );
+      })}
+    </Stack>
+  );
+}
+
+function RegionChips({
+  label,
+  regions,
+  value,
+  onChange,
+}: {
+  label: string;
+  regions: { id: ApplicationMapRegion; label: string }[];
+  value: ApplicationMapRegion | null;
+  onChange: (region: ApplicationMapRegion | null) => void;
+}) {
+  const chip = (key: ApplicationMapRegion | null, text: string) => {
+    const active = key === value;
+    return (
+      <ButtonBase
+        key={key ?? 'all'}
+        aria-pressed={active}
+        onClick={() => onChange(key)}
+        sx={{
+          height: 30,
+          px: 1.4,
+          flexShrink: 0,
+          borderRadius: '15px',
+          border: 1,
+          borderColor: active ? 'primary.main' : 'divider',
+          bgcolor: active ? 'primary.main' : 'background.paper',
+          color: active ? 'primary.contrastText' : 'text.secondary',
+          fontSize: fontSizes.xs,
+          fontWeight: 700,
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {text}
+      </ButtonBase>
+    );
+  };
+  return (
+    <Stack
+      direction="row"
+      spacing={0.75}
+      role="group"
+      aria-label="Zoom por região"
+      sx={{
+        overflowX: 'auto',
+        pb: 0.25,
+        mx: { xs: -0.5, sm: 0 },
+        px: { xs: 0.5, sm: 0 },
+      }}
+    >
+      {chip(null, label)}
+      {regions.map((r) => chip(r.id, r.label))}
+    </Stack>
+  );
+}
+
 function ApplicationMapEditor({
   onClose,
-  points,
-  setPoints,
+  map,
+  setMap,
   products,
   defaultRegion,
   regionLocked,
+  patientId,
   isMobile,
 }: {
   onClose: () => void;
-  points: ApplicationMapPoint[];
-  setPoints: Dispatch<SetStateAction<ApplicationMapPoint[]>>;
+  map: ApplicationMapDraft;
+  setMap: Dispatch<SetStateAction<ApplicationMapDraft>>;
   products: ApplicationMapProduct[];
-  defaultRegion: Region;
+  defaultRegion: 'face' | 'body';
   regionLocked: boolean;
+  patientId?: string;
   isMobile: boolean;
 }) {
   const [product, setProduct] = useState<ApplicationMapProduct>(products[0] ?? 'toxin');
-  const [view, setView] = useState<ApplicationMapView>(defaultRegion === 'body' ? 'body' : 'front');
+  const [area, setArea] = useState<Area>(defaultRegion);
+  const [faceView, setFaceView] = useState<IllustratedView>('front');
+  const [region, setRegion] = useState<ApplicationMapRegion | null>(null);
+  const [tool, setTool] = useState<MapTool>('point');
+  const [strokeColor, setStrokeColor] = useState<string>(STROKE_COLORS[0]);
+  const [strokeWidth, setStrokeWidth] = useState<number>(STROKE_WIDTHS[1].value);
   const [selected, setSelected] = useState<number | null>(null);
-  const region: Region = view === 'body' ? 'body' : 'face';
+
+  const areas: Area[] = [
+    ...(regionLocked ? [defaultRegion] : (['face', 'body'] as const)),
+    ...(patientId && (!regionLocked || defaultRegion === 'face') ? (['photo'] as const) : []),
+  ];
+
+  const view: ApplicationMapView = area === 'face' ? faceView : area;
+  const photo = useMapPhoto(patientId, area === 'photo' ? map.photoId : undefined);
+  const image = view === 'photo' ? photo.image : MAP_VIEWS[view];
+  const crop = (view !== 'photo' && regionDef(region ?? undefined)?.crops[view]) || FULL_CROP;
 
   /** Pontos já marcados com outro produto mantêm a linha dele no resumo. */
   const productRows =
     products.length === 0
       ? MAP_PRODUCTS
-      : MAP_PRODUCTS.filter((p) => products.includes(p.id) || points.some((point) => point.product === p.id));
+      : MAP_PRODUCTS.filter((p) => products.includes(p.id) || map.points.some((point) => point.product === p.id));
 
-  const changeView = (next: ApplicationMapView) => {
-    setView(next);
+  const changeArea = (next: Area) => {
+    setArea(next);
+    setRegion(null);
     setSelected(null);
   };
+
+  const viewStrokes = map.strokes.filter((s) => s.view === view);
+  const addPoint = ({ x, y }: { x: number; y: number }) => {
+    const pointRegion = region && view !== 'photo' && regionDef(region)?.crops[view] ? region : undefined;
+    setMap((m) => ({
+      ...m,
+      points: [
+        ...m.points,
+        {
+          x,
+          y,
+          product,
+          view,
+          ...(pointRegion ? { region: pointRegion } : {}),
+        },
+      ],
+    }));
+    setSelected(map.points.length);
+  };
+  const updateQty = (index: number, qty: number | undefined) =>
+    setMap((m) => ({
+      ...m,
+      points: m.points.map((row, i) => {
+        if (i !== index) return row;
+        const next = { ...row, qty };
+        if (qty === undefined) delete next.qty;
+        return next;
+      }),
+    }));
+  const removePoint = (index: number) => {
+    setMap((m) => ({ ...m, points: m.points.filter((_, i) => i !== index) }));
+    setSelected(null);
+  };
+  const addStroke = (stroke: ApplicationMapStroke) => setMap((m) => ({ ...m, strokes: [...m.strokes, stroke] }));
+  const removeStroke = (index: number) => setMap((m) => ({ ...m, strokes: m.strokes.filter((_, i) => i !== index) }));
+  const undoStroke = () =>
+    setMap((m) => {
+      const last = m.strokes.map((s) => s.view).lastIndexOf(view);
+      return last < 0 ? m : { ...m, strokes: m.strokes.filter((_, i) => i !== last) };
+    });
+
+  const canvasHeight = isMobile ? '56vh' : '54vh';
+  const editing = {
+    points: map.points,
+    strokes: map.strokes,
+    tool,
+    strokeColor,
+    strokeWidth,
+    selectedIndex: selected,
+    onSelect: setSelected,
+    onAdd: addPoint,
+    onQtyChange: updateQty,
+    onRemove: removePoint,
+    onAddStroke: addStroke,
+    onRemoveStroke: removeStroke,
+    autoFocusQty: !isMobile,
+  };
+
+  let canvas: ReactNode;
+  if (area === 'photo' && !map.photoId) {
+    canvas = (
+      <PhotoPicker
+        patientId={patientId!}
+        height={canvasHeight}
+        onPick={(photoId) => setMap((m) => ({ ...m, photoId }))}
+      />
+    );
+  } else if (!image) {
+    canvas = (
+      <Stack
+        alignItems="center"
+        justifyContent="center"
+        sx={{
+          height: canvasHeight,
+          border: 1,
+          borderColor: 'divider',
+          borderRadius: '16px',
+        }}
+      >
+        {photo.isError ? (
+          <Typography sx={{ fontSize: fontSizes.sm, color: 'text.secondary' }}>
+            Não foi possível carregar a foto.
+          </Typography>
+        ) : (
+          <CircularProgress size={28} />
+        )}
+      </Stack>
+    );
+  } else {
+    canvas = (
+      <ApplicationMapCanvas
+        {...editing}
+        image={image}
+        view={view}
+        crop={crop}
+        height={canvasHeight}
+        toolbar={
+          area === 'face' ? (
+            <Segmented
+              size="sm"
+              options={FACE_VIEWS.map((key) => ({
+                key,
+                label: MAP_VIEWS[key].label,
+              }))}
+              value={faceView}
+              onChange={(next) => {
+                setFaceView(next);
+                setSelected(null);
+              }}
+            />
+          ) : undefined
+        }
+      />
+    );
+  }
+
+  const photoHasMarks = map.points.some((p) => p.view === 'photo') || map.strokes.some((s) => s.view === 'photo');
 
   return (
     <>
@@ -121,39 +402,126 @@ function ApplicationMapEditor({
         onClose={onClose}
         isMobile={isMobile}
         title="Mapa de aplicação"
-        subtitle="Marque os pontos e as doses deste atendimento"
+        subtitle="Marque os pontos, as doses e desenhe sobre o mapa deste atendimento"
       />
 
-      <DialogContent sx={{ px: { xs: 2, sm: 3 }, py: { xs: 2, sm: 2.5 }, '&&': { pt: { xs: 2, sm: 2.5 } } }}>
-        <Stack spacing={1.75}>
-          {!regionLocked && (
-            <Stack
-              direction="row"
-              spacing={0.5}
-              sx={{ bgcolor: 'grey.100', p: 0.5, borderRadius: '11px', alignSelf: 'flex-start' }}
-            >
-              {REGIONS.map((r) => {
-                const active = r.key === region;
-                return (
+      <DialogContent
+        sx={{
+          px: { xs: 2, sm: 3 },
+          py: { xs: 2, sm: 2.5 },
+          '&&': { pt: { xs: 2, sm: 2.5 } },
+        }}
+      >
+        <Stack spacing={1.5}>
+          <Stack direction="row" spacing={1.5} useFlexGap flexWrap="wrap" alignItems="center">
+            {areas.length > 1 && (
+              <Segmented
+                options={areas.map((key) => ({ key, label: AREA_LABEL[key] }))}
+                value={area}
+                onChange={changeArea}
+              />
+            )}
+            <Segmented
+              options={TOOLS}
+              value={tool}
+              onChange={(next) => {
+                setTool(next);
+                setSelected(null);
+              }}
+            />
+            {tool === 'draw' && (
+              <Stack
+                direction="row"
+                spacing={0.75}
+                alignItems="center"
+                role="group"
+                aria-label="Cor e espessura do traço"
+              >
+                {STROKE_COLORS.map((color) => (
                   <ButtonBase
-                    key={r.key}
-                    aria-pressed={active}
-                    onClick={() => changeView(r.key === 'body' ? 'body' : 'front')}
+                    key={color}
+                    aria-label={`Cor ${color}`}
+                    aria-pressed={color === strokeColor}
+                    onClick={() => setStrokeColor(color)}
                     sx={{
-                      height: 36,
-                      px: 2.5,
-                      fontSize: fontSizes.sm,
-                      fontWeight: 700,
-                      borderRadius: '9px',
-                      bgcolor: active ? 'background.paper' : 'transparent',
-                      color: active ? 'primary.main' : 'text.secondary',
-                      boxShadow: active ? 1 : 'none',
+                      width: 24,
+                      height: 24,
+                      borderRadius: '50%',
+                      bgcolor: color,
+                      border: '2px solid #fff',
+                      boxShadow: color === strokeColor ? `0 0 0 2px ${color}` : '0 0 0 1px rgba(0,0,0,.15)',
                     }}
+                  />
+                ))}
+                <Segmented
+                  size="sm"
+                  options={STROKE_WIDTHS.map((w) => ({
+                    key: String(w.value),
+                    label: w.label,
+                  }))}
+                  value={String(strokeWidth)}
+                  onChange={(next) => setStrokeWidth(Number(next))}
+                />
+                <Tooltip title="Desfazer último traço">
+                  <span>
+                    <IconButton
+                      aria-label="Desfazer último traço"
+                      disabled={viewStrokes.length === 0}
+                      onClick={undoStroke}
+                      size="small"
+                    >
+                      <UndoIcon fontSize="small" />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+              </Stack>
+            )}
+          </Stack>
+
+          {area === 'face' && (
+            <RegionChips
+              label="Rosto todo"
+              regions={FACE_REGIONS}
+              value={region}
+              onChange={(r) => {
+                setRegion(r);
+                setSelected(null);
+              }}
+            />
+          )}
+          {area === 'body' && (
+            <RegionChips
+              label="Corpo todo"
+              regions={BODY_REGIONS}
+              value={region}
+              onChange={(r) => {
+                setRegion(r);
+                setSelected(null);
+              }}
+            />
+          )}
+          {area === 'photo' && map.photoId && (
+            <Stack direction="row" alignItems="center" spacing={1}>
+              <Typography
+                sx={{
+                  fontSize: fontSizes.xs,
+                  color: 'text.secondary',
+                  flex: 1,
+                }}
+              >
+                Marcação sobre a foto da paciente.
+              </Typography>
+              <Tooltip title={photoHasMarks ? 'Apague as marcações da foto para trocar de foto' : ''}>
+                <span>
+                  <Button
+                    size="small"
+                    disabled={photoHasMarks}
+                    onClick={() => setMap((m) => ({ ...m, photoId: undefined }))}
                   >
-                    {r.label}
-                  </ButtonBase>
-                );
-              })}
+                    Trocar foto
+                  </Button>
+                </span>
+              </Tooltip>
             </Stack>
           )}
 
@@ -165,38 +533,12 @@ function ApplicationMapEditor({
               alignItems: 'start',
             }}
           >
-            <ApplicationMapCanvas
-              points={points}
-              view={view}
-              onViewChange={changeView}
-              selectedIndex={selected}
-              onSelect={setSelected}
-              height={isMobile ? '58vh' : '52vh'}
-              autoFocusQty={!isMobile}
-              onAdd={({ x, y }) => {
-                setPoints((rows) => [...rows, { x, y, product, view }]);
-                setSelected(points.length);
-              }}
-              onQtyChange={(index, qty) =>
-                setPoints((rows) =>
-                  rows.map((row, i) => {
-                    if (i !== index) return row;
-                    const next = { ...row, qty };
-                    if (qty === undefined) delete next.qty;
-                    return next;
-                  }),
-                )
-              }
-              onRemove={(index) => {
-                setPoints((rows) => rows.filter((_, i) => i !== index));
-                setSelected(null);
-              }}
-            />
+            {canvas}
 
             <Stack spacing={1.1}>
               {productRows.map((p) => {
                 const active = p.id === product;
-                const count = points.filter((point) => point.product === p.id).length;
+                const count = map.points.filter((point) => point.product === p.id).length;
                 return (
                   <ButtonBase
                     key={p.id}
@@ -226,7 +568,14 @@ function ApplicationMapEditor({
                       }}
                     />
                     <Box sx={{ flex: 1, minWidth: 0, lineHeight: 1.25 }}>
-                      <Typography noWrap sx={{ fontSize: fontSizes.sm, fontWeight: 700, lineHeight: 1.3 }}>
+                      <Typography
+                        noWrap
+                        sx={{
+                          fontSize: fontSizes.sm,
+                          fontWeight: 700,
+                          lineHeight: 1.3,
+                        }}
+                      >
                         {p.label}
                       </Typography>
                       <Typography
@@ -237,7 +586,7 @@ function ApplicationMapEditor({
                           color: count > 0 ? p.color : 'text.disabled',
                         }}
                       >
-                        {count} pts · {formatProductTotal(p, points)}
+                        {count} pts · {formatProductTotal(p, map.points)}
                       </Typography>
                     </Box>
                   </ButtonBase>
@@ -256,14 +605,28 @@ function ApplicationMapEditor({
                   borderColor: 'divider',
                 }}
               >
-                <Typography sx={{ fontSize: fontSizes.xs, color: 'text.secondary', fontWeight: 600 }}>
+                <Typography
+                  sx={{
+                    fontSize: fontSizes.xs,
+                    color: 'text.secondary',
+                    fontWeight: 600,
+                  }}
+                >
                   Total de pontos
                 </Typography>
-                <Typography sx={{ fontSize: fontSizes.lg, fontWeight: 800 }}>{points.length}</Typography>
+                <Typography sx={{ fontSize: fontSizes.lg, fontWeight: 800 }}>{map.points.length}</Typography>
               </Stack>
-              <Typography sx={{ fontSize: fontSizes['2xs'], color: 'text.disabled', lineHeight: 1.45, px: 0.25 }}>
-                Escolha o produto e clique no mapa para marcar. Clique num ponto para informar a dose ou
-                removê-lo.
+              <Typography
+                sx={{
+                  fontSize: fontSizes['2xs'],
+                  color: 'text.disabled',
+                  lineHeight: 1.45,
+                  px: 0.25,
+                }}
+              >
+                {tool === 'draw'
+                  ? 'Arraste sobre o mapa para desenhar. Use a borracha para apagar um traço ou ponto.'
+                  : 'Escolha o produto e clique no mapa para marcar. Clique num ponto para informar a dose ou removê-lo.'}
               </Typography>
             </Stack>
           </Box>
@@ -275,19 +638,125 @@ function ApplicationMapEditor({
           variant="outlined"
           color="inherit"
           startIcon={<DeleteOutlineIcon />}
-          disabled={points.length === 0}
+          disabled={map.points.length === 0 && map.strokes.length === 0}
           onClick={() => {
-            setPoints([]);
+            setMap((m) => ({ ...m, points: [], strokes: [] }));
             setSelected(null);
           }}
-          sx={{ color: 'text.secondary', borderColor: 'divider', bgcolor: 'background.paper' }}
+          sx={{
+            color: 'text.secondary',
+            borderColor: 'divider',
+            bgcolor: 'background.paper',
+          }}
         >
-          Limpar pontos
+          Limpar mapa
         </Button>
         <Button variant="contained" onClick={onClose}>
           Concluir
         </Button>
       </DialogActions>
     </>
+  );
+}
+
+/** Escolha da foto (já salva no R2) sobre a qual o mapa será marcado. */
+function PhotoPicker({
+  patientId,
+  height,
+  onPick,
+}: {
+  patientId: string;
+  height: string;
+  onPick: (photoId: string) => void;
+}) {
+  const { data: photos = [], isLoading } = useQuery({
+    queryKey: ['patient-photos', patientId],
+    queryFn: () => patientsApi.listPhotos(patientId),
+  });
+  return (
+    <Box
+      sx={{
+        height,
+        overflowY: 'auto',
+        border: 1,
+        borderColor: 'divider',
+        borderRadius: '16px',
+        p: 2,
+      }}
+    >
+      <Typography sx={{ fontSize: fontSizes.sm, fontWeight: 700, mb: 0.5 }}>Escolha uma foto de frente</Typography>
+      <Typography sx={{ fontSize: fontSizes.xs, color: 'text.secondary', mb: 1.5 }}>
+        Os pontos e desenhos ficam sobre a foto, que continua guardada no armazenamento da clínica.
+      </Typography>
+      {isLoading ? (
+        <CircularProgress size={24} />
+      ) : photos.length === 0 ? (
+        <Alert severity="info">
+          Esta paciente ainda não tem fotos. Adicione fotos de antes/depois no atendimento para marcar sobre elas.
+        </Alert>
+      ) : (
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))',
+            gap: 1.25,
+          }}
+        >
+          {photos.map((photo) => (
+            <ButtonBase
+              key={photo.id}
+              onClick={() => onPick(photo.id)}
+              aria-label={`Usar foto de ${new Date(photo.takenAt).toLocaleDateString('pt-BR')}`}
+              sx={{
+                display: 'block',
+                borderRadius: '12px',
+                overflow: 'hidden',
+                border: 1,
+                borderColor: 'divider',
+                bgcolor: 'grey.100',
+                aspectRatio: '3 / 4',
+              }}
+            >
+              {photo.url ? (
+                <Box
+                  component="img"
+                  src={photo.url}
+                  alt=""
+                  sx={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                    display: 'block',
+                  }}
+                />
+              ) : (
+                <Typography
+                  sx={{
+                    fontSize: fontSizes['2xs'],
+                    color: 'text.disabled',
+                    p: 1,
+                  }}
+                >
+                  Sem prévia
+                </Typography>
+              )}
+              <Typography
+                sx={{
+                  position: 'relative',
+                  mt: '-26px',
+                  py: 0.5,
+                  fontSize: fontSizes['2xs'],
+                  fontWeight: 700,
+                  color: '#fff',
+                  bgcolor: 'rgba(0,0,0,.45)',
+                }}
+              >
+                {photo.phase === 'BEFORE' ? 'Antes' : 'Depois'} · {new Date(photo.takenAt).toLocaleDateString('pt-BR')}
+              </Typography>
+            </ButtonBase>
+          ))}
+        </Box>
+      )}
+    </Box>
   );
 }

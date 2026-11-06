@@ -445,8 +445,30 @@ export interface Appointment {
   finishedAt?: string | null;
 }
 
-export type ApplicationMapProduct = 'toxin' | 'filler' | 'biostimulator' | 'bioremodeler' | 'skinbooster';
-export type ApplicationMapView = 'front' | 'left' | 'right' | 'body';
+export type ApplicationMapProduct =
+  | 'toxin'
+  | 'filler'
+  | 'biostimulator'
+  | 'bioremodeler'
+  | 'skinbooster'
+  | 'cryolipolysis';
+/** `photo`: foto da paciente, também usada como textura do modelo 3D do rosto. */
+export type ApplicationMapView = 'front' | 'left' | 'right' | 'body' | 'photo';
+export type ApplicationMapRegion =
+  | 'forehead'
+  | 'periorbital'
+  | 'nose'
+  | 'malar'
+  | 'lips'
+  | 'chin'
+  | 'jawline'
+  | 'submental'
+  | 'arms'
+  | 'abdomen'
+  | 'flanks'
+  | 'back'
+  | 'saddlebags'
+  | 'thighs';
 
 /** Ponto do mapa de aplicação; x/y em % da largura/altura da imagem. */
 export interface ApplicationMapPoint {
@@ -455,15 +477,29 @@ export interface ApplicationMapPoint {
   /** Anotação livre dos mapas anteriores ao seletor de produto. */
   note?: string;
   product?: ApplicationMapProduct;
-  /** Quantidade na unidade do produto (U ou ml). */
+  /** Quantidade na unidade do produto (U, ml ou ciclos). */
   qty?: number;
   /** Sem `view`, o ponto é da frente do rosto. */
   view?: ApplicationMapView;
+  /** Região ampliada em que o ponto foi marcado. */
+  region?: ApplicationMapRegion;
+}
+
+/** Traço de desenho livre; `points` = [x1, y1, x2, y2, …] em % da imagem. */
+export interface ApplicationMapStroke {
+  view: ApplicationMapView;
+  color: string;
+  /** Espessura em % da largura da imagem. */
+  width: number;
+  points: number[];
 }
 
 export interface ApplicationMap {
   template: 'face';
   points: ApplicationMapPoint[];
+  strokes?: ApplicationMapStroke[];
+  /** Foto da paciente (PatientPhoto) da vista `photo` e do modelo 3D. */
+  photoId?: string;
 }
 
 export type PackageType = 'COMBO' | 'SESSIONS';
