@@ -31,8 +31,8 @@ export default defineConfig({
       include: ['src/**/*.{ts,tsx}'],
       exclude: ['src/**/*.test.{ts,tsx}', 'src/test/**', 'src/**/*.d.ts', 'src/main.tsx', 'src/types/**'],
       reporter: ['text-summary', 'json-summary', 'lcov'],
-      // Piso = cobertura medida, arredondada para baixo. Meta: 80%; subir por etapas (cada PR que cobre um bloco de telas sobe o piso).
-      thresholds: { statements: 65, branches: 87, functions: 85, lines: 65 },
+      // Piso = cobertura medida, arredondada para baixo. Meta (80%) atingida; o piso não deve cair.
+      thresholds: { statements: 97, branches: 90, functions: 91, lines: 97 },
     },
   },
   server: {
