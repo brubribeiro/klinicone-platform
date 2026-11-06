@@ -1,24 +1,29 @@
-import { useState, type KeyboardEvent, type MouseEvent } from 'react';
-import { Box, ButtonBase, IconButton, InputBase, Stack, Tooltip, Typography, alpha } from '@mui/material';
+import { useRef, useState, type KeyboardEvent, type MouseEvent, type PointerEvent, type ReactNode } from 'react';
+import { Box, IconButton, InputBase, Stack, Tooltip, Typography, alpha } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import CloseIcon from '@mui/icons-material/Close';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import RemoveIcon from '@mui/icons-material/Remove';
 
 import { fontSizes } from '../../theme/fontSizes';
-import type { ApplicationMapPoint, ApplicationMapView } from '../../types';
+import type { ApplicationMapPoint, ApplicationMapStroke, ApplicationMapView } from '../../types';
 import {
-  FACE_VIEWS,
-  MAP_VIEWS,
   formatQty,
   parseQty,
   pointView,
   productDef,
+  strokePath,
+  type MapCrop,
+  type MapViewDef,
 } from './applicationMapModel';
 
 const ZOOM_MIN = 0.6;
-const ZOOM_MAX = 2;
+const ZOOM_MAX = 3;
 const ZOOM_STEP = 0.2;
+/** Distância mínima entre dois pontos de um traço, em % da largura visível. */
+const STROKE_MIN_STEP = 0.35;
+
+export type MapTool = 'point' | 'draw' | 'erase';
 
 const floatingButtonSx = {
   width: 34,
@@ -32,41 +37,111 @@ const floatingButtonSx = {
   '&:hover': { bgcolor: '#F3F8F6' },
 } as const;
 
+const round1 = (n: number) => Math.round(n * 10) / 10;
+const round2 = (n: number) => Math.round(n * 100) / 100;
+const clamp100 = (n: number) => Math.min(100, Math.max(0, n));
+
+/**
+ * Imagem do mapa (ilustração ou foto) com pontos e desenho livre. `crop` amplia uma região:
+ * as coordenadas continuam em % da imagem inteira, então o ponto marcado no zoom aparece
+ * no mesmo lugar na vista completa.
+ */
 export function ApplicationMapCanvas({
-  points,
+  image,
   view,
-  onViewChange,
+  crop,
+  points,
+  strokes,
+  tool,
+  strokeColor,
+  strokeWidth,
   selectedIndex,
   onSelect,
   onAdd,
   onQtyChange,
   onRemove,
+  onAddStroke,
+  onRemoveStroke,
   height,
   autoFocusQty,
+  toolbar,
 }: {
-  points: ApplicationMapPoint[];
+  image: MapViewDef;
   view: ApplicationMapView;
-  onViewChange: (view: ApplicationMapView) => void;
+  crop: MapCrop;
+  points: ApplicationMapPoint[];
+  strokes: ApplicationMapStroke[];
+  tool: MapTool;
+  strokeColor: string;
+  /** Espessura em % da largura visível. */
+  strokeWidth: number;
   selectedIndex: number | null;
   onSelect: (index: number | null) => void;
   onAdd: (point: { x: number; y: number }) => void;
   onQtyChange: (index: number, qty: number | undefined) => void;
   onRemove: (index: number) => void;
+  onAddStroke: (stroke: ApplicationMapStroke) => void;
+  onRemoveStroke: (index: number) => void;
   height: string | number;
   autoFocusQty: boolean;
+  /** Controles no topo do mapa (ex.: vistas do rosto). */
+  toolbar?: ReactNode;
 }) {
   const [zoom, setZoom] = useState(1);
-  const image = MAP_VIEWS[view];
+  const stageRef = useRef<HTMLDivElement>(null);
+  const [draft, setDraft] = useState<number[] | null>(null);
   const selected = selectedIndex !== null ? points[selectedIndex] : undefined;
+  const aspect = (crop.w * image.width) / (crop.h * image.height);
+
+  /** Posição do ponteiro em % da imagem inteira. */
+  const toImage = (clientX: number, clientY: number) => {
+    const rect = stageRef.current!.getBoundingClientRect();
+    return {
+      x: clamp100(((clientX - rect.left) / rect.width) * 100),
+      y: clamp100(((clientY - rect.top) / rect.height) * 100),
+    };
+  };
+
+  const handlePointerDown = (e: PointerEvent<HTMLDivElement>) => {
+    if (tool !== 'draw' || e.button !== 0) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    const { x, y } = toImage(e.clientX, e.clientY);
+    setDraft([round1(x), round1(y)]);
+  };
+
+  const handlePointerMove = (e: PointerEvent<HTMLDivElement>) => {
+    if (!draft) return;
+    const { x, y } = toImage(e.clientX, e.clientY);
+    const lx = draft[draft.length - 2];
+    const ly = draft[draft.length - 1];
+    const step = (STROKE_MIN_STEP * crop.w) / 100;
+    if (Math.hypot(x - lx, ((y - ly) * image.height) / image.width) < step) return;
+    if (draft.length >= 1000) return;
+    setDraft([...draft, round1(x), round1(y)]);
+  };
+
+  const finishStroke = () => {
+    if (!draft) return;
+    onAddStroke({
+      view,
+      color: strokeColor,
+      width: round2(Math.max(0.1, (strokeWidth * crop.w) / 100)),
+      points: draft,
+    });
+    setDraft(null);
+  };
 
   const handleClick = (e: MouseEvent<HTMLDivElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width) * 100;
-    const y = ((e.clientY - rect.top) / rect.height) * 100;
-    onAdd({
-      x: Math.round(Math.min(100, Math.max(0, x)) * 10) / 10,
-      y: Math.round(Math.min(100, Math.max(0, y)) * 10) / 10,
-    });
+    if (tool !== 'point') return;
+    const { x, y } = toImage(e.clientX, e.clientY);
+    onAdd({ x: round2(x), y: round2(y) });
+  };
+
+  const viewStrokes = strokes.map((s, index) => ({ s, index })).filter(({ s }) => s.view === view);
+  /** Posição do ponto selecionado no recorte visível, para o editor não sair da tela. */
+  const selectedInFrame = selected && {
+    x: ((selected.x - crop.x) / crop.w) * 100,
+    y: ((selected.y - crop.y) / crop.h) * 100,
   };
 
   return (
@@ -99,71 +174,155 @@ export function ApplicationMapCanvas({
           role="img"
           aria-label={`Mapa de aplicação: ${image.label.toLowerCase()}`}
           onClick={handleClick}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={finishStroke}
+          onPointerCancel={() => setDraft(null)}
           sx={{
             position: 'relative',
-            width: `min(100cqw, calc(100cqh * ${image.width} / ${image.height}))`,
-            aspectRatio: `${image.width} / ${image.height}`,
-            cursor: 'crosshair',
+            width: `min(100cqw, calc(100cqh * ${aspect}))`,
+            aspectRatio: `${aspect}`,
+            overflow: 'hidden',
+            cursor: tool === 'erase' ? 'cell' : 'crosshair',
             userSelect: 'none',
-            touchAction: 'manipulation',
+            touchAction: tool === 'draw' ? 'none' : 'manipulation',
           }}
         >
           <Box
-            component="img"
-            src={image.src}
-            alt=""
-            draggable={false}
-            sx={{ display: 'block', width: '100%', height: '100%', pointerEvents: 'none' }}
-          />
-          {points.map((p, index) => {
-            if (pointView(p) !== view) return null;
-            const product = productDef(p.product);
-            const color = product?.color ?? '#5C6F6B';
-            const isSelected = index === selectedIndex;
-            return (
-              <Box
-                key={index}
-                component="span"
-                role="button"
-                aria-label={`Editar ponto ${index + 1}${product ? ` (${product.label})` : ''}`}
-                title="Editar ponto"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onSelect(index);
-                }}
-                sx={{
-                  position: 'absolute',
-                  left: `${p.x}%`,
-                  top: `${p.y}%`,
-                  minWidth: 17,
-                  height: 17,
-                  px: '3px',
-                  borderRadius: '9px',
-                  bgcolor: color,
-                  border: '2px solid #fff',
-                  boxShadow: isSelected
-                    ? `0 0 0 3px ${alpha(color, 0.4)}, 0 1px 4px rgba(0,0,0,.4)`
-                    : '0 1px 4px rgba(0,0,0,.35)',
-                  transform: 'translate(-50%, -50%)',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: 9,
-                  fontWeight: 800,
-                  lineHeight: 1,
-                  color: '#fff',
-                  zIndex: isSelected ? 3 : 2,
-                }}
-              >
-                {p.qty !== undefined ? formatQty(p.qty) : ''}
-              </Box>
-            );
-          })}
-          {selected && selectedIndex !== null && pointView(selected) === view && (
+            ref={stageRef}
+            sx={{
+              position: 'absolute',
+              left: `${(-crop.x / crop.w) * 100}%`,
+              top: `${(-crop.y / crop.h) * 100}%`,
+              width: `${(100 / crop.w) * 100}%`,
+              height: `${(100 / crop.h) * 100}%`,
+            }}
+          >
+            <Box
+              component="img"
+              src={image.src}
+              alt=""
+              draggable={false}
+              sx={{
+                display: 'block',
+                width: '100%',
+                height: '100%',
+                pointerEvents: 'none',
+              }}
+            />
+            <Box
+              component="svg"
+              viewBox={`0 0 ${image.width} ${image.height}`}
+              preserveAspectRatio="none"
+              sx={{
+                position: 'absolute',
+                inset: 0,
+                width: '100%',
+                height: '100%',
+                pointerEvents: 'none',
+                zIndex: 1,
+              }}
+            >
+              {viewStrokes.map(({ s, index }) => {
+                const d = strokePath(s.points, image.width, image.height);
+                // Traço feito no zoom continua visível na vista inteira (mínimo de 0,3% da largura visível).
+                const w = (Math.max(s.width, crop.w * 0.003) * image.width) / 100;
+                return (
+                  <g key={index}>
+                    <path
+                      d={d}
+                      fill="none"
+                      stroke={s.color}
+                      strokeWidth={w}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      opacity={0.9}
+                    />
+                    {tool === 'erase' && (
+                      <path
+                        d={d}
+                        fill="none"
+                        stroke="transparent"
+                        strokeWidth={Math.max(w * 3, image.width * crop.w * 0.0003)}
+                        strokeLinecap="round"
+                        role="button"
+                        aria-label={`Apagar traço ${index + 1}`}
+                        style={{ pointerEvents: 'stroke', cursor: 'pointer' }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onRemoveStroke(index);
+                        }}
+                      />
+                    )}
+                  </g>
+                );
+              })}
+              {draft && (
+                <path
+                  d={strokePath(draft, image.width, image.height)}
+                  fill="none"
+                  stroke={strokeColor}
+                  strokeWidth={(strokeWidth * crop.w * image.width) / 10000}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  opacity={0.9}
+                />
+              )}
+            </Box>
+            {points.map((p, index) => {
+              if (pointView(p) !== view) return null;
+              const product = productDef(p.product);
+              const color = product?.color ?? '#5C6F6B';
+              const isSelected = index === selectedIndex;
+              const applicator = p.product === 'cryolipolysis';
+              return (
+                <Box
+                  key={index}
+                  component="span"
+                  role="button"
+                  aria-label={`${tool === 'erase' ? 'Apagar' : 'Editar'} ponto ${index + 1}${product ? ` (${product.label})` : ''}`}
+                  title={tool === 'erase' ? 'Apagar ponto' : 'Editar ponto'}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (tool === 'erase') onRemove(index);
+                    else onSelect(index);
+                  }}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  sx={{
+                    position: 'absolute',
+                    left: `${p.x}%`,
+                    top: `${p.y}%`,
+                    minWidth: applicator ? 34 : 17,
+                    height: applicator ? 22 : 17,
+                    px: '3px',
+                    borderRadius: applicator ? '7px' : '9px',
+                    bgcolor: applicator ? alpha(color, 0.75) : color,
+                    border: '2px solid #fff',
+                    boxShadow: isSelected
+                      ? `0 0 0 3px ${alpha(color, 0.4)}, 0 1px 4px rgba(0,0,0,.4)`
+                      : '0 1px 4px rgba(0,0,0,.35)',
+                    transform: 'translate(-50%, -50%)',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: 9,
+                    fontWeight: 800,
+                    lineHeight: 1,
+                    color: '#fff',
+                    zIndex: isSelected ? 3 : 2,
+                  }}
+                >
+                  {p.qty !== undefined ? formatQty(p.qty) : ''}
+                </Box>
+              );
+            })}
+          </Box>
+          {selected && selectedInFrame && selectedIndex !== null && pointView(selected) === view && (
             <MarkEditor
               key={selectedIndex}
               point={selected}
+              position={selectedInFrame}
               index={selectedIndex}
               autoFocus={autoFocusQty}
               onQtyChange={(qty) => onQtyChange(selectedIndex, qty)}
@@ -174,49 +333,20 @@ export function ApplicationMapCanvas({
         </Box>
       </Box>
 
-      {view !== 'body' && (
-        <Stack
-          direction="row"
-          spacing={0.5}
+      {toolbar && (
+        <Box
           onClick={(e) => e.stopPropagation()}
           sx={{
             position: 'absolute',
             top: 10,
             left: '50%',
             transform: 'translateX(-50%)',
-            bgcolor: 'grey.100',
-            p: 0.5,
-            borderRadius: '10px',
-            boxShadow: '0 2px 8px rgba(0,0,0,.12)',
             zIndex: 4,
             maxWidth: '92%',
           }}
         >
-          {FACE_VIEWS.map((key) => {
-            const active = key === view;
-            return (
-              <ButtonBase
-                key={key}
-                onClick={() => onViewChange(key)}
-                aria-pressed={active}
-                sx={{
-                  flex: 1,
-                  height: 34,
-                  px: 1.5,
-                  whiteSpace: 'nowrap',
-                  fontSize: fontSizes.xs,
-                  fontWeight: 700,
-                  borderRadius: '8px',
-                  bgcolor: active ? 'background.paper' : 'transparent',
-                  color: active ? 'primary.main' : 'text.secondary',
-                  boxShadow: active ? 1 : 'none',
-                }}
-              >
-                {MAP_VIEWS[key].label}
-              </ButtonBase>
-            );
-          })}
-        </Stack>
+          {toolbar}
+        </Box>
       )}
 
       <Stack spacing={0.75} sx={{ position: 'absolute', bottom: 12, right: 12, zIndex: 5 }}>
@@ -249,8 +379,9 @@ export function ApplicationMapCanvas({
   );
 }
 
-function MarkEditor({
+export function MarkEditor({
   point,
+  position,
   index,
   autoFocus,
   onQtyChange,
@@ -258,6 +389,8 @@ function MarkEditor({
   onClose,
 }: {
   point: ApplicationMapPoint;
+  /** Posição do ponto em % do recorte visível. */
+  position: { x: number; y: number };
   index: number;
   autoFocus: boolean;
   onQtyChange: (qty: number | undefined) => void;
@@ -267,7 +400,7 @@ function MarkEditor({
   const product = productDef(point.product);
   const [text, setText] = useState(point.qty !== undefined ? formatQty(point.qty) : '');
   /** Perto do topo o editor abre abaixo do ponto para não ser cortado. */
-  const below = point.y < 28;
+  const below = position.y < 28;
 
   const handleKeyDown = (e: KeyboardEvent) => {
     if (e.key === 'Enter' || e.key === 'Escape') {
@@ -280,10 +413,11 @@ function MarkEditor({
   return (
     <Box
       onClick={(e) => e.stopPropagation()}
+      onPointerDown={(e) => e.stopPropagation()}
       sx={{
         position: 'absolute',
-        left: `${Math.min(Math.max(point.x, 18), 82)}%`,
-        top: below ? `calc(${point.y}% + 14px)` : `calc(${point.y}% - 14px)`,
+        left: `${Math.min(Math.max(position.x, 18), 82)}%`,
+        top: below ? `calc(${position.y}% + 14px)` : `calc(${position.y}% - 14px)`,
         transform: below ? 'translateX(-50%)' : 'translate(-50%, -100%)',
         bgcolor: 'background.paper',
         border: 1,
@@ -314,13 +448,26 @@ function MarkEditor({
         <IconButton
           aria-label="Fechar editor do ponto"
           onClick={onClose}
-          sx={{ width: 22, height: 22, borderRadius: '7px', bgcolor: 'grey.100', color: 'text.disabled' }}
+          sx={{
+            width: 22,
+            height: 22,
+            borderRadius: '7px',
+            bgcolor: 'grey.100',
+            color: 'text.disabled',
+          }}
         >
           <CloseIcon sx={{ fontSize: 13 }} />
         </IconButton>
       </Stack>
       {point.note && (
-        <Typography sx={{ fontSize: fontSizes['2xs'], color: 'text.secondary', mb: 1, lineHeight: 1.35 }}>
+        <Typography
+          sx={{
+            fontSize: fontSizes['2xs'],
+            color: 'text.secondary',
+            mb: 1,
+            lineHeight: 1.35,
+          }}
+        >
           {point.note}
         </Typography>
       )}
@@ -355,10 +502,21 @@ function MarkEditor({
               setText(next);
               onQtyChange(next.trim() ? parseQty(next) : undefined);
             }}
-            sx={{ flex: 1, minWidth: 0, fontSize: fontSizes.md, fontWeight: 700 }}
+            sx={{
+              flex: 1,
+              minWidth: 0,
+              fontSize: fontSizes.md,
+              fontWeight: 700,
+            }}
           />
           {product && (
-            <Typography sx={{ fontSize: fontSizes['2xs'], color: 'text.disabled', fontWeight: 700 }}>
+            <Typography
+              sx={{
+                fontSize: fontSizes['2xs'],
+                color: 'text.disabled',
+                fontWeight: 700,
+              }}
+            >
               {product.unit}
             </Typography>
           )}

@@ -33,7 +33,13 @@ import { useAppToast } from '../../contexts/AppToastContext';
 import { usePermissions } from '../../contexts/usePermissions';
 import { DialogHeader } from '../DialogCloseButton';
 import { ApplicationMapDialog } from '../application-map/ApplicationMapDialog';
-import { guessProducts } from '../application-map/applicationMapModel';
+import {
+  EMPTY_MAP_DRAFT,
+  guessProducts,
+  toApplicationMapPayload,
+  toMapDraft,
+  type ApplicationMapDraft,
+} from '../application-map/applicationMapModel';
 import { SendWhatsAppDialog } from '../messages/SendWhatsAppDialog';
 import { PatientDetailDrawer } from '../patients/PatientDetailDrawer';
 import { SkinAnamnesisDialog } from '../skincare/SkinAnamnesisDialog';
@@ -41,7 +47,6 @@ import { varsFromAppointment } from '../../utils/whatsapp';
 import { getApiErrorMessage } from '../../utils/apiError';
 import { appointmentProcedureIds } from '../../utils/appointmentProcedures';
 import type {
-  ApplicationMapPoint,
   Appointment,
   Package,
   PaymentMethodEntry,
@@ -59,7 +64,6 @@ import {
   emptyFormValues,
   formatElapsed,
   kindOptions,
-  normalizeApplicationMapPoints,
   normalizeExtraMaterials,
   reconcileProcedureIds,
   type ExtraMaterialRow,
@@ -161,8 +165,8 @@ export function AppointmentFormDialog({
   const [batchTarget, setBatchTarget] = useState<BatchTarget | null>(null);
   /** Materiais extras como estavam ao abrir, para detectar alterações não salvas. */
   const initialExtrasRef = useRef('[]');
-  const [mapPoints, setMapPoints] = useState<ApplicationMapPoint[]>([]);
-  const [initialMapPoints, setInitialMapPoints] = useState<ApplicationMapPoint[]>([]);
+  const [mapDraft, setMapDraft] = useState<ApplicationMapDraft>(EMPTY_MAP_DRAFT);
+  const [initialMapDraft, setInitialMapDraft] = useState<ApplicationMapDraft>(EMPTY_MAP_DRAFT);
   // Só habilita a busca de profissionais depois que o formulário foi inicializado
   // com os valores reais (reset), evitando uma requisição extra com o horário padrão.
   const [formInitialized, setFormInitialized] = useState(false);
@@ -240,9 +244,9 @@ export function AppointmentFormDialog({
 
   useEffect(() => {
     if (!open) return;
-    const points = (appointmentDetail ?? appointment)?.applicationMap?.points ?? [];
-    setMapPoints(points);
-    setInitialMapPoints(points);
+    const draft = toMapDraft((appointmentDetail ?? appointment)?.applicationMap);
+    setMapDraft(draft);
+    setInitialMapDraft(draft);
   }, [open, appointment, appointmentDetail]);
 
   const selectedKind = watch('kind');
@@ -303,7 +307,9 @@ export function AppointmentFormDialog({
   const showApplicationMap =
     !!appointment &&
     selectedKind === 'PROCEDURE' &&
-    (selectedProcedures.some((p) => p.applicationMap) || initialMapPoints.length > 0);
+    (selectedProcedures.some((p) => p.applicationMap) ||
+      initialMapDraft.points.length > 0 ||
+      initialMapDraft.strokes.length > 0);
   const mapProcedures = selectedProcedures.filter((p) => p.applicationMap);
   const mapProducts = guessProducts(mapProcedures.map((p) => p.name));
   const mapRegions = [
@@ -522,11 +528,10 @@ export function AppointmentFormDialog({
     [extraMaterials],
   );
 
-  const normalizedMapPoints = useMemo(() => normalizeApplicationMapPoints(mapPoints), [mapPoints]);
+  const mapPayload = useMemo(() => toApplicationMapPayload(mapDraft), [mapDraft]);
   const mapChanged =
     showApplicationMap &&
-    JSON.stringify(normalizedMapPoints) !==
-      JSON.stringify(normalizeApplicationMapPoints(initialMapPoints));
+    JSON.stringify(mapPayload) !== JSON.stringify(toApplicationMapPayload(initialMapDraft));
 
   const hasUnsavedChanges =
     isDirty ||
@@ -613,7 +618,7 @@ export function AppointmentFormDialog({
         ...(selectedPackageId ? { patientPackageId: selectedPackageId } : {}),
         ...(normalizedExtraMaterials.length > 0 ? { extraMaterials: normalizedExtraMaterials } : {}),
         ...(appointment && mapChanged
-          ? { applicationMap: { template: 'face' as const, points: normalizedMapPoints } }
+          ? { applicationMap: mapPayload }
           : {}),
       };
       return appointment
@@ -793,7 +798,11 @@ export function AppointmentFormDialog({
     <SkinAnamnesisShortcut onClick={() => setSkinOpen(true)} />
   );
   const mapShortcut = showApplicationMap && (
-    <ApplicationMapShortcut pointsCount={mapPoints.length} onClick={() => setMapOpen(true)} />
+    <ApplicationMapShortcut
+      pointsCount={mapDraft.points.length}
+      strokesCount={mapDraft.strokes.length}
+      onClick={() => setMapOpen(true)}
+    />
   );
   const timerCard = showTimerCard && !isMobile && (
     <SessionTimerCard
@@ -1106,8 +1115,9 @@ export function AppointmentFormDialog({
         <ApplicationMapDialog
           open={mapOpen}
           onClose={() => setMapOpen(false)}
-          points={mapPoints}
-          setPoints={setMapPoints}
+          map={mapDraft}
+          setMap={setMapDraft}
+          patientId={selectedPatientId || undefined}
           products={mapProducts}
           defaultRegion={mapRegions.length === 1 ? mapRegions[0] : 'face'}
           regionLocked={mapRegions.length === 1}

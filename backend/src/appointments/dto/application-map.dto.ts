@@ -1,11 +1,14 @@
 import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
+  ArrayMinSize,
   IsArray,
+  IsHexColor,
   IsIn,
   IsNumber,
   IsOptional,
   IsString,
+  IsUUID,
   Max,
   MaxLength,
   Min,
@@ -19,9 +22,31 @@ export const APPLICATION_MAP_PRODUCTS = [
   'biostimulator',
   'bioremodeler',
   'skinbooster',
+  'cryolipolysis',
 ] as const;
-/** Imagem em que o ponto foi marcado: rosto (frente, perfis) ou corpo. */
-export const APPLICATION_MAP_VIEWS = ['front', 'left', 'right', 'body'] as const;
+/**
+ * Imagem em que o ponto foi marcado: rosto (frente, perfis), corpo ou a foto da paciente
+ * (`photo`, também usada pelo modelo 3D: a malha usa a foto como textura, então o ponto
+ * marcado no 3D é gravado nas coordenadas da foto).
+ */
+export const APPLICATION_MAP_VIEWS = ['front', 'left', 'right', 'body', 'photo'] as const;
+/** Região ampliada em que o ponto foi marcado (rosto para preenchimento, corpo para criolipólise). */
+export const APPLICATION_MAP_REGIONS = [
+  'forehead',
+  'periorbital',
+  'nose',
+  'malar',
+  'lips',
+  'chin',
+  'jawline',
+  'submental',
+  'arms',
+  'abdomen',
+  'flanks',
+  'back',
+  'saddlebags',
+  'thighs',
+] as const;
 
 /** Ponto marcado no diagrama; x/y em % da largura/altura da imagem. */
 export class ApplicationMapPointDto {
@@ -45,7 +70,7 @@ export class ApplicationMapPointDto {
   @IsIn(APPLICATION_MAP_PRODUCTS)
   product?: (typeof APPLICATION_MAP_PRODUCTS)[number];
 
-  /** Quantidade aplicada no ponto, na unidade do produto (U ou ml). */
+  /** Quantidade aplicada no ponto, na unidade do produto (U, ml ou ciclos). */
   @IsOptional()
   @IsNumber()
   @Min(0)
@@ -55,6 +80,33 @@ export class ApplicationMapPointDto {
   @IsOptional()
   @IsIn(APPLICATION_MAP_VIEWS)
   view?: (typeof APPLICATION_MAP_VIEWS)[number];
+
+  @IsOptional()
+  @IsIn(APPLICATION_MAP_REGIONS)
+  region?: (typeof APPLICATION_MAP_REGIONS)[number];
+}
+
+/** Traço de desenho livre; `points` = [x1, y1, x2, y2, …] em % da imagem. */
+export class ApplicationMapStrokeDto {
+  @IsIn(APPLICATION_MAP_VIEWS)
+  view: (typeof APPLICATION_MAP_VIEWS)[number];
+
+  @IsHexColor()
+  color: string;
+
+  /** Espessura em % da largura da imagem. */
+  @IsNumber()
+  @Min(0.1)
+  @Max(5)
+  width: number;
+
+  @IsArray()
+  @ArrayMinSize(2)
+  @ArrayMaxSize(1000)
+  @IsNumber({}, { each: true })
+  @Min(0, { each: true })
+  @Max(100, { each: true })
+  points: number[];
 }
 
 export class ApplicationMapDto {
@@ -66,4 +118,16 @@ export class ApplicationMapDto {
   @ValidateNested({ each: true })
   @Type(() => ApplicationMapPointDto)
   points: ApplicationMapPointDto[];
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(100)
+  @ValidateNested({ each: true })
+  @Type(() => ApplicationMapStrokeDto)
+  strokes?: ApplicationMapStrokeDto[];
+
+  /** Foto da paciente (PatientPhoto, no R2) usada na vista `photo` e no modelo 3D. */
+  @IsOptional()
+  @IsUUID()
+  photoId?: string;
 }

@@ -9,6 +9,7 @@ import {
   Patch,
   Post,
   Query,
+  StreamableFile,
   UploadedFile,
   UseGuards,
   UseInterceptors,
@@ -109,6 +110,17 @@ export class PatientsController {
   @Get(':id/photos')
   listPhotos(@Param('id', ParseUUIDPipe) id: string) {
     return this.patients.listPhotos(id);
+  }
+
+  /** Bytes da foto pela API (textura do modelo 3D do mapa de aplicação, sem depender de CORS no R2). */
+  @RequirePermissions('patients:view')
+  @Get(':id/photos/:photoId/file')
+  async photoFile(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('photoId', ParseUUIDPipe) photoId: string,
+  ) {
+    const { buffer, contentType } = await this.patients.downloadPhoto(id, photoId);
+    return new StreamableFile(buffer, { type: contentType, disposition: 'inline' });
   }
 
   @RequirePermissions('patients:edit')
