@@ -5,6 +5,13 @@ import { fontSizes } from './fontSizes';
 const baseTheme = createTheme();
 
 export type ColorMode = 'light' | 'dark';
+export type ThemeVariant = 'clinic' | 'console';
+
+// Acento do Console KlinicOne (índigo), no lugar do verde-água da clínica.
+const CONSOLE_ACCENT = {
+  light: { primary: '#4F5BD5', primaryStrong: '#3B44A8', primarySoft: '#E0E3FA', primaryTint: '#EEF0FC', accent: '#7C86E8' },
+  dark: { primary: '#6670E0', primaryStrong: '#A9B0F5', primarySoft: '#272B54', primaryTint: '#1E2244', accent: '#8F98F0' },
+};
 
 // Tokens do protótipo Aurora (claro). A paleta escura é derivada do mesmo verde-água,
 // com superfícies em verde quase preto e textos claros.
@@ -72,8 +79,8 @@ const STATUS = {
 const CONTROL_HEIGHT = 32; // inputs e selects (compacto)
 const BUTTON_HEIGHT = 38; // botões: altura única para todos
 
-export function createAppTheme(mode: ColorMode) {
-  const aurora = AURORA[mode];
+export function createAppTheme(mode: ColorMode, variant: ThemeVariant = 'clinic') {
+  const aurora = variant === 'console' ? { ...AURORA[mode], ...CONSOLE_ACCENT[mode] } : AURORA[mode];
   const status = STATUS[mode];
   const dark = mode === 'dark';
 

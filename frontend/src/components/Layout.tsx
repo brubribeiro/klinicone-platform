@@ -110,11 +110,11 @@ export function Layout() {
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'background.default' }}>
       {isImpersonating && (
-        // Super-admin "entrou como" a clínica pelo painel: a faixa mostra a clínica
+        // Super-admin "entrou como" a clínica pelo Console KlinicOne: a faixa mostra a clínica
         <ImpersonationBanner
           userName={user?.tenantName ?? user?.name}
           onStop={stopImpersonating}
-          stopLabel={user?.tenantName ? 'Voltar ao painel' : undefined}
+          stopLabel={user?.tenantName ? 'Voltar ao Console' : undefined}
         />
       )}
       <AppBar

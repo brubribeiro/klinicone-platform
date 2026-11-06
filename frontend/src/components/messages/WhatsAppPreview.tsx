@@ -27,12 +27,12 @@ export function WhatsAppPreview({ content, category, procedure }: WhatsAppPrevie
     <Box
       sx={{
         borderRadius: '16px',
-        px: 2.25,
-        py: 2.75,
+        px: 1.5,
+        py: 1.5,
         bgcolor: wa.chat,
         backgroundImage: `radial-gradient(${wa.dots} 1px, transparent 1px)`,
         backgroundSize: '14px 14px',
-        minHeight: 170,
+        minHeight: 96,
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'flex-end',
@@ -44,8 +44,8 @@ export function WhatsAppPreview({ content, category, procedure }: WhatsAppPrevie
           maxWidth: '88%',
           bgcolor: wa.bubble,
           borderRadius: '3px 14px 14px 14px',
-          px: 1.875,
-          py: 1.5,
+          px: 1.5,
+          py: 1,
           boxShadow: '0 1px 1px rgba(0,0,0,.14)',
         }}
       >
@@ -68,8 +68,8 @@ export function WhatsAppPreview({ content, category, procedure }: WhatsAppPrevie
         <Typography
           component="div"
           sx={{
-            fontSize: fontSizes.md,
-            lineHeight: 1.5,
+            fontSize: fontSizes.sm,
+            lineHeight: 1.45,
             color: wa.text,
             whiteSpace: 'pre-wrap',
             wordBreak: 'break-word',

@@ -29,6 +29,7 @@ import {
   dialogFormLayoutSx,
   formDialogPaperSx,
 } from '../DialogCloseButton';
+import { FormSection } from '../FormSection';
 import { LabeledField } from '../LabeledField';
 import { MoneyField } from '../MoneyField';
 import { financeApi, FinancialEntryPayload } from '../../api/finance';
@@ -247,15 +248,17 @@ export function FinanceFormDialog({ open, onClose, entry }: FinanceFormDialogPro
         />
 
         <DialogContent
+          dividers
           sx={{
             ...dialogContentScrollSx,
             px: { xs: 2, sm: 3 },
-            pb: { xs: 2, sm: 2.5 },
+            py: { xs: 2, sm: 2.5 },
             bgcolor: 'background.default',
-            '&.MuiDialogContent-root': { pt: { xs: 2, sm: 2.25 } },
           }}
         >
-          <Stack spacing={FORM_STACK_GAP}>
+          <Stack spacing={2}>
+            <FormSection title="Dados do lançamento">
+            <Stack spacing={FORM_STACK_GAP}>
             <Controller
               name="description"
               control={control}
@@ -337,6 +340,11 @@ export function FinanceFormDialog({ open, onClose, entry }: FinanceFormDialogPro
               </Typography>
             )}
 
+            </Stack>
+            </FormSection>
+
+            <FormSection title="Valor e pagamento">
+            <Stack spacing={FORM_STACK_GAP}>
             <Box sx={THREE_COLUMNS_SX}>
               <Controller
                 name="amount"
@@ -398,6 +406,8 @@ export function FinanceFormDialog({ open, onClose, entry }: FinanceFormDialogPro
                 />
               </Stack>
             )}
+            </Stack>
+            </FormSection>
 
             {mutation.isError && (
               <Alert severity="error" variant="outlined">
@@ -409,10 +419,26 @@ export function FinanceFormDialog({ open, onClose, entry }: FinanceFormDialogPro
         </DialogContent>
 
         <DialogActions sx={{ ...dialogActionsBorderSx, flexShrink: 0 }}>
-          <Button onClick={onClose} type="button" disabled={mutation.isPending}>
+          <Button
+            onClick={onClose}
+            type="button"
+            variant="outlined"
+            disabled={mutation.isPending}
+            sx={{
+              bgcolor: 'background.paper',
+              borderColor: 'divider',
+              color: 'text.secondary',
+              '&:hover': { bgcolor: 'grey.50', borderColor: 'divider' },
+            }}
+          >
             Cancelar
           </Button>
-          <Button type="submit" variant="contained" disabled={mutation.isPending}>
+          <Button
+            type="submit"
+            variant="contained"
+            disabled={mutation.isPending}
+            sx={{ boxShadow: (t) => `0 6px 16px -6px ${t.palette.primary.main}` }}
+          >
             {mutation.isPending ? 'Salvando…' : entry ? 'Salvar' : 'Criar lançamento'}
           </Button>
         </DialogActions>

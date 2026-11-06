@@ -26,8 +26,10 @@ import { FeedbackReportDialog } from '../feedback/FeedbackReportDialog';
 import { fontSizes } from '../../theme/fontSizes';
 import { isNavPathActive, type NavGroup } from './navConfig';
 import {
-  SIDEBAR_ACTIVE,
-  SIDEBAR_BG,
+  SIDEBAR_ACTIVE as CLINIC_SIDEBAR_ACTIVE,
+  CONSOLE_SIDEBAR_ACTIVE,
+  SIDEBAR_BG as CLINIC_SIDEBAR_BG,
+  CONSOLE_SIDEBAR_BG,
   SIDEBAR_BORDER,
   SIDEBAR_HOVER,
   SIDEBAR_TEXT,
@@ -70,9 +72,13 @@ interface SidebarContentProps {
   onNavigate: (path: string) => void;
   user: User | null;
   onLogout: () => void;
+  /** Console KlinicOne: selo ao lado da marca e sidebar em índigo. */
+  consoleBadge?: boolean;
 }
 
-export function SidebarContent({ collapsed: isCollapsed, groups, pathname, onNavigate, user, onLogout }: SidebarContentProps) {
+export function SidebarContent({ collapsed: isCollapsed, groups, pathname, onNavigate, user, onLogout, consoleBadge }: SidebarContentProps) {
+  const SIDEBAR_ACTIVE = consoleBadge ? CONSOLE_SIDEBAR_ACTIVE : CLINIC_SIDEBAR_ACTIVE;
+  const SIDEBAR_BG = consoleBadge ? CONSOLE_SIDEBAR_BG : CLINIC_SIDEBAR_BG;
   const theme = useTheme();
   const navigate = useNavigate();
   const initials = userInitials(user?.name);
@@ -149,8 +155,8 @@ export function SidebarContent({ collapsed: isCollapsed, groups, pathname, onNav
               width: 40,
               height: 40,
               borderRadius: '12px',
-              background: 'linear-gradient(135deg,#22BBAA,#0E7C7B)',
-              boxShadow: '0 6px 18px -4px rgba(15,124,123,.6)',
+              background: consoleBadge ? 'linear-gradient(135deg,#7C86E8,#3B44A8)' : 'linear-gradient(135deg,#22BBAA,#0E7C7B)',
+              boxShadow: consoleBadge ? '0 6px 18px -4px rgba(79,91,213,.6)' : '0 6px 18px -4px rgba(15,124,123,.6)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -169,6 +175,27 @@ export function SidebarContent({ collapsed: isCollapsed, groups, pathname, onNav
                 sx={{ letterSpacing: '-0.02em', lineHeight: 1.05, color: '#fff' }}
               >
                 KlinicOne
+                {consoleBadge && (
+                  <Box
+                    component="span"
+                    sx={{
+                      ml: 0.75,
+                      px: 0.75,
+                      py: 0.15,
+                      borderRadius: '6px',
+                      bgcolor: 'rgba(124,134,232,0.22)',
+                      color: '#C5CAFA',
+                      border: '1px solid rgba(124,134,232,0.45)',
+                      fontSize: fontSizes['3xs'],
+                      fontWeight: 800,
+                      letterSpacing: '0.08em',
+                      textTransform: 'uppercase',
+                      verticalAlign: 'middle',
+                    }}
+                  >
+                    Console
+                  </Box>
+                )}
               </Typography>
               <Typography
                 variant="caption"
@@ -183,7 +210,7 @@ export function SidebarContent({ collapsed: isCollapsed, groups, pathname, onNav
                   textTransform: 'uppercase',
                 }}
               >
-                Gestão para clínicas
+                {consoleBadge ? 'Console da plataforma' : 'Gestão para clínicas'}
               </Typography>
             </Box>
           )}

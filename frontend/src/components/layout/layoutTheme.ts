@@ -12,6 +12,10 @@ export const SIDEBAR_ACTIVE = '#15998B';
 export const SIDEBAR_HOVER = 'rgba(255,255,255,0.05)';
 export const SIDEBAR_BORDER = 'rgba(255,255,255,0.07)';
 
+// Sidebar do Console KlinicOne (grafite-índigo)
+export const CONSOLE_SIDEBAR_BG = '#1A1D3A';
+export const CONSOLE_SIDEBAR_ACTIVE = '#4F5BD5';
+
 /** Transição usada ao recolher/expandir o menu lateral. */
 export function drawerTransition(theme: Theme, props: string | string[]) {
   return theme.transitions.create(props, {

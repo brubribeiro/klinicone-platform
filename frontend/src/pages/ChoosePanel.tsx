@@ -31,7 +31,7 @@ interface PanelChoiceProps {
   onClick: () => void;
 }
 
-/** Card clicável — mesmo visual em repouso para clínica e plataforma (sem variant contained). */
+/** Card clicável — mesmo visual em repouso para Painel da clínica e Console KlinicOne (sem variant contained). */
 function PanelChoiceButton({ title, description, icon, loading, disabled, onClick }: PanelChoiceProps) {
   const theme = useTheme();
 
@@ -86,7 +86,7 @@ function PanelChoiceButton({ title, description, icon, loading, disabled, onClic
   );
 }
 
-/** Escolha entre painel da clínica e painel da plataforma (conta dual). */
+/** Escolha entre Painel da clínica e Console KlinicOne (conta dual). */
 export function ChoosePanel() {
   const { user, selectPanel } = useAuth();
   const [error, setError] = useState<string | null>(null);
@@ -182,7 +182,7 @@ export function ChoosePanel() {
             onClick={() => choose('clinic')}
           />
           <PanelChoiceButton
-            title="Painel da plataforma"
+            title="Console KlinicOne"
             description="Clínicas, planos, catálogos e auditoria da plataforma"
             icon={<AdminPanelSettingsOutlinedIcon color="primary" sx={{ mt: 0.25 }} />}
             loading={loading === 'admin'}
