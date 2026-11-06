@@ -1117,7 +1117,6 @@ export function AppointmentFormDialog({
           onClose={() => setMapOpen(false)}
           map={mapDraft}
           setMap={setMapDraft}
-          patientId={selectedPatientId || undefined}
           products={mapProducts}
           defaultRegion={mapRegions.length === 1 ? mapRegions[0] : 'face'}
           regionLocked={mapRegions.length === 1}

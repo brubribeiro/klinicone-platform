@@ -8,7 +8,6 @@ import {
   IsNumber,
   IsOptional,
   IsString,
-  IsUUID,
   Max,
   MaxLength,
   Min,
@@ -25,10 +24,10 @@ export const APPLICATION_MAP_PRODUCTS = [
   'cryolipolysis',
 ] as const;
 /**
- * Imagem em que o ponto foi marcado: rosto (frente, perfis), corpo, a foto da paciente
- * (`photo`, também usada pelo modelo 3D: a malha usa a foto como textura, então o ponto
- * marcado no 3D é gravado nas coordenadas da foto) ou o mapa ilustrado de uma região do
- * rosto (o id da vista é o da região: `lips`, `nose`…).
+ * Imagem em que o ponto foi marcado: rosto (frente, perfis), corpo, o modelo 3D ilustrado
+ * genérico da cabeça (`head3d`) ou do corpo (`body3d`), com x/y em % da textura do modelo,
+ * ou o mapa ilustrado de uma região do rosto (o id da vista é o da região: `lips`, `nose`…).
+ * `photo` é legado (marcação sobre a foto da paciente; o painel abre como `front`).
  */
 export const APPLICATION_MAP_FACE_REGION_VIEWS = [
   'forehead',
@@ -46,6 +45,8 @@ export const APPLICATION_MAP_VIEWS = [
   'left',
   'right',
   'body',
+  'head3d',
+  'body3d',
   'photo',
   ...APPLICATION_MAP_FACE_REGION_VIEWS,
 ] as const;
@@ -138,9 +139,4 @@ export class ApplicationMapDto {
   @ValidateNested({ each: true })
   @Type(() => ApplicationMapStrokeDto)
   strokes?: ApplicationMapStrokeDto[];
-
-  /** Foto da paciente (PatientPhoto, no R2) usada na vista `photo` e no modelo 3D. */
-  @IsOptional()
-  @IsUUID()
-  photoId?: string;
 }

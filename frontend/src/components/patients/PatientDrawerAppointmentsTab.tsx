@@ -55,7 +55,7 @@ function AppointmentRowCard({ appt }: { appt: Appointment }) {
             </Box>
           )}
           {!!(appt.applicationMap?.points?.length || appt.applicationMap?.strokes?.length) && (
-            <ApplicationMapPreview map={appt.applicationMap!} patientId={appt.patientId} />
+            <ApplicationMapPreview map={appt.applicationMap!} />
           )}
         </Box>
       </Stack>

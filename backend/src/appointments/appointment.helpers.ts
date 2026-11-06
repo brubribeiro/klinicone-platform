@@ -37,7 +37,6 @@ export function toApplicationMapData(
   if (map.points.length === 0 && strokes.length === 0) return Prisma.DbNull;
   return {
     template: map.template,
-    ...(map.photoId ? { photoId: map.photoId } : {}),
     points: map.points.map((p) => {
       const note = p.note?.trim();
       return {

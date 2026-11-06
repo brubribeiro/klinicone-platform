@@ -464,10 +464,19 @@ export type ApplicationMapFaceRegion =
   | 'chin'
   | 'jawline';
 /**
- * `photo`: foto da paciente, também usada como textura do modelo 3D do rosto.
+ * `head3d`/`body3d`: modelo 3D ilustrado (genérico) da cabeça e do corpo; x/y em % da textura dele.
  * Uma região do rosto (`lips`, `nose`…) é o mapa ilustrado daquela região.
+ * `photo` é legado (marcação sobre a foto da paciente): ao abrir, vira a vista de frente.
  */
-export type ApplicationMapView = 'front' | 'left' | 'right' | 'body' | 'photo' | ApplicationMapFaceRegion;
+export type ApplicationMapView =
+  | 'front'
+  | 'left'
+  | 'right'
+  | 'body'
+  | 'head3d'
+  | 'body3d'
+  | 'photo'
+  | ApplicationMapFaceRegion;
 export type ApplicationMapRegion =
   | ApplicationMapFaceRegion
   | 'submental'
@@ -506,8 +515,6 @@ export interface ApplicationMap {
   template: 'face';
   points: ApplicationMapPoint[];
   strokes?: ApplicationMapStroke[];
-  /** Foto da paciente (PatientPhoto) da vista `photo` e do modelo 3D. */
-  photoId?: string;
 }
 
 export type PackageType = 'COMBO' | 'SESSIONS';

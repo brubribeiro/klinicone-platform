@@ -336,15 +336,6 @@ export class AppointmentsService {
         await this.packagesService.decrementSession(packageId, tx);
       }
 
-      const mapPhotoId = dto.applicationMap?.photoId;
-      if (mapPhotoId) {
-        const photo = await tx.patientPhoto.findFirst({
-          where: { id: mapPhotoId, patientId: dto.patientId ?? before.patientId },
-          select: { id: true },
-        });
-        if (!photo) throw new BadRequestException('A foto do mapa de aplicação não é desta paciente.');
-      }
-
       const updated = await tx.appointment.update({
         where: { id },
         data: {
