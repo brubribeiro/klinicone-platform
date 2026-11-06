@@ -314,10 +314,10 @@ export function buildBodyModel(): SurfaceModel {
     markable: meshes,
     pointAt,
     scale: 6,
-    pointRadius: 0.075,
+    pointRadius: 0.1,
     camera: {
       target: new THREE.Vector3(0, 3.25, 0),
-      distance: 12,
+      distance: 14.5,
       minDistance: 3.5,
       maxDistance: 20,
       fov: 30,

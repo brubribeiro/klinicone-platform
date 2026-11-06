@@ -136,7 +136,7 @@ export function surfaceNormal(
 let toonRamp: THREE.DataTexture | null = null;
 function toonGradient() {
   if (toonRamp) return toonRamp;
-  const steps = [176, 212, 240, 255];
+  const steps = [190, 208, 224, 238, 250, 255];
   const data = new Uint8Array(steps.length * 4);
   steps.forEach((s, i) => data.set([s, s, s, 255], i * 4));
   toonRamp = new THREE.DataTexture(data, steps.length, 1, THREE.RGBAFormat);

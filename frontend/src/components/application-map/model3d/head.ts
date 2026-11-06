@@ -318,8 +318,8 @@ function paintHeadTexture(): HTMLCanvasElement {
 /** Textura do cabelo; o alfa recorta a linha do cabelo com borda lisa (a malha é mais larga). */
 function paintHairTexture(): HTMLCanvasElement {
   const canvas = document.createElement('canvas');
-  canvas.width = 1024;
-  canvas.height = 512;
+  canvas.width = 2048;
+  canvas.height = 1024;
   const ctx = canvas.getContext('2d')!;
   ctx.fillStyle = HAIR;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -327,19 +327,19 @@ function paintHairTexture(): HTMLCanvasElement {
   for (let y = 0; y < canvas.height; y++) {
     for (let x = 0; x < canvas.width; x++) {
       const m = hairMask((x + 0.5) / canvas.width, (y + 0.5) / canvas.height);
-      img.data[(y * canvas.width + x) * 4 + 3] = m > 0.5 ? 255 : 0;
+      img.data[(y * canvas.width + x) * 4 + 3] = Math.round(m * 255);
     }
   }
   ctx.putImageData(img, 0, 0);
   ctx.globalCompositeOperation = 'source-atop';
   // Fios penteados para trás (linhas que descem pelo meridiano).
-  ctx.lineWidth = 2;
+  ctx.lineWidth = 3;
   for (let i = 0; i < 90; i++) {
-    const x = (i / 90) * canvas.width + (i % 3) * 3;
+    const x = (i / 90) * canvas.width + (i % 3) * 6;
     ctx.strokeStyle = i % 2 ? 'rgba(255,225,200,.10)' : 'rgba(40,20,10,.14)';
     ctx.beginPath();
     ctx.moveTo(x, 0);
-    ctx.bezierCurveTo(x + 6, 120, x - 6, 260, x + 4, 410);
+    ctx.bezierCurveTo(x + 12, 240, x - 12, 520, x + 8, 820);
     ctx.stroke();
   }
   return canvas;
@@ -411,7 +411,7 @@ export function buildHeadModel(): SurfaceModel {
     markable: [head, neck],
     pointAt,
     scale: 2.4,
-    pointRadius: 0.042,
+    pointRadius: 0.056,
     camera: {
       target: new THREE.Vector3(0, -0.2, 0),
       distance: 7.6,
