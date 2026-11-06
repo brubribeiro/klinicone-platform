@@ -183,6 +183,25 @@ describe('InventoryService', () => {
       expect(prisma.financialEntry.create).toHaveBeenCalled();
     });
 
+    it('ajuste para 0 zera o estoque do item', async () => {
+      prisma.inventoryItem.findUnique.mockResolvedValue({ ...mockItem, quantity: 7 });
+
+      await service.createMovement('item-1', { type: 'ADJUSTMENT', quantity: 0, reason: 'Inventário' } as any);
+
+      // grava a diferença: 7 - 7 = 0
+      expect(prisma.inventoryItem.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { quantity: { increment: -7 } } }),
+      );
+    });
+
+    it('entrada ou saída com quantidade 0 é recusada', async () => {
+      for (const type of ['IN', 'OUT'] as const) {
+        await expect(
+          service.createMovement('item-1', { type, quantity: 0, totalPrice: 10 } as any),
+        ).rejects.toThrow('maior que zero');
+      }
+    });
+
     it('should notify when stock drops below minimum', async () => {
       prisma.inventoryItem.findUnique.mockResolvedValue({ ...mockItem, quantity: 6, minQuantity: 5 });
       notifications.findUsersWithPermission.mockResolvedValue([{ id: 'admin-1' }]);

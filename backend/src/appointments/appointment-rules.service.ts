@@ -5,6 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AvailabilityService } from '../availability/availability.service';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { requiresProcedure } from './appointment.helpers';
+import { resolveProcedureIds } from './appointment-procedures.util';
 import {
   computeEarliestRecurrenceDate,
   isBeforeRecurrenceEarliest,
@@ -120,11 +121,8 @@ export class AppointmentRulesService {
       throw new BadRequestException('Profissional não encontrado.');
     }
 
-    const ids = dto.procedureIds?.length
-      ? dto.procedureIds
-      : dto.procedureId
-        ? [dto.procedureId]
-        : [];
+    // Mesmos IDs que serão gravados (sem repetidos); com repetidos o findMany volta menos linhas.
+    const ids = resolveProcedureIds(dto);
     if (ids.length === 0) return;
 
     const procedures = await this.prisma.procedure.findMany({
