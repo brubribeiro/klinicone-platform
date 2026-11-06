@@ -25,7 +25,7 @@ Notas de versão para usuários do painel. Para detalhes técnicos, veja [CHANGE
 
 ### Login
 
-- Se sua conta Google for **usuário da clínica e administrador da plataforma**, após entrar você escolhe entre o **painel da clínica** e o **painel da plataforma** (`/admin`). No menu do seu avatar, **Trocar painel** permite alternar depois.
+- Se sua conta Google for **usuário da clínica e administrador da plataforma**, após entrar você escolhe entre o **Painel da clínica** e o **Console KlinicOne** (`/admin`). No menu do seu avatar, **Trocar painel** permite alternar depois.
 
 ### Correções de segurança
 
@@ -227,7 +227,7 @@ Notas de versão para usuários do painel. Para detalhes técnicos, veja [CHANGE
 - Se o acesso de uma clínica for suspenso, os usuários dela veem o aviso **Clínica suspensa** na tela de login, inclusive quem já estava usando o sistema.
 - Depois desta atualização, todos precisam **entrar de novo** uma vez.
 
-**Painel da plataforma (dono do sistema)**
+**Console KlinicOne (dono do sistema)**
 - Área própria em **/admin**, só para o super-admin, que entra direto nela; usuários das clínicas não a veem.
 - **Clínicas**: lista com busca e filtro por status, usuários ativos, pacientes, agendamentos do mês e último acesso de cada clínica.
 - **Nova clínica**: informe o nome e o e-mail do primeiro administrador; a clínica já nasce com os grupos padrão e esse administrador entra com o Google do e-mail.

@@ -7,11 +7,11 @@ Dois ambientes separados: **dev/staging** e **produção**. Criar os serviços (
 | Papel | Dev / staging | Produção |
 |-------|---------------|----------|
 | Landing | `dev.klinicone.com.br` | `klinicone.com.br` (+ `www`) |
-| Painel | `app.dev.klinicone.com.br` | `app.klinicone.com.br` |
-| Admin | `admin.dev.klinicone.com.br` | `admin.klinicone.com.br` |
+| Painel da clínica | `app.dev.klinicone.com.br` | `app.klinicone.com.br` |
+| Console KlinicOne | `admin.dev.klinicone.com.br` | `admin.klinicone.com.br` |
 | API | `api.dev.klinicone.com.br` | `api.klinicone.com.br` |
 
-Local: API `3333`, painel `5173`, landing `5174`, admin `5175`.
+Local: API `3333`, Painel da clínica `5173`, landing `5174`, Console KlinicOne `5175`.
 
 ## Fluxo de entrega
 

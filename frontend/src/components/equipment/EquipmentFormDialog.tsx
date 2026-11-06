@@ -28,6 +28,7 @@ import {
   formDialogPaperSx,
 } from '../DialogCloseButton';
 import { FieldAdornment } from '../FieldAdornment';
+import { FormSection } from '../FormSection';
 import { LabeledField } from '../LabeledField';
 import { MoneyField } from '../MoneyField';
 import { dateInputValueFromApi, dateOnlyToApiIso } from '../../utils/dateOnly';
@@ -94,22 +95,6 @@ const THREE_COLUMNS_SX = {
   gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, minmax(0, 1fr))' },
   gap: FORM_STACK_GAP,
 } as const;
-
-function SectionLabel({ children }: { children: string }) {
-  return (
-    <Typography
-      sx={{
-        fontSize: fontSizes.xs,
-        fontWeight: 800,
-        letterSpacing: '0.06em',
-        textTransform: 'uppercase',
-        color: 'text.disabled',
-      }}
-    >
-      {children}
-    </Typography>
-  );
-}
 
 function Hint({ children }: { children: string }) {
   return (
@@ -233,182 +218,192 @@ export function EquipmentFormDialog({ open, onClose, equipment }: Props) {
             flex: 1,
             minHeight: 0,
             overflow: 'auto',
-            bgcolor: 'background.paper',
-            '&.MuiDialogContent-root': { pt: { xs: 2.75, sm: 3 } },
+            bgcolor: 'background.default',
+            '&.MuiDialogContent-root': { pt: { xs: 2, sm: 2.25 } },
           }}
         >
           <Stack spacing={FORM_STACK_GAP}>
-            <Box sx={NAME_STATUS_SX}>
-              <Controller
-                name="name"
-                control={control}
-                rules={{ required: 'Nome é obrigatório' }}
-                render={({ field, fieldState }) => (
-                  <LabeledField label="Nome do equipamento" required>
-                    <TextField
-                      {...field}
-                      fullWidth
-                      autoFocus={!equipment}
-                      placeholder="Ex.: Laser CO2 Fracionado"
-                      error={!!fieldState.error}
-                      helperText={fieldState.error?.message}
-                    />
-                  </LabeledField>
-                )}
-              />
-              <Controller
-                name="active"
-                control={control}
-                render={({ field }) => (
-                  <LabeledField label="Status">
-                    <TextField
-                      select
-                      fullWidth
-                      value={field.value ? 'active' : 'inactive'}
-                      onChange={(e) => field.onChange(e.target.value === 'active')}
-                      helperText={!isActive ? 'Oculto nas listagens do dia a dia.' : undefined}
-                    >
-                      <MenuItem value="active">Operacional</MenuItem>
-                      <MenuItem value="inactive">Inativo</MenuItem>
-                    </TextField>
-                  </LabeledField>
-                )}
-              />
-            </Box>
-
-            <Box sx={THREE_COLUMNS_SX}>
-              <Controller
-                name="brand"
-                control={control}
-                render={({ field }) => (
-                  <LabeledField label="Marca">
-                    <TextField {...field} fullWidth placeholder="Ex.: Lumenis" />
-                  </LabeledField>
-                )}
-              />
-              <Controller
-                name="model"
-                control={control}
-                render={({ field }) => (
-                  <LabeledField label="Modelo">
-                    <TextField {...field} fullWidth placeholder="Ex.: UltraPulse" />
-                  </LabeledField>
-                )}
-              />
-              <Controller
-                name="serialNumber"
-                control={control}
-                render={({ field }) => (
-                  <LabeledField label="Nº de série">
-                    <TextField {...field} fullWidth placeholder="Ex.: EQ-0042" />
-                  </LabeledField>
-                )}
-              />
-            </Box>
-
-            <SectionLabel>Aquisição</SectionLabel>
-            <Box sx={TWO_COLUMNS_SX}>
-              <Controller
-                name="purchaseDate"
-                control={control}
-                render={({ field }) => (
-                  <LabeledField label="Data de aquisição">
-                    <TextField {...field} fullWidth type="date" />
-                  </LabeledField>
-                )}
-              />
-              <Controller
-                name="purchaseValue"
-                control={control}
-                render={({ field }) => (
-                  <LabeledField label="Valor da máquina">
-                    <MoneyField {...field} fullWidth />
-                  </LabeledField>
-                )}
-              />
-            </Box>
-
-            <SectionLabel>Manutenção</SectionLabel>
-            <Box sx={TWO_COLUMNS_SX}>
-              <Controller
-                name="lastMaintenanceAt"
-                control={control}
-                render={({ field }) => (
-                  <LabeledField label="Última manutenção">
-                    <TextField {...field} fullWidth type="date" />
-                  </LabeledField>
-                )}
-              />
-              <Controller
-                name="scheduledMaintenanceAt"
-                control={control}
-                render={({ field }) => (
-                  <LabeledField label="Próxima (agendada)">
-                    <TextField {...field} fullWidth type="date" />
-                  </LabeledField>
-                )}
-              />
-            </Box>
-
-            <Box sx={THREE_COLUMNS_SX}>
-              <Controller
-                name="maintenanceIntervalMonths"
-                control={control}
-                render={({ field }) => (
-                  <LabeledField label="Periodicidade">
-                    <TextField
-                      {...field}
-                      type="number"
-                      fullWidth
-                      InputProps={{ endAdornment: <FieldAdornment>meses</FieldAdornment> }}
-                      inputProps={{ inputMode: 'numeric', min: 1 }}
-                    />
-                  </LabeledField>
-                )}
-              />
-              <Controller
-                name="maintenanceNotifyDaysBefore"
-                control={control}
-                render={({ field }) => (
-                  <LabeledField label="Notificar antes">
-                    <TextField
-                      {...field}
-                      type="number"
-                      fullWidth
-                      InputProps={{ endAdornment: <FieldAdornment>dias</FieldAdornment> }}
-                      inputProps={{ inputMode: 'numeric', min: 0 }}
-                    />
-                  </LabeledField>
-                )}
-              />
-              <Controller
-                name="maintenanceValue"
-                control={control}
-                render={({ field }) => (
-                  <LabeledField label="Valor da manutenção">
-                    <MoneyField {...field} fullWidth />
-                  </LabeledField>
-                )}
-              />
-            </Box>
-            <Hint>Manutenção agendada gera despesa; a periodicidade calcula a próxima data.</Hint>
-
-            <Controller
-              name="notes"
-              control={control}
-              render={({ field }) => (
-                <LabeledField label="Observações">
-                  <TextField
-                    {...field}
-                    fullWidth
-                    multiline
-                    minRows={1}
-                    maxRows={4}
-                    placeholder="Fornecedor de assistência, contrato, notas de uso..."
+            <FormSection title="Identificação">
+              <Stack spacing={FORM_STACK_GAP}>
+                <Box sx={NAME_STATUS_SX}>
+                  <Controller
+                    name="name"
+                    control={control}
+                    rules={{ required: 'Nome é obrigatório' }}
+                    render={({ field, fieldState }) => (
+                      <LabeledField label="Nome do equipamento" required>
+                        <TextField
+                          {...field}
+                          fullWidth
+                          autoFocus={!equipment}
+                          placeholder="Ex.: Laser CO2 Fracionado"
+                          error={!!fieldState.error}
+                          helperText={fieldState.error?.message}
+                        />
+                      </LabeledField>
+                    )}
                   />
-                </LabeledField>
-              )}
-            />
+                  <Controller
+                    name="active"
+                    control={control}
+                    render={({ field }) => (
+                      <LabeledField label="Status">
+                        <TextField
+                          select
+                          fullWidth
+                          value={field.value ? 'active' : 'inactive'}
+                          onChange={(e) => field.onChange(e.target.value === 'active')}
+                          helperText={!isActive ? 'Oculto nas listagens do dia a dia.' : undefined}
+                        >
+                          <MenuItem value="active">Operacional</MenuItem>
+                          <MenuItem value="inactive">Inativo</MenuItem>
+                        </TextField>
+                      </LabeledField>
+                    )}
+                  />
+                </Box>
+
+                <Box sx={THREE_COLUMNS_SX}>
+                  <Controller
+                    name="brand"
+                    control={control}
+                    render={({ field }) => (
+                      <LabeledField label="Marca">
+                        <TextField {...field} fullWidth placeholder="Ex.: Lumenis" />
+                      </LabeledField>
+                    )}
+                  />
+                  <Controller
+                    name="model"
+                    control={control}
+                    render={({ field }) => (
+                      <LabeledField label="Modelo">
+                        <TextField {...field} fullWidth placeholder="Ex.: UltraPulse" />
+                      </LabeledField>
+                    )}
+                  />
+                  <Controller
+                    name="serialNumber"
+                    control={control}
+                    render={({ field }) => (
+                      <LabeledField label="Nº de série">
+                        <TextField {...field} fullWidth placeholder="Ex.: EQ-0042" />
+                      </LabeledField>
+                    )}
+                  />
+                </Box>
+              </Stack>
+            </FormSection>
+
+            <FormSection title="Aquisição">
+              <Box sx={TWO_COLUMNS_SX}>
+                <Controller
+                  name="purchaseDate"
+                  control={control}
+                  render={({ field }) => (
+                    <LabeledField label="Data de aquisição">
+                      <TextField {...field} fullWidth type="date" />
+                    </LabeledField>
+                  )}
+                />
+                <Controller
+                  name="purchaseValue"
+                  control={control}
+                  render={({ field }) => (
+                    <LabeledField label="Valor da máquina">
+                      <MoneyField {...field} fullWidth />
+                    </LabeledField>
+                  )}
+                />
+              </Box>
+            </FormSection>
+
+            <FormSection title="Manutenção">
+              <Stack spacing={FORM_STACK_GAP}>
+                <Box sx={TWO_COLUMNS_SX}>
+                  <Controller
+                    name="lastMaintenanceAt"
+                    control={control}
+                    render={({ field }) => (
+                      <LabeledField label="Última manutenção">
+                        <TextField {...field} fullWidth type="date" />
+                      </LabeledField>
+                    )}
+                  />
+                  <Controller
+                    name="scheduledMaintenanceAt"
+                    control={control}
+                    render={({ field }) => (
+                      <LabeledField label="Próxima (agendada)">
+                        <TextField {...field} fullWidth type="date" />
+                      </LabeledField>
+                    )}
+                  />
+                </Box>
+
+                <Box sx={THREE_COLUMNS_SX}>
+                  <Controller
+                    name="maintenanceIntervalMonths"
+                    control={control}
+                    render={({ field }) => (
+                      <LabeledField label="Periodicidade">
+                        <TextField
+                          {...field}
+                          type="number"
+                          fullWidth
+                          InputProps={{ endAdornment: <FieldAdornment>meses</FieldAdornment> }}
+                          inputProps={{ inputMode: 'numeric', min: 1 }}
+                        />
+                      </LabeledField>
+                    )}
+                  />
+                  <Controller
+                    name="maintenanceNotifyDaysBefore"
+                    control={control}
+                    render={({ field }) => (
+                      <LabeledField label="Notificar antes">
+                        <TextField
+                          {...field}
+                          type="number"
+                          fullWidth
+                          InputProps={{ endAdornment: <FieldAdornment>dias</FieldAdornment> }}
+                          inputProps={{ inputMode: 'numeric', min: 0 }}
+                        />
+                      </LabeledField>
+                    )}
+                  />
+                  <Controller
+                    name="maintenanceValue"
+                    control={control}
+                    render={({ field }) => (
+                      <LabeledField label="Valor da manutenção">
+                        <MoneyField {...field} fullWidth />
+                      </LabeledField>
+                    )}
+                  />
+                </Box>
+                <Hint>Manutenção agendada gera despesa; a periodicidade calcula a próxima data.</Hint>
+              </Stack>
+            </FormSection>
+
+            <FormSection title="Observações">
+              <Controller
+                name="notes"
+                control={control}
+                render={({ field }) => (
+                  <LabeledField label="Observações">
+                    <TextField
+                      {...field}
+                      fullWidth
+                      multiline
+                      minRows={1}
+                      maxRows={4}
+                      placeholder="Fornecedor de assistência, contrato, notas de uso..."
+                    />
+                  </LabeledField>
+                )}
+              />
+            </FormSection>
 
             {mutation.isError && (
               <Alert severity="error" variant="outlined">

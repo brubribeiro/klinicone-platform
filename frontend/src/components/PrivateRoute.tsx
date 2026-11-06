@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { ExternalRedirect } from './ExternalRedirect';
 import { adminConsoleUrl } from '../utils/appUrls';
 
-/** Área da clínica: exige login; o super-admin só entra pelo "Entrar como" do painel. */
+/** Área da clínica: exige login; o super-admin só entra pelo "Entrar como" do Console. */
 export function PrivateRoute({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
 

@@ -108,7 +108,7 @@ Na raiz, `npm run dev` sobe a API e os três apps Vite (saída prefixada por `[b
 | API (NestJS, `/api`) | http://localhost:3333/api | `npm run dev:backend` |
 | Landing pública (`/`) | http://localhost:5174 | `npm run dev:landing` |
 | Painel da clínica (`/`) | http://localhost:5173 | `npm run dev:clinic` |
-| Console super-admin | http://localhost:5175 | `npm run dev:admin` |
+| Console KlinicOne (super-admin) | http://localhost:5175 | `npm run dev:admin` |
 
 ```bash
 npm install                                                 # na raiz: workspaces (frontend, apps/*)

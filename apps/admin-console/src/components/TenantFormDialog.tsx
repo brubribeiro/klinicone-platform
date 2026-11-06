@@ -417,7 +417,7 @@ export function TenantFormDialog({ open, onClose, editing }: Props) {
                     control={control}
                     render={({ field }) => (
                       <LabeledField label="Nota interna (super-admin)">
-                        <TextField {...field} multiline minRows={2} placeholder="Observações visíveis só no painel da plataforma" fullWidth />
+                        <TextField {...field} multiline minRows={2} placeholder="Observações visíveis só no Console da plataforma" fullWidth />
                       </LabeledField>
                     )}
                   />

@@ -18,6 +18,8 @@ import type {
   FeedbackType,
 } from '../../../../frontend/src/types';
 
+const SUPER_ADMINS_TIMEOUT_MS = 20_000;
+
 export type TenantStatusFilter = 'active' | 'suspended';
 
 export interface TenantProfilePayload {
@@ -230,7 +232,8 @@ export const adminApi = {
   },
 
   listSuperAdmins: async (): Promise<PlatformSuperAdmin[]> => {
-    const { data } = await api.get<PlatformSuperAdmin[]>('/admin/super-admins');
+    // Sem timeout o axios espera para sempre se a API pendurar (a tela ficava em Skeleton).
+    const { data } = await api.get<PlatformSuperAdmin[]>('/admin/super-admins', { timeout: SUPER_ADMINS_TIMEOUT_MS });
     return data;
   },
 

@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { alpha, AppBar, Box, Drawer, IconButton, Toolbar, Tooltip, Typography, useTheme } from '@mui/material';
+import { alpha, AppBar, ThemeProvider, Box, Drawer, IconButton, Toolbar, Tooltip, Typography, useTheme } from '@mui/material';
 
+import { createAppTheme } from '../../../../frontend/src/theme';
 import { useColorMode } from '../../../../frontend/src/contexts/ColorModeContext';
 import { useAuth } from '../../../../frontend/src/contexts/AuthContext';
 import { AuroraIcon } from '../../../../frontend/src/components/AuroraIcon';
@@ -10,7 +11,7 @@ import type { NavGroup } from '../../../../frontend/src/components/layout/navCon
 import {
   DRAWER_COLLAPSED_WIDTH,
   DRAWER_WIDTH,
-  SIDEBAR_BG,
+  CONSOLE_SIDEBAR_BG,
   drawerTransition,
 } from '../../../../frontend/src/components/layout/layoutTheme';
 import { SidebarContent } from '../../../../frontend/src/components/layout/SidebarContent';
@@ -19,7 +20,7 @@ import { adminPath } from '../../../../frontend/src/utils/adminPath';
 
 const ADMIN_NAV_GROUPS: NavGroup[] = [
   {
-    title: 'Plataforma',
+    title: 'Console',
     items: [
       { label: 'Clínicas', path: adminPath('/clinicas'), icon: <AuroraIcon name="dashboard" /> },
       { label: 'Planos', path: adminPath('/planos'), icon: <AuroraIcon name="pacotes" /> },
@@ -57,7 +58,7 @@ const ADMIN_PAGE_META: { path: string; title: string; subtitle: string }[] = [
   {
     path: adminPath('/super-admins'),
     title: 'Super-admins',
-    subtitle: 'Quem acessa o console da plataforma (criar, promover e remover)',
+    subtitle: 'Quem acessa o Console KlinicOne (criar, promover e remover)',
   },
   {
     path: adminPath('/uso'),
@@ -89,14 +90,14 @@ const ADMIN_PAGE_META: { path: string; title: string; subtitle: string }[] = [
 function adminPageMeta(pathname: string) {
   return (
     ADMIN_PAGE_META.find((m) => pathname === m.path || pathname.startsWith(`${m.path}/`)) ?? {
-      title: 'Painel da plataforma',
+      title: 'Console KlinicOne',
       subtitle: '',
     }
   );
 }
 
 /** Layout da área /admin (super-admin): mesmo shell Aurora do app, com menu próprio. */
-export function AdminLayout() {
+function AdminLayoutContent() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const navigate = useNavigate();
@@ -121,6 +122,7 @@ export function AdminLayout() {
       }}
       user={sidebarUser}
       onLogout={logout}
+      consoleBadge
     />
   );
 
@@ -128,7 +130,7 @@ export function AdminLayout() {
     display: 'flex',
     flexDirection: 'column',
     overflow: 'hidden',
-    bgcolor: SIDEBAR_BG,
+    bgcolor: CONSOLE_SIDEBAR_BG,
     borderRight: 'none',
   } as const;
 
@@ -281,5 +283,16 @@ export function AdminLayout() {
 
       <AssistantFab suggestions={ADMIN_ASSISTANT_SUGGESTIONS} />
     </Box>
+  );
+}
+
+/** Console KlinicOne: mesmo shell do painel, com acento índigo próprio (claro e escuro). */
+export function AdminLayout() {
+  const { mode } = useColorMode();
+  const consoleTheme = useMemo(() => createAppTheme(mode, 'console'), [mode]);
+  return (
+    <ThemeProvider theme={consoleTheme}>
+      <AdminLayoutContent />
+    </ThemeProvider>
   );
 }
