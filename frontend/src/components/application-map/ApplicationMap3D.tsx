@@ -10,18 +10,20 @@ import { pointView, type Model3DView } from './applicationMapModel';
 import type { SurfaceModel } from './model3d/common';
 import { MarksLayer, addLights, buildModel, type DraftStroke } from './model3d/scene';
 
+/** Giro entre as vistas desenhadas: frente, ¾ e perfis (não há ilustração das costas). */
 const PRESETS: Record<Model3DView, { label: string; azimuth: number }[]> = {
   head3d: [
     { label: 'Perfil dir.', azimuth: -Math.PI / 2 },
-    { label: '¾ dir.', azimuth: -0.7 },
+    { label: '¾ dir.', azimuth: -Math.PI / 4 },
     { label: 'Frente', azimuth: 0 },
-    { label: '¾ esq.', azimuth: 0.7 },
+    { label: '¾ esq.', azimuth: Math.PI / 4 },
     { label: 'Perfil esq.', azimuth: Math.PI / 2 },
   ],
   body3d: [
-    { label: 'Frente', azimuth: 0 },
     { label: 'Lado dir.', azimuth: -Math.PI / 2 },
-    { label: 'Costas', azimuth: Math.PI },
+    { label: '¾ dir.', azimuth: -Math.PI / 4 },
+    { label: 'Frente', azimuth: 0 },
+    { label: '¾ esq.', azimuth: Math.PI / 4 },
     { label: 'Lado esq.', azimuth: Math.PI / 2 },
   ],
 };
@@ -32,7 +34,8 @@ const LABEL: Record<Model3DView, string> = {
 };
 
 /**
- * Modelo 3D genérico (desenho, igual para todas as pacientes) da cabeça ou do corpo, girável,
+ * Modelo 3D genérico (as ilustrações 2D do mapa em volume, iguais para todas as pacientes) da
+ * cabeça ou do corpo, girável entre as vistas desenhadas,
  * com pontos e desenho livre sobre a superfície. As marcações são gravadas em % da textura
  * do modelo (vistas `head3d` e `body3d`).
  */
@@ -169,8 +172,13 @@ export default function ApplicationMap3D({
     controls.rotateSpeed = 0.5;
     controls.minDistance = cam.minDistance;
     controls.maxDistance = cam.maxDistance;
-    controls.minPolarAngle = Math.PI / 2 - 0.9;
-    controls.maxPolarAngle = Math.PI / 2 + 0.75;
+    // A arte é desenhada na altura dos olhos: inclinar muito mostraria o que ela não tem.
+    controls.minPolarAngle = Math.PI / 2 - 0.22;
+    controls.maxPolarAngle = Math.PI / 2 + 0.22;
+    if (cam.maxAzimuth !== undefined) {
+      controls.minAzimuthAngle = -cam.maxAzimuth;
+      controls.maxAzimuthAngle = cam.maxAzimuth;
+    }
     controls.update();
     controls.addEventListener('change', render);
 
@@ -280,8 +288,14 @@ export default function ApplicationMap3D({
     sceneRef.current = { camera, controls, model, render, paint };
     resize();
     paint();
+    let disposed = false;
+    // As ilustrações que pintam o modelo chegam depois: redesenha quando carregarem.
+    model.ready?.then(() => {
+      if (!disposed) render();
+    });
 
     return () => {
+      disposed = true;
       observer.disconnect();
       controls.dispose();
       canvasEl.removeEventListener('pointerdown', onDown, { capture: true });
@@ -328,7 +342,7 @@ export default function ApplicationMap3D({
         borderColor: 'divider',
         borderRadius: '16px',
         overflow: 'hidden',
-        background: 'radial-gradient(circle at 50% 38%, #fff 0%, #F3EEEA 100%)',
+        bgcolor: '#fff',
       }}
     >
       <Box

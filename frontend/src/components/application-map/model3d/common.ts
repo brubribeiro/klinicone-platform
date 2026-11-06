@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 
 import type { ApplicationMapRegion } from '../../../types';
 
@@ -10,7 +9,7 @@ export interface SurfacePoint {
 }
 
 /**
- * Modelo 3D genérico (desenho, igual para todas as pacientes). Pontos e traços são gravados
+ * Modelo 3D genérico (as ilustrações do mapa em volume, igual para todas as pacientes). Pontos e traços são gravados
  * em % da textura do modelo (coordenadas UV), por isso não dependem da câmera.
  */
 export interface SurfaceModel {
@@ -30,7 +29,11 @@ export interface SurfaceModel {
     minDistance: number;
     maxDistance: number;
     fov: number;
+    /** Giro máximo para cada lado (rad); sem ele, a volta inteira. */
+    maxAzimuth?: number;
   };
+  /** Resolve quando as ilustrações que pintam o modelo carregaram. */
+  ready?: Promise<void>;
   /** Região de tratamento deduzida do lugar do ponto. */
   regionAt?: (x: number, y: number) => ApplicationMapRegion | undefined;
   dispose: () => void;
@@ -40,23 +43,6 @@ export const smoothstep = (a: number, b: number, x: number) => {
   const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
   return t * t * (3 - 2 * t);
 };
-
-export const gauss = (x: number, y: number, cx: number, cy: number, sx: number, sy: number) =>
-  Math.exp(-(((x - cx) / sx) ** 2) - ((y - cy) / sy) ** 2);
-
-/** Interpolação suave numa tabela [x, y] ordenada por x. */
-export function curve(table: [number, number][], x: number): number {
-  if (x <= table[0][0]) return table[0][1];
-  for (let i = 1; i < table.length; i++) {
-    const [x1, y1] = table[i];
-    if (x <= x1) {
-      const [x0, y0] = table[i - 1];
-      const t = (x - x0) / (x1 - x0);
-      return y0 + (y1 - y0) * t * t * (3 - 2 * t);
-    }
-  }
-  return table[table.length - 1][1];
-}
 
 /**
  * Grade paramétrica (u, v ∈ [0, 1]) com UV = (u, 1 − v): x/y do ponto em % são u·100 e v·100.
@@ -128,109 +114,6 @@ export function surfaceNormal(
   const du = b.sub(a);
   const dv = d.sub(c);
   out.crossVectors(dv, du);
-  if (out.lengthSq() < 1e-12) return out.set(0, 0, 1);
+  if (out.lengthSq() < 1e-24) return out.set(0, 0, 1);
   return out.normalize();
 }
-
-/** Tons do sombreado de desenho (cel shading suave). */
-let toonRamp: THREE.DataTexture | null = null;
-function toonGradient() {
-  if (toonRamp) return toonRamp;
-  const steps = [190, 208, 224, 238, 250, 255];
-  const data = new Uint8Array(steps.length * 4);
-  steps.forEach((s, i) => data.set([s, s, s, 255], i * 4));
-  toonRamp = new THREE.DataTexture(data, steps.length, 1, THREE.RGBAFormat);
-  toonRamp.minFilter = THREE.NearestFilter;
-  toonRamp.magFilter = THREE.NearestFilter;
-  toonRamp.needsUpdate = true;
-  return toonRamp;
-}
-
-export function toonMaterial(params: { color?: THREE.ColorRepresentation; map?: THREE.Texture; cutout?: boolean }) {
-  return new THREE.MeshToonMaterial({
-    color: params.color ?? 0xffffff,
-    map: params.map ?? null,
-    gradientMap: toonGradient(),
-    alphaTest: params.cutout ? 0.5 : 0,
-  });
-}
-
-/**
- * Contorno de ilustração: casca invertida empurrada pela normal. Com `alphaMap`, segue o
- * recorte da textura (borda do cabelo).
- */
-export function outlineMesh(
-  geometry: THREE.BufferGeometry,
-  thickness: number,
-  color = '#5a4038',
-  alphaMap?: THREE.Texture,
-): THREE.Mesh {
-  const base = geometry.clone().deleteAttribute('normal');
-  if (!alphaMap) base.deleteAttribute('uv');
-  const smooth = mergeVertices(base, 1e-4);
-  smooth.computeVertexNormals();
-  const material = new THREE.ShaderMaterial({
-    uniforms: {
-      color: { value: new THREE.Color(color) },
-      thickness: { value: thickness },
-      alphaMap: { value: alphaMap ?? null },
-    },
-    defines: alphaMap ? { USE_CUTOUT: '' } : {},
-    vertexShader: /* glsl */ `
-      uniform float thickness;
-      #ifdef USE_CUTOUT
-      varying vec2 vUv;
-      #endif
-      void main() {
-        #ifdef USE_CUTOUT
-        vUv = uv;
-        #endif
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(position + normal * thickness, 1.0);
-      }
-    `,
-    fragmentShader: /* glsl */ `
-      uniform vec3 color;
-      #ifdef USE_CUTOUT
-      uniform sampler2D alphaMap;
-      varying vec2 vUv;
-      #endif
-      void main() {
-        #ifdef USE_CUTOUT
-        if (texture2D(alphaMap, vUv).a < 0.5) discard;
-        #endif
-        gl_FragColor = vec4(color, 1.0);
-      }
-    `,
-    side: THREE.BackSide,
-  });
-  const mesh = new THREE.Mesh(smooth, material);
-  mesh.userData.outline = true;
-  return mesh;
-}
-
-export function skinTexture(canvas: HTMLCanvasElement) {
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.colorSpace = THREE.SRGBColorSpace;
-  texture.anisotropy = 8;
-  return texture;
-}
-
-/** Libera geometrias, materiais e texturas de um grupo. */
-export function disposeGroup(group: THREE.Object3D) {
-  group.traverse((obj) => {
-    const mesh = obj as THREE.Mesh;
-    if (!mesh.isMesh) return;
-    mesh.geometry.dispose();
-    const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-    for (const m of materials) {
-      const map = (m as THREE.MeshToonMaterial).map;
-      if (map) map.dispose();
-      m.dispose();
-    }
-  });
-}
-
-export const SKIN = '#F2D2BE';
-export const SKIN_SHADE = '#E7B9A2';
-export const HAIR = '#6E4B3A';
-export const LINE = '#5a4038';

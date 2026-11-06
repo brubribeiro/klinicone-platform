@@ -3,13 +3,12 @@ import { Box } from '@mui/material';
 
 import type { ApplicationMapPoint, ApplicationMapStroke } from '../../types';
 import type { Model3DView } from './applicationMapModel';
-import { renderSnapshot, snapshotAngles } from './model3d/snapshot';
+import { renderSnapshot, snapshotAngles, snapshotReady } from './model3d/snapshot';
 
 const ANGLE_LABEL: Record<number, string> = {
   [-Math.PI / 2]: 'lado direito',
   0: 'frente',
   [Math.PI / 2]: 'lado esquerdo',
-  [Math.PI]: 'costas',
 };
 
 /** Miniaturas estáticas do modelo 3D com as marcações (ficha da paciente). */
@@ -31,17 +30,31 @@ export default function Map3DSnapshot({
   // As listas chegam novas a cada render da ficha; só redesenha quando o conteúdo muda.
   const marksKey = JSON.stringify([points, strokes]);
   useEffect(() => {
+    let cancelled = false;
+    const draw = () => {
+      if (cancelled) return;
+      try {
+        setImages(
+          snapshotAngles(view, points, strokes).map((angle) => ({
+            angle,
+            src: renderSnapshot(view, points, strokes, angle, width, height),
+          })),
+        );
+      } catch (err) {
+        console.warn('[Map3DSnapshot] WebGL indisponível', err);
+        setImages([]);
+      }
+    };
+    // Desenha só depois que as ilustrações que pintam o modelo carregaram.
     try {
-      setImages(
-        snapshotAngles(view, points, strokes).map((angle) => ({
-          angle,
-          src: renderSnapshot(view, points, strokes, angle, width, height),
-        })),
-      );
+      snapshotReady(view).then(draw);
     } catch (err) {
       console.warn('[Map3DSnapshot] WebGL indisponível', err);
       setImages([]);
     }
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, marksKey, width, height]);
 
