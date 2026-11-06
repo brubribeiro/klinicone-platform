@@ -201,6 +201,13 @@ export class PatientsService {
     return { ...created, url };
   }
 
+  async downloadPhoto(patientId: string, photoId: string) {
+    const photo = await this.prisma.patientPhoto.findFirst({ where: { id: photoId, patientId } });
+    if (!photo) throw new NotFoundException('Foto não encontrada');
+    if (!this.photos.isConfigured) throw new BadRequestException('Armazenamento de fotos não configurado.');
+    return this.photos.download(photo.storageKey);
+  }
+
   async removePhotoEntry(patientId: string, photoId: string, user?: AuditUser) {
     const photo = await this.prisma.patientPhoto.findFirst({ where: { id: photoId, patientId } });
     if (!photo) throw new NotFoundException('Foto não encontrada');

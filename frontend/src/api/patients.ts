@@ -97,6 +97,11 @@ export const patientsApi = {
     const { data } = await api.get<PatientPhoto[]>(`/patients/${id}/photos`);
     return data;
   },
+  /** Bytes da foto pela API (sem CORS do R2), para a textura do mapa de aplicação 3D. */
+  photoFile: async (id: string, photoId: string): Promise<Blob> => {
+    const { data } = await api.get<Blob>(`/patients/${id}/photos/${photoId}/file`, { responseType: 'blob' });
+    return data;
+  },
   addPhoto: async (
     id: string,
     file: File,
