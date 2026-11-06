@@ -71,7 +71,7 @@ describe('Messages (página)', () => {
     expect(rowNames()[0]).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByText('fila-pendentes')).toBeInTheDocument();
     // Prévia do primeiro (Confirmação)
-    expect(screen.getAllByText('{data}')).toHaveLength(2);
+    expect(screen.getAllByText('{data}')).toHaveLength(1);
   });
 
   it('seleciona outro modelo e mostra prévia com variáveis e faixa de promoção', async () => {
@@ -111,7 +111,7 @@ describe('Messages (página)', () => {
   it('Editar mensagem abre o formulário com o modelo selecionado', async () => {
     renderPage();
     await screen.findAllByText('Confirmação');
-    await userEvent.click(screen.getByRole('button', { name: /Editar mensagem/ }));
+    await userEvent.click(screen.getByRole('button', { name: /Editar modelo Confirmação/ }));
     expect(screen.getByRole('dialog')).toHaveTextContent('Editando Confirmação');
   });
 
@@ -159,7 +159,7 @@ describe('Messages (página)', () => {
     renderPage();
     await screen.findAllByText('Confirmação');
     expect(screen.queryByRole('button', { name: /Novo/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Editar mensagem/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Editar modelo Confirmação/ })).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Excluir modelo Confirmação')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Clique para/ })).not.toBeInTheDocument();
     expect(within(document.body).getAllByText('Ativa').length).toBeGreaterThan(0);

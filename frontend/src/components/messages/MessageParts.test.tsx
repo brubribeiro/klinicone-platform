@@ -120,9 +120,10 @@ describe('PendingWhatsAppDispatches', () => {
     api.listPendingDispatches.mockResolvedValue([dispatch()]);
     api.markDispatchSent.mockResolvedValue(dispatch({ status: 'SENT' }));
     renderIt();
+    await userEvent.click(await screen.findByRole('button', { name: /Envios automáticos pendentes/ }));
     expect(await screen.findByText('Maria Silva · Lembrete')).toBeInTheDocument();
-    expect(screen.getByText('1 na fila')).toBeInTheDocument();
-    expect(screen.getByText(/Gatilho: .* · 09\/03\/2026 09:30 · Agendamento 10\/03\/2026 10:00/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Envios automáticos pendentes/ })).toHaveTextContent('1');
+    expect(screen.getByText(/ · 09\/03 09:30/)).toBeInTheDocument();
     expect(screen.getByText('Olá Maria, amanhã às 10h.')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: /Abrir WhatsApp/ }));
     expect(open).toHaveBeenCalledWith('https://wa.me/5511999990000?text=Ol%C3%A1', '_blank');
@@ -133,6 +134,7 @@ describe('PendingWhatsAppDispatches', () => {
   it('envio sem link wa.me fica desabilitado', async () => {
     api.listPendingDispatches.mockResolvedValue([dispatch({ waMeUrl: null, patient: undefined, template: undefined, appointment: undefined })]);
     renderIt();
+    await userEvent.click(await screen.findByRole('button', { name: /Envios automáticos pendentes/ }));
     expect(await screen.findByText('Paciente · Modelo')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Abrir WhatsApp/ })).toBeDisabled();
     expect(open).not.toHaveBeenCalled();
@@ -142,6 +144,7 @@ describe('PendingWhatsAppDispatches', () => {
     api.listPendingDispatches.mockResolvedValue([dispatch()]);
     api.markDispatchSent.mockRejectedValue(new Error('x'));
     renderIt();
+    await userEvent.click(await screen.findByRole('button', { name: /Envios automáticos pendentes/ }));
     await userEvent.click(await screen.findByRole('button', { name: /Abrir WhatsApp/ }));
     await waitFor(() => expect(toast.error).toHaveBeenCalled());
   });

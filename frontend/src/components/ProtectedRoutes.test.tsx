@@ -194,7 +194,7 @@ describe('troca de painel (conta dual)', () => {
     auth.selectPanel.mockResolvedValue(undefined);
     renderApp('/escolher-painel');
 
-    await userEvent.click(screen.getByRole('button', { name: /Painel da plataforma/ }));
+    await userEvent.click(screen.getByRole('button', { name: /Console KlinicOne/ }));
     expect(auth.selectPanel).toHaveBeenCalledWith('admin');
     await waitFor(() => expect(hrefSet).toEqual(['/admin/clinicas']));
   });
