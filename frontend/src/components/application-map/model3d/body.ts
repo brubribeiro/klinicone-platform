@@ -1,328 +1,310 @@
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
+import bodySrc from '../../../assets/application-map/corpo.webp';
 import type { ApplicationMapRegion } from '../../../types';
-import {
-  HAIR,
-  SKIN,
-  curve,
-  disposeGroup,
-  gauss,
-  outlineMesh,
-  parametricGeometry,
-  skinTexture,
-  smoothstep,
-  surfaceNormal,
-  toonMaterial,
-  type SurfaceModel,
-} from './common';
+import { parametricGeometry, smoothstep, surfaceNormal, type SurfaceModel } from './common';
+import { piecewise, projectedSurface } from './projected';
+import { BODY_FRONT, BODY_SIDE, SIL_STEP } from './silhouettes';
 
 /**
- * Corpo ilustrado genérico (vista `body3d`) para criolipólise: manequim feito de partes
- * paramétricas (tronco, cabeça, braços, pernas), cada uma numa faixa vertical da textura.
- * x dá a volta na parte (frente no meio da faixa), y desce do topo à ponta.
+ * Corpo 3D feito da ilustração corporal 2D (frente e perfil): cada parte (tronco com cabeça,
+ * braços, pernas) tem a largura da silhueta de frente e a profundidade da de perfil, e é
+ * pintada pela própria arte. O perfil desenhado é o esquerdo; o direito usa o mesmo, espelhado.
+ * Marcações em % de um atlas: cada parte numa faixa de x (frente no meio dela), y = altura.
  */
 
-type PartId = 'torso' | 'head' | 'armL' | 'armR' | 'legL' | 'legR';
+const K = 400;
+const IMG = { w: 929, h: 768 };
+/** Linha média da figura de frente e eixo do corpo na figura de perfil (px). */
+const CX = 214.5;
+const Z0 = 705;
+const CY = 400;
 
-interface Part {
+/** Linhas (px) de referência da ilustração. */
+const TOP = 54;
+const BOTTOM = 746;
+const ARMPIT = 300;
+/** Do punho para baixo o braço é a mão: larga de frente, fina de perfil. */
+const WRIST = 400;
+/** Eixo do braço desenhado no perfil (linha → coluna px): desce do ombro e a mão vem à frente da coxa. */
+const ARM_AXIS: [number, number][] = [
+  [250, 712],
+  [330, 715],
+  [400, 697],
+  [440, 684],
+  [470, 680],
+];
+/** Cabeça: o rosto é mais estreito que o crânio (frente mais pontuda). */
+const HEAD_END = 140;
+const FACE_DEPTH = 0.3;
+const FACE_WIDTH = 0.035;
+/** Topo do ombro: acima da axila o braço encosta no tronco e a silhueta é uma só. */
+const ARM_TOP = 205;
+const SHOULDER = 240;
+const HAND_END = 468;
+const CROTCH = 468;
+const LEG_TOP = 420;
+
+type PartId = 'torso' | 'armR' | 'armL' | 'legR' | 'legL';
+
+interface PartDef {
   id: PartId;
-  /** Faixa da textura (x0, largura) em fração. */
   box: { x: number; w: number };
-  fn: (u: number, t: number, out: THREE.Vector3) => void;
+  from: number;
+  to: number;
 }
 
-const TEX = 2048;
-const SHORTS = '#cdb08e';
-
-/** Arredonda as pontas: raio → 0 nas extremidades. */
-const cap = (t: number, a: number, b = a) =>
-  Math.sqrt(Math.max(0, 1 - Math.max(0, (a - t) / a) ** 2)) *
-  Math.sqrt(Math.max(0, 1 - Math.max(0, (t - (1 - b)) / b) ** 2));
-
-// Tronco: do pescoço (topo) ao gancho, meia-largura e profundidades frente/costas pela altura.
-const TORSO_TOP = 5.62;
-const TORSO_BOTTOM = 3.0;
-const TORSO_RX: [number, number][] = [
-  [3.0, 0.5],
-  [3.2, 0.7],
-  [3.5, 0.8],
-  [3.9, 0.69],
-  [4.15, 0.59],
-  [4.5, 0.62],
-  [4.85, 0.66],
-  [5.12, 0.74],
-  [5.3, 0.55],
-  [5.42, 0.21],
-  [5.62, 0.19],
-];
-const TORSO_FRONT: [number, number][] = [
-  [3.0, 0.4],
-  [3.3, 0.45],
-  [3.6, 0.47],
-  [3.9, 0.42],
-  [4.15, 0.36],
-  [4.5, 0.39],
-  [4.85, 0.44],
-  [5.15, 0.4],
-  [5.3, 0.3],
-  [5.42, 0.2],
-  [5.62, 0.19],
-];
-const TORSO_BACK: [number, number][] = [
-  [3.0, 0.4],
-  [3.35, 0.55],
-  [3.6, 0.5],
-  [3.9, 0.36],
-  [4.15, 0.32],
-  [4.5, 0.35],
-  [4.85, 0.38],
-  [5.15, 0.38],
-  [5.3, 0.3],
-  [5.42, 0.2],
-  [5.62, 0.19],
+const PARTS: PartDef[] = [
+  { id: 'torso', box: { x: 0, w: 0.4 }, from: TOP, to: CROTCH },
+  { id: 'armR', box: { x: 0.4, w: 0.1 }, from: ARM_TOP, to: HAND_END },
+  { id: 'armL', box: { x: 0.5, w: 0.1 }, from: ARM_TOP, to: HAND_END },
+  { id: 'legR', box: { x: 0.6, w: 0.2 }, from: LEG_TOP, to: BOTTOM },
+  { id: 'legL', box: { x: 0.8, w: 0.2 }, from: LEG_TOP, to: BOTTOM },
 ];
 
-function torsoFn(u: number, t: number, out: THREE.Vector3) {
-  const a = (u - 0.5) * Math.PI * 2;
-  const y = TORSO_TOP - t * (TORSO_TOP - TORSO_BOTTOM);
-  const k = cap(1 - t, 0.06, 0.0001);
-  const rx = curve(TORSO_RX, y) * k;
-  const c = Math.cos(a);
-  const s = Math.sin(a);
-  const x = rx * s;
-  let z = (c >= 0 ? curve(TORSO_FRONT, y) : curve(TORSO_BACK, y)) * c * k;
-  // Busto e glúteos discretos.
-  if (c > 0) z += 0.1 * c * gauss(Math.abs(x), y, 0.3, 4.86, 0.19, 0.17);
-  else z += 0.08 * c * gauss(Math.abs(x), y, 0.3, 3.42, 0.22, 0.2);
-  out.set(x, y, z - 0.02);
+type Interval = [number, number];
+
+const rowOf = (rows: number[][], y: number): Interval[] => {
+  const r = rows[Math.min(rows.length - 1, Math.max(0, Math.round(y / SIL_STEP)))] ?? [];
+  const out: Interval[] = [];
+  for (let i = 0; i + 1 < r.length; i += 2) out.push([r[i], r[i + 1]]);
+  return out;
+};
+
+const union = (list: Interval[]): Interval | null =>
+  list.length ? [Math.min(...list.map((i) => i[0])), Math.max(...list.map((i) => i[1]))] : null;
+
+/** Largura dos braços (px) logo abaixo da axila, onde a silhueta já os separa do tronco. */
+let armWidths: { r: number; l: number } | null = null;
+function armWidth() {
+  if (armWidths) return armWidths;
+  const ivs = rowOf(BODY_FRONT, ARMPIT + 4);
+  const [r, , l] = ivs.length >= 3 ? ivs : [[0, 34], [], [0, 34]];
+  return (armWidths = { r: r[1] - r[0], l: l[1] - l[0] });
 }
 
-function headFn(u: number, t: number, out: THREE.Vector3) {
-  const a = (u - 0.5) * Math.PI * 2;
-  const top = 6.42;
-  const bottom = 5.5;
-  const y = top - t * (top - bottom);
-  const k = cap(t, 0.32, 0.22);
-  const jaw = smoothstep(0.55, 1, t);
-  const rx = 0.33 * k * (1 - 0.18 * jaw);
-  const c = Math.cos(a);
-  const z = (c >= 0 ? 0.37 : 0.4) * k * c + 0.06 * jaw - 0.03;
-  // Nariz discreto de manequim.
-  const nose = c > 0.9 ? 0.05 * gauss(rx * Math.sin(a), y, 0, 5.88, 0.05, 0.07) : 0;
-  out.set(rx * Math.sin(a), y, z + nose);
+/** Silhueta inteira na linha `y`, antes de separar tronco e braços. */
+function wholeInterval(y: number): Interval | null {
+  const ivs = rowOf(BODY_FRONT, y);
+  if (!ivs.length) return null;
+  if (y >= ARM_TOP && y < ARMPIT) return union(ivs);
+  const hit = ivs.find(([a, b]) => a <= CX && b >= CX);
+  if (hit) return hit;
+  if (y >= ARMPIT) return null;
+  return ivs.reduce((best, iv) => (Math.abs((iv[0] + iv[1]) / 2 - CX) < Math.abs((best[0] + best[1]) / 2 - CX) ? iv : best));
 }
 
-function limb(
-  top: THREE.Vector3,
-  bottom: THREE.Vector3,
-  radius: (t: number, a: number) => number,
-  depth = 0.95,
-) {
-  const d = bottom.clone().sub(top);
-  const len = d.length();
-  d.normalize();
-  const front = new THREE.Vector3(0, 0, 1).addScaledVector(d, -d.z).normalize();
-  const side = new THREE.Vector3().crossVectors(front, d);
-  return (u: number, t: number, out: THREE.Vector3) => {
-    const a = (u - 0.5) * Math.PI * 2;
-    const r = radius(t, a);
-    out
-      .copy(top)
-      .addScaledVector(d, t * len)
-      .addScaledVector(side, r * Math.sin(a))
-      .addScaledVector(front, r * depth * Math.cos(a));
+function torsoInterval(y: number): Interval | null {
+  const whole = wholeInterval(y);
+  if (!whole || y >= ARMPIT || y <= ARM_TOP) return whole;
+  // Entre o ombro e a axila, o tronco é a silhueta sem os braços colados nele.
+  const t = smoothstep(ARM_TOP, SHOULDER, y) * 0.9;
+  const w = armWidth();
+  return [whole[0] + w.r * t, whole[1] - w.l * t];
+}
+
+/** Largura da parte na figura de frente (px) na linha `y`. */
+function frontInterval(id: PartId, y: number): Interval | null {
+  const torso = torsoInterval(y);
+  if (id === 'torso') return torso;
+  const ivs = rowOf(BODY_FRONT, y);
+  if (id === 'armR' || id === 'armL') {
+    if (!torso) return null;
+    if (y < ARMPIT) {
+      const whole = wholeInterval(y)!;
+      const w = armWidth();
+      return id === 'armR' ? [whole[0], whole[0] + w.r] : [whole[1] - w.l, whole[1]];
+    }
+    return union(ivs.filter(([a, b]) => (id === 'armR' ? b < torso[0] : a > torso[1])));
+  }
+  if (y < CROTCH) {
+    if (!torso) return null;
+    return id === 'legR' ? [torso[0], CX] : [CX, torso[1]];
+  }
+  // Só os intervalos da perna (as pontas dos dedos ficam na mesma altura, de lado).
+  const legs = ivs.filter(([a, b]) => Math.abs((a + b) / 2 - CX) < 95);
+  return union(legs.filter(([a, b]) => (id === 'legR' ? (a + b) / 2 < CX : (a + b) / 2 >= CX)));
+}
+
+interface PartRows {
+  def: PartDef;
+  /** Por linha: centro e meia largura em x, centro e meia profundidade em z (cena). */
+  xc: number[];
+  a: number[];
+  zc: number[];
+  d: number[];
+}
+
+function buildPart(def: PartDef): PartRows {
+  const n = Math.round((def.to - def.from) / SIL_STEP);
+  const front: (Interval | null)[] = [];
+  const side: (Interval | null)[] = [];
+  for (let i = 0; i <= n; i++) {
+    const y = def.from + i * SIL_STEP;
+    front.push(frontInterval(def.id, y));
+    side.push(union(rowOf(BODY_SIDE, y)));
+  }
+  // Linhas sem desenho (ombro do braço, ponta dos dedos) repetem a vizinha.
+  const fill = (list: (Interval | null)[]) => {
+    const first = list.findIndex(Boolean);
+    for (let i = 0; i < list.length; i++) if (!list[i]) list[i] = i < first ? list[first] : list[i - 1];
+    return list as Interval[];
+  };
+  const f = fill(front);
+  const s = fill(side);
+  const rows: PartRows = { def, xc: [], a: [], zc: [], d: [] };
+  for (let i = 0; i <= n; i++) {
+    const [x0, x1] = f[i];
+    const [z0, z1] = s[i];
+    rows.xc.push(((x0 + x1) / 2 - CX) / K);
+    rows.a.push((x1 - x0) / 2 / K);
+    if (def.id === 'armR' || def.id === 'armL') {
+      // O braço fica no meio do perfil e é quase redondo.
+      const y = def.from + i * SIL_STEP;
+      rows.zc.push((Z0 - piecewise(ARM_AXIS, y)) / K);
+      rows.d.push(((x1 - x0) / 2 / K) * (0.95 - 0.5 * smoothstep(WRIST - 20, WRIST + 10, y)));
+    } else {
+      const y = def.from + i * SIL_STEP;
+      // Topo das pernas, ainda dentro do quadril: mais rasas, para não furar o tronco.
+      const legTop = def.id === 'legR' || def.id === 'legL' ? 0.7 + 0.3 * smoothstep(LEG_TOP, CROTCH + 24, y) : 1;
+      rows.zc.push((Z0 - (z0 + z1) / 2) / K);
+      rows.d.push(((z1 - z0) / 2 / K) * legTop);
+    }
+  }
+  // Silhueta extraída da arte tem serrilhado: média móvel de 5 linhas.
+  for (const key of ['xc', 'a', 'zc', 'd'] as const) {
+    const src = rows[key];
+    rows[key] = src.map((_, i) => {
+      let sum = 0;
+      let n = 0;
+      for (let k = Math.max(0, i - 2); k <= Math.min(src.length - 1, i + 2); k++, n++) sum += src[k];
+      return sum / n;
+    });
+  }
+  return rows;
+}
+
+let partsCache: PartRows[] | null = null;
+const parts = () => (partsCache ??= PARTS.map(buildPart));
+
+function sample(list: number[], v: number) {
+  const f = Math.min(list.length - 1, Math.max(0, v * (list.length - 1)));
+  const i = Math.min(list.length - 2, Math.floor(f));
+  return list[i] + (list[i + 1] - list[i]) * (f - i);
+}
+
+const superPow = (x: number, p: number) => Math.sign(x) * Math.abs(x) ** (2 / p);
+/** Fecha a ponta: o raio vai a zero nos últimos `w` de v. */
+const capEnd = (t: number, w: number) => Math.sqrt(Math.max(0, 1 - Math.max(0, (t - (1 - w)) / w) ** 2));
+
+function partSurface(p: PartRows, features = true) {
+  return (u: number, v: number, out: THREE.Vector3) => {
+    const theta = (u - 0.5) * Math.PI * 2;
+    const id = p.def.id;
+    let k = 1;
+    if (id === 'torso') k = capEnd(1 - v, 0.012) * capEnd(v, 0.03);
+    else if (id === 'armR' || id === 'armL') k = capEnd(v, 0.02) * capEnd(1 - v, 0.05);
+    else k = capEnd(v, 0.006);
+    const xs = superPow(Math.sin(theta), 2.2);
+    const y = p.def.from + v * (p.def.to - p.def.from);
+    const c = Math.cos(theta);
+    const zs = superPow(c, 2.2);
+    const x = xs * sample(p.a, v) * k;
+    let z = zs * sample(p.d, v) * k;
+    if (c > 0 && id === 'torso' && features) {
+      // Rosto: o perfil vem do nariz, estreito; o resto da frente da cabeça fica para trás.
+      const face = FACE_DEPTH * (1 - smoothstep(HEAD_END - 12, HEAD_END + 4, y)) * smoothstep(TOP + 14, TOP + 34, y);
+      z = z * (1 - face) + sample(p.d, v) * k * face * c * Math.exp(-((x / FACE_WIDTH) ** 2));
+    }
+    return out.set(sample(p.xc, v) + x, -(y - CY) / K, sample(p.zc, v) + z);
   };
 }
 
-const LEG_R: [number, number][] = [
-  [0, 0.4],
-  [0.05, 0.44],
-  [0.16, 0.41],
-  [0.34, 0.31],
-  [0.47, 0.235],
-  [0.53, 0.235],
-  [0.62, 0.26],
-  [0.78, 0.2],
-  [0.93, 0.135],
-  [1, 0.13],
-];
-
-const ARM_R: [number, number][] = [
-  [0, 0.19],
-  [0.08, 0.205],
-  [0.3, 0.165],
-  [0.47, 0.13],
-  [0.6, 0.145],
-  [0.9, 0.1],
-  [1, 0.095],
-];
-
-function legFn(side: 1 | -1) {
-  return limb(new THREE.Vector3(0.38 * side, 3.55, 0), new THREE.Vector3(0.3 * side, 0.32, 0.02), (t, a) => {
-    // Culote: volume na lateral de trás da coxa.
-    const lateral = Math.max(0, Math.sin(a) * side) * Math.max(0, 0.4 - 0.6 * Math.cos(a));
-    return curve(LEG_R, t) * cap(t, 0.0001, 0.03) + 0.07 * lateral * gauss(t, 0, 0.15, 0, 0.09, 1);
-  });
-}
-
-function armFn(side: 1 | -1) {
-  return limb(
-    new THREE.Vector3(0.8 * side, 5.14, -0.03),
-    new THREE.Vector3(1.32 * side, 3.28, 0.08),
-    (t) => curve(ARM_R, t) * cap(t, 0.1, 0.02),
-  );
-}
-
-const PARTS: Part[] = [
-  { id: 'torso', box: { x: 0, w: 0.4 }, fn: torsoFn },
-  { id: 'head', box: { x: 0.4, w: 0.1 }, fn: headFn },
-  { id: 'armR', box: { x: 0.5, w: 0.125 }, fn: armFn(-1) },
-  { id: 'armL', box: { x: 0.625, w: 0.125 }, fn: armFn(1) },
-  { id: 'legR', box: { x: 0.75, w: 0.125 }, fn: legFn(-1) },
-  { id: 'legL', box: { x: 0.875, w: 0.125 }, fn: legFn(1) },
-];
-
-function partAt(x: number): Part {
+function partAt(x: number): PartRows {
   const u = x / 100;
-  return PARTS.find((p) => u >= p.box.x && u <= p.box.x + p.box.w + 1e-9) ?? PARTS[0];
+  return parts().find((p) => u >= p.def.box.x && u <= p.def.box.x + p.def.box.w + 1e-9) ?? parts()[0];
 }
 
-function paintBodyTexture(): HTMLCanvasElement {
-  const canvas = document.createElement('canvas');
-  canvas.width = TEX;
-  canvas.height = TEX;
-  const ctx = canvas.getContext('2d')!;
-  ctx.fillStyle = SKIN;
-  ctx.fillRect(0, 0, TEX, TEX);
-  const band = (part: PartId, t0: number, t1: number, color: string) => {
-    const p = PARTS.find((q) => q.id === part)!;
-    ctx.fillStyle = color;
-    ctx.fillRect(p.box.x * TEX, t0 * TEX, p.box.w * TEX, (t1 - t0) * TEX);
-  };
-  const torsoT = (y: number) => (TORSO_TOP - y) / (TORSO_TOP - TORSO_BOTTOM);
-  // Top e short da ilustração 2D.
-  band('torso', torsoT(5.02), torsoT(4.66), SHORTS);
-  band('torso', torsoT(3.82), 1, SHORTS);
-  band('legL', 0, 0.1, SHORTS);
-  band('legR', 0, 0.1, SHORTS);
-  ctx.strokeStyle = 'rgba(120,90,60,.35)';
-  ctx.lineWidth = 4;
-  for (const y of [5.02, 4.66, 3.82]) {
-    ctx.beginPath();
-    ctx.moveTo(0, torsoT(y) * TEX);
-    ctx.lineTo(0.4 * TEX, torsoT(y) * TEX);
-    ctx.stroke();
-  }
-  // Umbigo.
-  ctx.fillStyle = 'rgba(150,100,85,.6)';
-  ctx.beginPath();
-  ctx.ellipse(0.2 * TEX, torsoT(3.98) * TEX, 7, 12, 0, 0, Math.PI * 2);
-  ctx.fill();
-  // Olhos fechados e boca, só para orientar a frente.
-  const head = PARTS.find((p) => p.id === 'head')!;
-  const hx = (head.box.x + head.box.w / 2) * TEX;
-  const ht = (y: number) => ((6.42 - y) / 0.92) * TEX;
-  ctx.strokeStyle = 'rgba(90,64,56,.8)';
-  ctx.lineWidth = 4;
-  for (const s of [-1, 1]) {
-    ctx.beginPath();
-    ctx.moveTo(hx + s * 14, ht(5.98));
-    ctx.quadraticCurveTo(hx + s * 26, ht(5.96), hx + s * 38, ht(5.98));
-    ctx.stroke();
-  }
-  ctx.strokeStyle = 'rgba(166,94,90,.8)';
-  ctx.beginPath();
-  ctx.moveTo(hx - 16, ht(5.73));
-  ctx.quadraticCurveTo(hx, ht(5.71), hx + 16, ht(5.73));
-  ctx.stroke();
-  return canvas;
-}
+const localU = (p: PartRows, x: number) => Math.min(1, Math.max(0, (x / 100 - p.def.box.x) / p.def.box.w));
 
-/** Região de criolipólise deduzida da parte e do lado em que o ponto foi marcado. */
 function regionAt(x: number, y: number): ApplicationMapRegion | undefined {
-  const part = partAt(x);
-  const u = (x / 100 - part.box.x) / part.box.w;
-  const t = y / 100;
+  const p = partAt(x);
+  const u = localU(p, x);
+  const row = p.def.from + (y / 100) * (p.def.to - p.def.from);
+  // Ângulo em torno da parte: 0 na frente, ± para os lados, π nas costas.
   const a = Math.abs((u - 0.5) * Math.PI * 2);
-  if (part.id === 'armL' || part.id === 'armR') return 'arms';
-  if (part.id === 'head') return t > 0.72 ? 'submental' : undefined;
-  if (part.id === 'legL' || part.id === 'legR') {
-    if (t > 0.5) return undefined;
-    return t < 0.22 && a > Math.PI * 0.4 && a < Math.PI * 0.85 ? 'saddlebags' : 'thighs';
+  const id = p.def.id;
+  if (id === 'armR' || id === 'armL') return 'arms';
+  if (id === 'legR' || id === 'legL') {
+    if (row > 600) return undefined;
+    const outer = (id === 'legL') === u > 0.5;
+    return row < 545 && outer && a > Math.PI * 0.35 && a < Math.PI * 0.85 ? 'saddlebags' : 'thighs';
   }
-  const height = TORSO_TOP - t * (TORSO_TOP - TORSO_BOTTOM);
-  if (a > Math.PI * 0.72) return height > 3.75 ? 'back' : undefined;
-  if (a > Math.PI * 0.3) return height < 4.5 ? 'flanks' : undefined;
-  return height < 4.4 ? 'abdomen' : undefined;
+  if (row >= 120 && row <= 146) return a < Math.PI * 0.6 ? 'submental' : undefined;
+  if (a > Math.PI * 0.72) return row > 180 && row < 430 ? 'back' : undefined;
+  if (row < 265 || row > 440) return undefined;
+  return a > Math.PI * 0.3 ? 'flanks' : 'abdomen';
 }
 
 export function buildBodyModel(): SurfaceModel {
-  const group = new THREE.Group();
-  const skin = toonMaterial({ map: skinTexture(paintBodyTexture()) });
-  const plainSkin = toonMaterial({ color: SKIN });
-
-  const meshes = PARTS.map((p) => {
-    const segU = p.id === 'torso' ? 160 : p.id === 'head' ? 64 : 56;
-    const segV = p.id === 'torso' ? 160 : p.id.startsWith('leg') ? 140 : 90;
-    return new THREE.Mesh(parametricGeometry(p.fn, segU, segV, { x: p.box.x, y: 0, w: p.box.w, h: 1 }), skin);
-  });
-
-  const decor: THREE.Mesh[] = [];
-  for (const side of [1, -1] as const) {
-    const hand = new THREE.Mesh(new THREE.SphereGeometry(1, 32, 20), plainSkin);
-    hand.scale.set(0.07, 0.24, 0.13);
-    hand.position.set(1.4 * side, 3.06, 0.1);
-    hand.rotation.z = 0.28 * side;
-    const foot = new THREE.Mesh(new THREE.SphereGeometry(1, 32, 20), plainSkin);
-    foot.scale.set(0.13, 0.1, 0.36);
-    foot.position.set(0.3 * side, 0.12, 0.16);
-    decor.push(hand, foot);
-  }
-  const hair = new THREE.Mesh(
-    new THREE.SphereGeometry(0.36, 48, 24, 0, Math.PI * 2, 0, Math.PI * 0.52),
-    toonMaterial({ color: HAIR }),
+  const geometries = parts().map((p) =>
+    parametricGeometry(partSurface(p), p.def.id === 'torso' ? 160 : 64, Math.round((p.def.to - p.def.from) / 2), {
+      x: p.def.box.x,
+      y: 0,
+      w: p.def.box.w,
+      h: 1,
+    }),
   );
-  hair.position.set(0, 6.08, -0.05);
-  hair.rotation.x = -0.35;
-  hair.scale.set(1.02, 1, 1.1);
-  const bun = new THREE.Mesh(new THREE.SphereGeometry(0.17, 32, 20), toonMaterial({ color: HAIR }));
-  bun.position.set(0, 6.3, -0.36);
-  decor.push(hair, bun);
+  const geometry = mergeGeometries(geometries)!;
+  geometries.forEach((g) => g.dispose());
 
-  const solids = [...meshes, ...decor];
-  group.add(...solids);
-  for (const mesh of solids) {
-    const outline = outlineMesh(mesh.geometry, 0.018 / Math.max(mesh.scale.x, mesh.scale.y, mesh.scale.z));
-    outline.position.copy(mesh.position);
-    outline.rotation.copy(mesh.rotation);
-    outline.scale.copy(mesh.scale);
-    group.add(outline);
+  const pos = geometry.getAttribute('position');
+  const front: number[] = [];
+  const side: number[] = [];
+  for (let i = 0; i < pos.count; i++) {
+    const y = -pos.getY(i) * K + CY;
+    front.push((CX + pos.getX(i) * K) / IMG.w, 1 - y / IMG.h);
+    side.push((Z0 - pos.getZ(i) * K) / IMG.w, 1 - y / IMG.h);
   }
 
-  const pointAt = (x: number, y: number) => {
-    const part = partAt(x);
-    const fn = (u: number, t: number, o: THREE.Vector3) => part.fn(u, t, o);
-    const u = Math.min(1, Math.max(0, (x / 100 - part.box.x) / part.box.w));
-    const t = Math.min(1, Math.max(0, y / 100));
-    const position = new THREE.Vector3();
-    fn(u, t, position);
-    return { position, normal: surfaceNormal(fn, u, t, new THREE.Vector3()) };
-  };
+  const target = new THREE.Vector3(0, -(400 - CY) / K, 0);
+  const painted = projectedSurface(
+    geometry,
+    { front, left: side, right: side },
+    (u, v, out) => {
+      const p = partAt(u * 100);
+      return surfaceNormal(partSurface(p, false), localU(p, u * 100), v, out);
+    },
+    { front: bodySrc, left: bodySrc, right: bodySrc },
+    target,
+    0.004,
+  );
+  const group = new THREE.Group();
+  group.add(painted.outline, painted.mesh);
 
   return {
     group,
-    markable: meshes,
-    pointAt,
-    scale: 6,
-    pointRadius: 0.1,
+    markable: [painted.mesh],
+    pointAt: (x, y) => {
+      const p = partAt(x);
+      const u = localU(p, x);
+      const v = Math.min(1, Math.max(0, y / 100));
+      const fn = partSurface(p);
+      return { position: fn(u, v, new THREE.Vector3()), normal: surfaceNormal(fn, u, v, new THREE.Vector3()) };
+    },
+    scale: 1.5,
+    pointRadius: 0.032,
     camera: {
-      target: new THREE.Vector3(0, 3.25, 0),
-      distance: 14.5,
-      minDistance: 3.5,
-      maxDistance: 20,
-      fov: 30,
+      target,
+      distance: 5.6,
+      minDistance: 1.6,
+      maxDistance: 7.5,
+      fov: 20,
+      maxAzimuth: Math.PI / 2,
     },
     regionAt,
-    dispose: () => disposeGroup(group),
+    ready: painted.ready,
+    dispose: painted.dispose,
   };
 }

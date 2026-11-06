@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 
 import type { ApplicationMapPoint, ApplicationMapStroke } from '../../../types';
-import type { Model3DView } from '../applicationMapModel';
+import { pointView, type Model3DView } from '../applicationMapModel';
 import type { SurfaceModel } from './common';
 import { MarksLayer, addLights, buildModel } from './scene';
 
@@ -31,6 +31,11 @@ function setup(view: Model3DView) {
   return { renderer: shared.renderer, ...entry };
 }
 
+/** Resolve quando as ilustrações do modelo carregaram (as miniaturas esperam por elas). */
+export function snapshotReady(view: Model3DView): Promise<void> {
+  return setup(view).model.ready ?? Promise.resolve();
+}
+
 /** Miniatura (data URL) do modelo 3D com as marcações, vista do ângulo pedido. */
 export function renderSnapshot(
   view: Model3DView,
@@ -56,8 +61,8 @@ export function renderSnapshot(
 }
 
 /**
- * Ângulos das miniaturas: sempre a frente, mais lado/costas quando há marcação virada
- * para lá (pela normal da superfície no ponto).
+ * Ângulos das miniaturas: sempre a frente, mais o perfil de cada lado que tem marcação virada
+ * para ele (pela normal da superfície no ponto; costas aparecem no perfil do mesmo lado).
  */
 export function snapshotAngles(
   view: Model3DView,
@@ -66,8 +71,10 @@ export function snapshotAngles(
 ): number[] {
   const { model } = setup(view);
   const coords: [number, number][] = [
-    ...points.map((p) => [p.x, p.y] as [number, number]),
-    ...strokes.flatMap((s) => (s.points.length >= 2 ? [[s.points[0], s.points[1]] as [number, number]] : [])),
+    ...points.filter((p) => pointView(p) === view).map((p) => [p.x, p.y] as [number, number]),
+    ...strokes
+      .filter((s) => s.view === view && s.points.length >= 2)
+      .map((s) => [s.points[0], s.points[1]] as [number, number]),
   ];
   const angles = new Set<number>([0]);
   for (const [x, y] of coords) {
@@ -75,8 +82,8 @@ export function snapshotAngles(
     if (!n) continue;
     const a = Math.atan2(n.x, n.z);
     if (Math.abs(a) < 0.9) continue;
-    angles.add(Math.abs(a) > 2.3 ? Math.PI : Math.sign(a) * (Math.PI / 2));
+    angles.add(Math.sign(a) * (Math.PI / 2));
   }
-  // Ordem: lado direito da paciente, frente, lado esquerdo, costas.
-  return [-Math.PI / 2, 0, Math.PI / 2, Math.PI].filter((a) => angles.has(a));
+  // Ordem: lado direito da paciente, frente, lado esquerdo.
+  return [-Math.PI / 2, 0, Math.PI / 2].filter((a) => angles.has(a));
 }
