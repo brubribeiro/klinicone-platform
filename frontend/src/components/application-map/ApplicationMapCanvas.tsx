@@ -196,7 +196,6 @@ export function ApplicationMapCanvas({
               top: `${(-crop.y / crop.h) * 100}%`,
               width: `${(100 / crop.w) * 100}%`,
               height: `${(100 / crop.h) * 100}%`,
-              transition: 'left .2s ease, top .2s ease, width .2s ease, height .2s ease',
             }}
           >
             <Box
