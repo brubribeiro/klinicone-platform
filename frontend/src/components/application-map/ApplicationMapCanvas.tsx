@@ -14,6 +14,7 @@ import {
   productDef,
   strokePath,
   type MapCrop,
+  type MapGuide,
   type MapViewDef,
 } from './applicationMapModel';
 
@@ -65,6 +66,7 @@ export function ApplicationMapCanvas({
   height,
   autoFocusQty,
   toolbar,
+  guides,
 }: {
   image: MapViewDef;
   view: ApplicationMapView;
@@ -86,6 +88,8 @@ export function ApplicationMapCanvas({
   autoFocusQty: boolean;
   /** Controles no topo do mapa (ex.: vistas do rosto). */
   toolbar?: ReactNode;
+  /** Pontos de aplicação sugeridos (mapas por região): clicar marca o ponto ali. */
+  guides?: MapGuide[];
 }) {
   const [zoom, setZoom] = useState(1);
   const stageRef = useRef<HTMLDivElement>(null);
@@ -269,6 +273,50 @@ export function ApplicationMapCanvas({
                 />
               )}
             </Box>
+            {guides?.map((g, i) => (
+              <Box
+                key={`guide-${i}`}
+                component="span"
+                role={tool === 'point' ? 'button' : undefined}
+                aria-label={tool === 'point' ? `Marcar ponto sugerido: ${g.label}` : undefined}
+                title={`${g.label} (ponto sugerido)`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onAdd({ x: g.x, y: g.y });
+                }}
+                sx={{
+                  position: 'absolute',
+                  left: `${g.x}%`,
+                  top: `${g.y}%`,
+                  width: 18,
+                  height: 18,
+                  borderRadius: '50%',
+                  border: '2px dashed',
+                  borderColor: alpha('#1F7A6E', 0.75),
+                  bgcolor: alpha('#fff', 0.45),
+                  transform: 'translate(-50%, -50%)',
+                  pointerEvents: tool === 'point' ? 'auto' : 'none',
+                  cursor: 'pointer',
+                  zIndex: 1,
+                  transition: 'transform .12s ease, background-color .12s ease',
+                  '&:hover': {
+                    bgcolor: alpha('#1F7A6E', 0.2),
+                    transform: 'translate(-50%, -50%) scale(1.2)',
+                  },
+                  '&::after': {
+                    content: '""',
+                    position: 'absolute',
+                    left: '50%',
+                    top: '50%',
+                    width: 4,
+                    height: 4,
+                    borderRadius: '50%',
+                    bgcolor: alpha('#1F7A6E', 0.8),
+                    transform: 'translate(-50%, -50%)',
+                  },
+                }}
+              />
+            ))}
             {points.map((p, index) => {
               if (pointView(p) !== view) return null;
               const product = productDef(p.product);

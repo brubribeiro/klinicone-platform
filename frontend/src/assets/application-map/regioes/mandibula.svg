@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 800 560" width="800" height="560">
+<defs>
+<radialGradient id="skin" cx="50%" cy="45%" r="70%"><stop offset="0" stop-color="#FBE9DD"/><stop offset="1" stop-color="#F1D3C1"/></radialGradient>
+<linearGradient id="lipU" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#D98A86"/><stop offset="1" stop-color="#C7706E"/></linearGradient>
+<linearGradient id="lipL" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#C96E6C"/><stop offset="1" stop-color="#E4A19C"/></linearGradient>
+<style>
+.skin{fill:url(#skin);stroke:#B98670;stroke-width:3;stroke-linejoin:round}
+.line{fill:none;stroke:#A9735D;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
+.fine{fill:none;stroke:#C29682;stroke-width:1.8;stroke-linecap:round;opacity:.85}
+.fold{fill:none;stroke:#C98F78;stroke-width:5;stroke-linecap:round;opacity:.45}
+.shade{fill:#E3B9A4;opacity:.35}
+.anat{fill:none;stroke:#2F7F75;stroke-width:1.8;stroke-dasharray:7 6;stroke-linecap:round;opacity:.75}
+.danger{fill:none;stroke:#C0504D;stroke-width:2;stroke-dasharray:3 5;stroke-linecap:round;opacity:.8}
+.lip{stroke:#A65553;stroke-width:2.4;stroke-linejoin:round}
+.hair{fill:#B48B67;stroke:#8E6A4C;stroke-width:2}
+.brow{fill:#8C6A55}
+.lead{stroke:#3B5F59;stroke-width:1.2;opacity:.7;fill:none}
+.dot{fill:#3B5F59;opacity:.8}
+text{font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:16px;font-weight:600;fill:#2E4A45;paint-order:stroke;stroke:#fff;stroke-width:4px;stroke-linejoin:round}
+text.c{text-anchor:middle}
+text.e{text-anchor:end}
+text.t{font-size:14px;font-weight:700;letter-spacing:.6px;fill:#7A8E8A}
+</style>
+</defs>
+<rect width="800" height="560" fill="#fff"/>
+
+<rect width="800" height="560" fill="#EBC7B3"/>
+<path class="skin" d="M90 0 C 92 120, 104 220, 142 300 C 182 382, 262 452, 330 490 C 360 506, 380 510, 400 510 C 420 510, 440 506, 470 490 C 538 452, 618 382, 658 300 C 696 220, 708 120, 710 0 Z"/>
+<!-- lóbulos das orelhas -->
+<path class="skin" d="M90 10 C 60 6, 46 40, 60 70 C 70 90, 86 92, 94 80"/>
+<path class="skin" d="M710 10 C 740 6, 754 40, 740 70 C 730 90, 714 92, 706 80"/>
+<!-- boca -->
+<path class="lip" fill="url(#lipL)" d="M320 170 C 360 160, 440 160, 480 170 C 460 204, 430 214, 400 214 C 370 214, 340 204, 320 170 Z"/>
+<path class="lip" fill="url(#lipU)" d="M320 170 C 350 150, 380 140, 400 146 C 420 140, 450 150, 480 170 C 440 176, 360 176, 320 170 Z"/>
+<path class="fold" d="M340 290 C 370 304, 430 304, 460 290"/>
+<!-- jowl -->
+<path class="fine" d="M290 400 C 296 430, 306 450, 318 466"/>
+<path class="fine" d="M510 400 C 504 430, 494 450, 482 466"/>
+<path class="shade" d="M200 300 C 230 380, 280 430, 300 440 C 290 400, 250 340, 200 300 Z"/>
+<path class="shade" d="M600 300 C 570 380, 520 430, 500 440 C 510 400, 550 340, 600 300 Z"/>
+<!-- contorno ósseo -->
+<path class="anat" d="M120 40 C 122 140, 130 230, 162 296 C 200 370, 276 438, 340 472 C 370 488, 430 488, 460 472 C 524 438, 600 370, 638 296 C 670 230, 678 140, 680 40"/>
+<text x="24" y="34" class="t">MANDÍBULA</text>
+<text x="400" y="420" class="c">Mento</text>
+<path class="lead" d="M69.6 165 L104 170"/><circle class="dot" cx="104" cy="170" r="3"/>
+<text x="30" y="170" class="">Ramo</text>
+<path class="lead" d="M150 342 L150 300"/><circle class="dot" cx="150" cy="300" r="3"/>
+<text x="20" y="360" class="">Ângulo mandibular</text>
+<path class="lead" d="M197.20000000000002 465 L236 410"/><circle class="dot" cx="236" cy="410" r="3"/>
+<text x="40" y="470" class="">Corpo da mandíbula</text>
+<path class="lead" d="M643.6 535 L494 452"/><circle class="dot" cx="494" cy="452" r="3"/>
+<text x="784" y="540" class="e">Sulco pré-papada</text>
+
+</svg>

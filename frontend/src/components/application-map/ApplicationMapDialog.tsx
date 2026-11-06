@@ -38,8 +38,9 @@ import {
   MAP_VIEWS,
   STROKE_COLORS,
   STROKE_WIDTHS,
+  bodyRegionDef,
+  faceRegionMap,
   formatProductTotal,
-  regionDef,
   type ApplicationMapDraft,
   type IllustratedView,
 } from './applicationMapModel';
@@ -266,10 +267,13 @@ function ApplicationMapEditor({
     ...(patientId && (!regionLocked || defaultRegion === 'face') ? (['photo'] as const) : []),
   ];
 
-  const view: ApplicationMapView = area === 'face' ? faceView : area;
+  // No rosto, a região escolhida abre o mapa ilustrado dela; no corpo, amplia a ilustração.
+  const faceRegion = area === 'face' ? faceRegionMap(region) : undefined;
+  const bodyRegion = area === 'body' ? bodyRegionDef(region) : undefined;
+  const view: ApplicationMapView = area === 'face' ? (faceRegion?.id ?? faceView) : area;
   const photo = useMapPhoto(patientId, area === 'photo' ? map.photoId : undefined);
   const image = view === 'photo' ? photo.image : MAP_VIEWS[view];
-  const crop = (view !== 'photo' && regionDef(region ?? undefined)?.crops[view]) || FULL_CROP;
+  const crop = bodyRegion?.crops.body ?? FULL_CROP;
 
   /** Pontos já marcados com outro produto mantêm a linha dele no resumo. */
   const productRows =
@@ -285,7 +289,7 @@ function ApplicationMapEditor({
 
   const viewStrokes = map.strokes.filter((s) => s.view === view);
   const addPoint = ({ x, y }: { x: number; y: number }) => {
-    const pointRegion = region && view !== 'photo' && regionDef(region)?.crops[view] ? region : undefined;
+    const pointRegion = faceRegion?.id ?? bodyRegion?.id;
     setMap((m) => ({
       ...m,
       points: [
@@ -396,8 +400,9 @@ function ApplicationMapEditor({
         view={view}
         crop={crop}
         height={canvasHeight}
+        guides={faceRegion?.guides}
         toolbar={
-          area === 'face' ? (
+          area === 'face' && !faceRegion ? (
             <Segmented
               size="sm"
               options={FACE_VIEWS.map((key) => ({
@@ -512,6 +517,12 @@ function ApplicationMapEditor({
                 setSelected(null);
               }}
             />
+          )}
+          {faceRegion && (
+            <Typography sx={{ fontSize: fontSizes.xs, color: 'text.secondary' }}>
+              Mapa de {faceRegion.label.toLowerCase()}: os círculos tracejados são pontos de aplicação sugeridos —
+              clique num deles ou em qualquer lugar do mapa para marcar.
+            </Typography>
           )}
           {area === 'body' && (
             <RegionChips

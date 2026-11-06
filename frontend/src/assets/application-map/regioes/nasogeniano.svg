@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 800 560" width="800" height="560">
+<defs>
+<radialGradient id="skin" cx="50%" cy="45%" r="70%"><stop offset="0" stop-color="#FBE9DD"/><stop offset="1" stop-color="#F1D3C1"/></radialGradient>
+<linearGradient id="lipU" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#D98A86"/><stop offset="1" stop-color="#C7706E"/></linearGradient>
+<linearGradient id="lipL" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#C96E6C"/><stop offset="1" stop-color="#E4A19C"/></linearGradient>
+<style>
+.skin{fill:url(#skin);stroke:#B98670;stroke-width:3;stroke-linejoin:round}
+.line{fill:none;stroke:#A9735D;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
+.fine{fill:none;stroke:#C29682;stroke-width:1.8;stroke-linecap:round;opacity:.85}
+.fold{fill:none;stroke:#C98F78;stroke-width:5;stroke-linecap:round;opacity:.45}
+.shade{fill:#E3B9A4;opacity:.35}
+.anat{fill:none;stroke:#2F7F75;stroke-width:1.8;stroke-dasharray:7 6;stroke-linecap:round;opacity:.75}
+.danger{fill:none;stroke:#C0504D;stroke-width:2;stroke-dasharray:3 5;stroke-linecap:round;opacity:.8}
+.lip{stroke:#A65553;stroke-width:2.4;stroke-linejoin:round}
+.hair{fill:#B48B67;stroke:#8E6A4C;stroke-width:2}
+.brow{fill:#8C6A55}
+.lead{stroke:#3B5F59;stroke-width:1.2;opacity:.7;fill:none}
+.dot{fill:#3B5F59;opacity:.8}
+text{font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:16px;font-weight:600;fill:#2E4A45;paint-order:stroke;stroke:#fff;stroke-width:4px;stroke-linejoin:round}
+text.c{text-anchor:middle}
+text.e{text-anchor:end}
+text.t{font-size:14px;font-weight:700;letter-spacing:.6px;fill:#7A8E8A}
+</style>
+</defs>
+<rect width="800" height="560" fill="#fff"/>
+
+<rect width="800" height="560" fill="url(#skin)"/>
+<!-- nariz -->
+<path class="skin" d="M300 0 C 306 60, 276 110, 302 140 C 330 166, 370 152, 400 160 C 430 152, 470 166, 498 140 C 524 110, 494 60, 500 0 Z"/>
+<ellipse cx="352" cy="142" rx="26" ry="9" fill="#9C6B59" opacity=".45" transform="rotate(-10 352 142)"/>
+<ellipse cx="448" cy="142" rx="26" ry="9" fill="#9C6B59" opacity=".45" transform="rotate(10 448 142)"/>
+<!-- filtro -->
+<path class="fine" d="M384 162 C 378 210, 374 260, 372 296"/>
+<path class="fine" d="M416 162 C 422 210, 426 260, 428 296"/>
+<!-- boca -->
+<path class="lip" fill="url(#lipL)" d="M250 330 C 300 312, 360 292, 388 292 C 394 292, 398 298, 400 300 C 402 298, 406 292, 412 292 C 440 292, 500 312, 550 330 C 500 376, 450 396, 400 396 C 350 396, 300 376, 250 330 Z"/>
+<path class="lip" fill="url(#lipU)" d="M250 330 C 300 312, 360 292, 388 292 C 394 292, 398 298, 400 300 C 402 298, 406 292, 412 292 C 440 292, 500 312, 550 330 C 480 334, 440 330, 400 340 C 360 330, 320 334, 250 330 Z"/>
+<!-- sulcos -->
+<g id="foldN">
+<path class="fold" d="M290 130 C 244 196, 216 280, 228 384"/>
+<path class="fine" d="M290 130 C 244 196, 216 280, 228 384"/>
+<path class="fold" d="M244 350 C 230 404, 226 456, 236 524" opacity=".3"/>
+<path class="fine" d="M244 350 C 230 404, 226 456, 236 524" opacity=".6"/>
+</g>
+<use xlink:href="#foldN" transform="matrix(-1 0 0 1 800 0)"/>
+<!-- fossa piriforme -->
+<ellipse class="anat" cx="274" cy="158" rx="30" ry="22"/>
+<ellipse class="anat" cx="526" cy="158" rx="30" ry="22"/>
+<!-- artéria facial -->
+<path class="danger" d="M190 540 C 200 470, 224 420, 216 360 C 210 300, 250 220, 284 160"/>
+<text x="24" y="34" class="t">SULCO NASOGENIANO</text>
+<path class="lead" d="M164.8 233 L236 250"/><circle class="dot" cx="236" cy="250" r="3"/>
+<text x="16" y="238" class="">Sulco nasogeniano</text>
+<path class="lead" d="M534.4 75 L530 140"/><circle class="dot" cx="530" cy="140" r="3"/>
+<text x="784" y="80" class="e">Fossa piriforme (base da asa)</text>
+<path class="lead" d="M139.60000000000002 415 L250 332"/><circle class="dot" cx="250" cy="332" r="3"/>
+<text x="16" y="420" class="">Comissura oral</text>
+<path class="lead" d="M626.8 495 L566 460"/><circle class="dot" cx="566" cy="460" r="3"/>
+<text x="784" y="500" class="e">Linha de marionete</text>
+<path class="lead" d="M116 535 L196 500"/><circle class="dot" cx="196" cy="500" r="3"/>
+<text x="110" y="540" class="e">A. facial</text>
+
+</svg>

@@ -11,11 +11,14 @@ import type { ApplicationMapPoint, ApplicationMapStroke } from '../../types';
 import { MarkEditor, type MapTool } from './ApplicationMapCanvas';
 import { formatQty, pointView, productDef, type MapViewDef } from './applicationMapModel';
 import { FACE_MESH_TRIANGLES } from './faceMeshTriangles';
+import { buildHead, faceBlendWeights, faceMaterial, sampleSkinColor } from './headModel';
 
 /** Vértices da malha canônica (os 10 landmarks seguintes são das íris e ficam de fora). */
 const MESH_VERTICES = 468;
 const TEXTURE_MAX = 2048;
-const CAMERA_DISTANCE = 6.2;
+/** Enquadra a cabeça inteira; o zoom aproxima do rosto para marcar. */
+const CAMERA_DISTANCE = 9.5;
+const TARGET_Y = 0.45;
 /** Raio do ponto em % da largura do rosto na foto. */
 const POINT_RADIUS = 1.7;
 
@@ -204,6 +207,8 @@ export default function ApplicationMap3D({
       geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
       geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
       geometry.setIndex(new THREE.BufferAttribute(FACE_MESH_TRIANGLES, 1));
+      const blend = faceBlendWeights(MESH_VERTICES, FACE_MESH_TRIANGLES);
+      geometry.setAttribute('faceMix', new THREE.BufferAttribute(blend, 1));
       geometry.computeVertexNormals();
 
       // Textura = foto + desenho + pontos, redesenhada a cada mudança.
@@ -223,20 +228,26 @@ export default function ApplicationMap3D({
       texture.colorSpace = THREE.SRGBColorSpace;
       texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
 
-      const material = new THREE.MeshLambertMaterial({
-        map: texture,
-        side: THREE.DoubleSide,
-      });
+      // Cabeça inteira (crânio, orelhas, pescoço) na cor da pele; a foto fica só no rosto e
+      // se mistura a essa cor nas bordas da malha.
+      const skin = sampleSkinColor(photo, image.width, image.height, lms);
+      const material = faceMaterial(texture, skin);
       const mesh = new THREE.Mesh(geometry, material);
+      const head = buildHead(mesh, positions, blend);
+      const skinMaterial = new THREE.MeshLambertMaterial({ color: skin });
+      const headMeshes = [head.head, head.ears, head.neck].map((g) => new THREE.Mesh(g, skinMaterial));
       const scene = new THREE.Scene();
-      scene.add(mesh);
-      scene.add(new THREE.AmbientLight(0xffffff, 2.1));
-      const light = new THREE.DirectionalLight(0xffffff, 0.9);
-      light.position.set(0.5, 0.8, 2);
+      scene.add(mesh, ...headMeshes);
+      scene.add(new THREE.AmbientLight(0xffffff, 1.7));
+      const light = new THREE.DirectionalLight(0xffffff, 1.35);
+      light.position.set(0.6, 0.9, 2);
       scene.add(light);
+      const fill = new THREE.DirectionalLight(0xffffff, 0.35);
+      fill.position.set(-1.5, 0.2, 0.5);
+      scene.add(fill);
 
       const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 100);
-      camera.position.set(0, 0, CAMERA_DISTANCE);
+      camera.position.set(0, TARGET_Y, CAMERA_DISTANCE);
 
       const raycaster = new THREE.Raycaster();
       const hitPhoto = (clientX: number, clientY: number) => {
@@ -246,8 +257,9 @@ export default function ApplicationMap3D({
           -((clientY - rect.top) / rect.height) * 2 + 1,
         );
         raycaster.setFromCamera(ndc, camera);
-        const hit = raycaster.intersectObject(mesh)[0];
-        if (!hit?.uv) return null;
+        // Só vale o rosto visível: crânio, orelha ou pescoço na frente bloqueiam.
+        const hit = raycaster.intersectObjects([mesh, ...headMeshes], false)[0];
+        if (!hit || hit.object !== mesh || !hit.uv) return null;
         return { x: hit.uv.x * 100, y: (1 - hit.uv.y) * 100 };
       };
 
@@ -313,10 +325,11 @@ export default function ApplicationMap3D({
       };
 
       const controls = new OrbitControls(camera, renderer.domElement);
+      controls.target.set(0, TARGET_Y, 0);
       controls.enablePan = false;
       controls.rotateSpeed = 0.45;
       controls.minDistance = 2.5;
-      controls.maxDistance = 10;
+      controls.maxDistance = 12;
       controls.minAzimuthAngle = -1.4;
       controls.maxAzimuthAngle = 1.4;
       controls.minPolarAngle = Math.PI / 2 - 0.9;
@@ -411,6 +424,8 @@ export default function ApplicationMap3D({
         canvasEl.removeEventListener('pointerup', onUp);
         geometry.dispose();
         material.dispose();
+        headMeshes.forEach((m) => m.geometry.dispose());
+        skinMaterial.dispose();
         texture.dispose();
         renderer.dispose();
         canvasEl.remove();
@@ -432,8 +447,9 @@ export default function ApplicationMap3D({
   const rotateTo = (azimuth: number) => {
     const s = sceneRef.current;
     if (!s) return;
-    s.camera.position.set(Math.sin(azimuth) * CAMERA_DISTANCE, 0, Math.cos(azimuth) * CAMERA_DISTANCE);
-    s.controls.target.set(0, 0, 0);
+    const distance = s.camera.position.distanceTo(s.controls.target);
+    s.camera.position.set(Math.sin(azimuth) * distance, TARGET_Y, Math.cos(azimuth) * distance);
+    s.controls.target.set(0, TARGET_Y, 0);
     s.controls.update();
     s.render();
   };

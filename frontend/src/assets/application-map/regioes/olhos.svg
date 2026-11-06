@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 800 560" width="800" height="560">
+<defs>
+<radialGradient id="skin" cx="50%" cy="45%" r="70%"><stop offset="0" stop-color="#FBE9DD"/><stop offset="1" stop-color="#F1D3C1"/></radialGradient>
+<linearGradient id="lipU" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#D98A86"/><stop offset="1" stop-color="#C7706E"/></linearGradient>
+<linearGradient id="lipL" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#C96E6C"/><stop offset="1" stop-color="#E4A19C"/></linearGradient>
+<style>
+.skin{fill:url(#skin);stroke:#B98670;stroke-width:3;stroke-linejoin:round}
+.line{fill:none;stroke:#A9735D;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
+.fine{fill:none;stroke:#C29682;stroke-width:1.8;stroke-linecap:round;opacity:.85}
+.fold{fill:none;stroke:#C98F78;stroke-width:5;stroke-linecap:round;opacity:.45}
+.shade{fill:#E3B9A4;opacity:.35}
+.anat{fill:none;stroke:#2F7F75;stroke-width:1.8;stroke-dasharray:7 6;stroke-linecap:round;opacity:.75}
+.danger{fill:none;stroke:#C0504D;stroke-width:2;stroke-dasharray:3 5;stroke-linecap:round;opacity:.8}
+.lip{stroke:#A65553;stroke-width:2.4;stroke-linejoin:round}
+.hair{fill:#B48B67;stroke:#8E6A4C;stroke-width:2}
+.brow{fill:#8C6A55}
+.lead{stroke:#3B5F59;stroke-width:1.2;opacity:.7;fill:none}
+.dot{fill:#3B5F59;opacity:.8}
+text{font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:16px;font-weight:600;fill:#2E4A45;paint-order:stroke;stroke:#fff;stroke-width:4px;stroke-linejoin:round}
+text.c{text-anchor:middle}
+text.e{text-anchor:end}
+text.t{font-size:14px;font-weight:700;letter-spacing:.6px;fill:#7A8E8A}
+</style>
+</defs>
+<rect width="800" height="560" fill="#fff"/>
+
+<rect width="800" height="560" fill="url(#skin)"/>
+<!-- nariz à esquerda -->
+<path class="fine" d="M40 100 C 64 240, 70 380, 56 560"/>
+<!-- sobrancelha -->
+<path class="brow" d="M150 104 C 280 30, 480 18, 630 88 L624 104 C 480 46, 290 56, 160 128 Z"/>
+<!-- olho -->
+<path class="fine" d="M210 200 C 290 106, 470 96, 566 186"/>
+<path d="M222 228 C 292 150, 452 140, 542 214 C 452 268, 300 278, 222 228 Z" fill="#fff" stroke="#A9735D" stroke-width="2.6"/>
+<clipPath id="clipO"><path d="M222 228 C 292 150, 452 140, 542 214 C 452 268, 300 278, 222 228 Z"/></clipPath>
+<g clip-path="url(#clipO)"><circle cx="378" cy="212" r="58" fill="#7E948D"/><circle cx="378" cy="212" r="24" fill="#2D3A37"/><circle cx="394" cy="198" r="8" fill="#fff" opacity=".8"/></g>
+<path class="line" d="M222 228 C 292 150, 452 140, 542 214"/>
+<path class="fine" d="M232 246 C 320 292, 452 288, 540 226"/>
+<!-- sulcos -->
+<path class="fold" d="M236 258 C 268 320, 320 346, 384 352"/>
+<path class="fold" d="M384 352 C 452 354, 520 322, 582 272" opacity=".3"/>
+<!-- pés de galinha -->
+<path class="fine" d="M590 180 C 620 170, 650 164, 690 156"/>
+<path class="fine" d="M598 216 C 632 216, 668 220, 706 226"/>
+<path class="fine" d="M590 252 C 620 266, 650 280, 686 298"/>
+<!-- rebordo orbitário -->
+<path class="anat" d="M180 200 C 200 330, 330 400, 470 380 C 560 366, 620 300, 630 200"/>
+<text x="24" y="34" class="t">OLHEIRAS E REGIÃO PERIORBITAL</text>
+<path class="lead" d="M156 317 L300 272"/><circle class="dot" cx="300" cy="272" r="3"/>
+<text x="150" y="322" class="e">Pálpebra inferior</text>
+<path class="lead" d="M223.60000000000002 435 L300 334"/><circle class="dot" cx="300" cy="334" r="3"/>
+<text x="16" y="440" class="">Sulco lacrimal (olheira)</text>
+<path class="lead" d="M480 482 L480 346"/><circle class="dot" cx="480" cy="346" r="3"/>
+<text x="400" y="500" class="">Sulco palpebromalar</text>
+<path class="lead" d="M650 362 L650 284"/><circle class="dot" cx="650" cy="284" r="3"/>
+<text x="640" y="380" class="">Pés de galinha</text>
+<path class="lead" d="M635.2 465 L610 322"/><circle class="dot" cx="610" cy="322" r="3"/>
+<text x="784" y="470" class="e">Rebordo orbitário</text>
+
+</svg>

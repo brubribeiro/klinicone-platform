@@ -68,6 +68,20 @@ describe('toApplicationMapData', () => {
     });
   });
 
+  it('keeps points and strokes of the illustrated region maps', () => {
+    expect(
+      toApplicationMapData({
+        template: 'face',
+        points: [{ x: 43.1, y: 38, product: 'filler', qty: 0.1, view: 'lips', region: 'lips' }],
+        strokes: [{ view: 'nose', color: '#1e88e5', width: 0.5, points: [40, 50, 42, 52] }],
+      }),
+    ).toEqual({
+      template: 'face',
+      points: [{ x: 43.1, y: 38, product: 'filler', qty: 0.1, view: 'lips', region: 'lips' }],
+      strokes: [{ view: 'nose', color: '#1e88e5', width: 0.5, points: [40, 50, 42, 52] }],
+    });
+  });
+
   it('keeps a map that only has drawings', () => {
     expect(
       toApplicationMapData({

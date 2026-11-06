@@ -3,19 +3,20 @@ import { Box, Stack, Typography } from '@mui/material';
 import type { ApplicationMap, ApplicationMapView } from '../../types';
 import { fontSizes } from '../../theme/fontSizes';
 import {
+  FACE_REGIONS,
   MAP_PRODUCTS,
   MAP_VIEWS,
   formatProductTotal,
   pointView,
   productDef,
-  regionDef,
+  regionLabel,
   strokePath,
   type MapViewDef,
 } from './applicationMapModel';
 import { useMapPhoto } from './useMapPhoto';
 
 const PREVIEW_HEIGHT = 132;
-const VIEW_ORDER: ApplicationMapView[] = ['photo', 'front', 'left', 'right', 'body'];
+const VIEW_ORDER: ApplicationMapView[] = ['photo', 'front', 'left', 'right', ...FACE_REGIONS.map((r) => r.id), 'body'];
 
 /** Mapa de aplicação do atendimento (somente leitura) para a ficha do paciente. */
 export function ApplicationMapPreview({ map, patientId }: { map: ApplicationMap; patientId?: string }) {
@@ -81,7 +82,7 @@ export function ApplicationMapPreview({ map, patientId }: { map: ApplicationMap;
                 lineHeight: 1.45,
               }}
             >
-              Regiões: {regions.map((r) => regionDef(r)?.label ?? r).join(', ')}
+              Regiões: {regions.map(regionLabel).join(', ')}
             </Typography>
           )}
           {notes.map(({ index, note }) => (

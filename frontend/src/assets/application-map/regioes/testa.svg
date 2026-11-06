@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 800 560" width="800" height="560">
+<defs>
+<radialGradient id="skin" cx="50%" cy="45%" r="70%"><stop offset="0" stop-color="#FBE9DD"/><stop offset="1" stop-color="#F1D3C1"/></radialGradient>
+<linearGradient id="lipU" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#D98A86"/><stop offset="1" stop-color="#C7706E"/></linearGradient>
+<linearGradient id="lipL" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#C96E6C"/><stop offset="1" stop-color="#E4A19C"/></linearGradient>
+<style>
+.skin{fill:url(#skin);stroke:#B98670;stroke-width:3;stroke-linejoin:round}
+.line{fill:none;stroke:#A9735D;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
+.fine{fill:none;stroke:#C29682;stroke-width:1.8;stroke-linecap:round;opacity:.85}
+.fold{fill:none;stroke:#C98F78;stroke-width:5;stroke-linecap:round;opacity:.45}
+.shade{fill:#E3B9A4;opacity:.35}
+.anat{fill:none;stroke:#2F7F75;stroke-width:1.8;stroke-dasharray:7 6;stroke-linecap:round;opacity:.75}
+.danger{fill:none;stroke:#C0504D;stroke-width:2;stroke-dasharray:3 5;stroke-linecap:round;opacity:.8}
+.lip{stroke:#A65553;stroke-width:2.4;stroke-linejoin:round}
+.hair{fill:#B48B67;stroke:#8E6A4C;stroke-width:2}
+.brow{fill:#8C6A55}
+.lead{stroke:#3B5F59;stroke-width:1.2;opacity:.7;fill:none}
+.dot{fill:#3B5F59;opacity:.8}
+text{font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:16px;font-weight:600;fill:#2E4A45;paint-order:stroke;stroke:#fff;stroke-width:4px;stroke-linejoin:round}
+text.c{text-anchor:middle}
+text.e{text-anchor:end}
+text.t{font-size:14px;font-weight:700;letter-spacing:.6px;fill:#7A8E8A}
+</style>
+</defs>
+<rect width="800" height="560" fill="#fff"/>
+
+<path class="skin" d="M70 0 L730 0 C 744 180, 730 380, 712 560 L88 560 C 70 380, 56 180, 70 0 Z"/>
+<path class="hair" d="M60 0 L60 92 C 140 52, 290 34, 400 36 C 510 34, 660 52, 740 92 L740 0 Z"/>
+<!-- rugas frontais -->
+<path class="fine" d="M170 176 C 280 156, 520 156, 630 176"/>
+<path class="fine" d="M182 222 C 292 204, 508 204, 618 222"/>
+<path class="fine" d="M206 266 C 300 252, 500 252, 594 266"/>
+<!-- glabela -->
+<path class="fine" d="M384 330 C 381 352, 380 372, 383 392"/>
+<path class="fine" d="M416 330 C 419 352, 420 372, 417 392"/>
+<path class="fine" d="M392 410 C 400 414, 408 414, 408 410"/>
+<!-- sobrancelhas e olhos -->
+<g id="eyeT">
+<path class="brow" d="M172 378 C 220 330, 300 314, 366 332 L362 346 C 300 330, 230 342, 182 386 Z"/>
+<path class="line" d="M196 478 C 246 436, 322 434, 362 468"/>
+<path class="fine" d="M206 448 C 254 412, 326 410, 360 440"/>
+<path d="M226 486 C 250 452, 330 452, 352 482 Z" fill="#fff" stroke="#A9735D" stroke-width="2"/>
+<circle cx="288" cy="490" r="30" fill="#7E948D" clip-path="url(#clipT)"/>
+</g>
+<clipPath id="clipT"><path d="M226 486 C 250 452, 330 452, 352 482 Z"/></clipPath>
+<use xlink:href="#eyeT" transform="matrix(-1 0 0 1 800 0)"/>
+<!-- dorso nasal -->
+<path class="fine" d="M372 430 C 380 480, 384 520, 384 560"/>
+<path class="fine" d="M428 430 C 420 480, 416 520, 416 560"/>
+<!-- músculos -->
+<path class="anat" d="M150 120 C 260 96, 540 96, 650 120 C 660 200, 640 290, 610 320 L190 320 C 160 290, 140 200, 150 120 Z"/>
+<text x="24" y="34" class="t">TESTA E GLABELA</text>
+<text x="400" y="132" class="c">Músculo frontal</text>
+<path class="lead" d="M400 308 L400 400"/><circle class="dot" cx="400" cy="400" r="3"/>
+<text x="400" y="302" class="c">Glabela (prócero)</text>
+<path class="lead" d="M126 291 L334 340"/><circle class="dot" cx="334" cy="340" r="3"/>
+<text x="120" y="296" class="e">Corrugador</text>
+<path class="lead" d="M626 306 L626 366"/><circle class="dot" cx="626" cy="366" r="3"/>
+<text x="764" y="300" class="e">Cauda da sobrancelha</text>
+
+</svg>

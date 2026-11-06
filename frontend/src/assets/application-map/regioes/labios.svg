@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 800 560" width="800" height="560">
+<defs>
+<radialGradient id="skin" cx="50%" cy="45%" r="70%"><stop offset="0" stop-color="#FBE9DD"/><stop offset="1" stop-color="#F1D3C1"/></radialGradient>
+<linearGradient id="lipU" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#D98A86"/><stop offset="1" stop-color="#C7706E"/></linearGradient>
+<linearGradient id="lipL" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#C96E6C"/><stop offset="1" stop-color="#E4A19C"/></linearGradient>
+<style>
+.skin{fill:url(#skin);stroke:#B98670;stroke-width:3;stroke-linejoin:round}
+.line{fill:none;stroke:#A9735D;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
+.fine{fill:none;stroke:#C29682;stroke-width:1.8;stroke-linecap:round;opacity:.85}
+.fold{fill:none;stroke:#C98F78;stroke-width:5;stroke-linecap:round;opacity:.45}
+.shade{fill:#E3B9A4;opacity:.35}
+.anat{fill:none;stroke:#2F7F75;stroke-width:1.8;stroke-dasharray:7 6;stroke-linecap:round;opacity:.75}
+.danger{fill:none;stroke:#C0504D;stroke-width:2;stroke-dasharray:3 5;stroke-linecap:round;opacity:.8}
+.lip{stroke:#A65553;stroke-width:2.4;stroke-linejoin:round}
+.hair{fill:#B48B67;stroke:#8E6A4C;stroke-width:2}
+.brow{fill:#8C6A55}
+.lead{stroke:#3B5F59;stroke-width:1.2;opacity:.7;fill:none}
+.dot{fill:#3B5F59;opacity:.8}
+text{font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:16px;font-weight:600;fill:#2E4A45;paint-order:stroke;stroke:#fff;stroke-width:4px;stroke-linejoin:round}
+text.c{text-anchor:middle}
+text.e{text-anchor:end}
+text.t{font-size:14px;font-weight:700;letter-spacing:.6px;fill:#7A8E8A}
+</style>
+</defs>
+<rect width="800" height="560" fill="#fff"/>
+
+<rect width="800" height="560" fill="url(#skin)"/>
+<!-- base do nariz -->
+<path class="line" d="M230 0 C 250 40, 300 70, 350 68 C 372 66, 388 76, 400 76 C 412 76, 428 66, 450 68 C 500 70, 550 40, 570 0"/>
+<ellipse cx="330" cy="40" rx="30" ry="10" fill="#B98670" opacity=".35" transform="rotate(-12 330 40)"/>
+<ellipse cx="470" cy="40" rx="30" ry="10" fill="#B98670" opacity=".35" transform="rotate(12 470 40)"/>
+<!-- filtro -->
+<path class="shade" d="M372 74 C 362 110, 352 160, 345 212 C 368 209, 386 228, 400 236 C 414 228, 432 209, 455 212 C 448 160, 438 110, 428 74 Z"/>
+<path class="line" d="M345 212 C 352 160, 362 110, 372 74"/>
+<path class="line" d="M455 212 C 448 160, 438 110, 428 74"/>
+<!-- lábios -->
+<path class="lip" fill="url(#lipU)" d="M140 300 C 210 268, 290 220, 345 212 C 368 209, 386 228, 400 236 C 414 228, 432 209, 455 212 C 510 220, 590 268, 660 300 C 580 300, 500 292, 446 294 C 424 295, 412 308, 400 308 C 388 308, 376 295, 354 294 C 300 292, 220 300, 140 300 Z"/>
+<path class="lip" fill="url(#lipL)" d="M140 300 C 220 300, 300 292, 354 294 C 376 295, 388 308, 400 308 C 412 308, 424 295, 446 294 C 500 292, 580 300, 660 300 C 590 338, 510 390, 400 392 C 290 390, 210 338, 140 300 Z"/>
+<path fill="none" stroke="#fff" stroke-width="5" opacity=".35" stroke-linecap="round" d="M300 352 C 360 372, 440 372, 500 352"/>
+<path class="line" d="M140 300 C 220 300, 300 292, 354 294 C 376 295, 388 308, 400 308 C 412 308, 424 295, 446 294 C 500 292, 580 300, 660 300"/>
+<!-- modíolo -->
+<path class="fine" d="M126 284 C 116 300, 118 316, 130 324"/>
+<path class="fine" d="M674 284 C 684 300, 682 316, 670 324"/>
+<!-- sulco mentolabial -->
+<path class="fold" d="M300 455 C 350 476, 450 476, 500 455"/>
+<text x="24" y="34" class="t">LÁBIOS</text>
+<path class="lead" d="M400 146 L400 160"/><circle class="dot" cx="400" cy="160" r="3"/>
+<text x="400" y="140" class="c">Filtro</text>
+<path class="lead" d="M594 107 L445 148"/><circle class="dot" cx="445" cy="148" r="3"/>
+<text x="600" y="112" class="">Coluna do filtro</text>
+<path class="lead" d="M233.60000000000002 171 L372 222"/><circle class="dot" cx="372" cy="222" r="3"/>
+<text x="110" y="176" class="">Arco do cupido</text>
+<path class="lead" d="M606 191 L552 247"/><circle class="dot" cx="552" cy="247" r="3"/>
+<text x="612" y="196" class="">Borda do vermelhão</text>
+<path class="lead" d="M177.20000000000002 231 L262 266"/><circle class="dot" cx="262" cy="266" r="3"/>
+<text x="20" y="236" class="">Vermelhão superior</text>
+<path class="lead" d="M177.20000000000002 399 L262 352"/><circle class="dot" cx="262" cy="352" r="3"/>
+<text x="20" y="404" class="">Vermelhão inferior</text>
+<path class="lead" d="M694 347 L660 302"/><circle class="dot" cx="660" cy="302" r="3"/>
+<text x="700" y="352" class="">Comissura</text>
+<path class="lead" d="M594 265 L404 290"/><circle class="dot" cx="404" cy="290" r="3"/>
+<text x="600" y="270" class="">Tubérculo</text>
+<path class="lead" d="M554 515 L470 468"/><circle class="dot" cx="470" cy="468" r="3"/>
+<text x="560" y="520" class="">Sulco mentolabial</text>
+
+</svg>

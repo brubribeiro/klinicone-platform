@@ -452,16 +452,24 @@ export type ApplicationMapProduct =
   | 'bioremodeler'
   | 'skinbooster'
   | 'cryolipolysis';
-/** `photo`: foto da paciente, também usada como textura do modelo 3D do rosto. */
-export type ApplicationMapView = 'front' | 'left' | 'right' | 'body' | 'photo';
-export type ApplicationMapRegion =
+/** Regiões do rosto com mapa ilustrado próprio; o id é também o da vista do ponto. */
+export type ApplicationMapFaceRegion =
   | 'forehead'
+  | 'temples'
   | 'periorbital'
   | 'nose'
   | 'malar'
+  | 'nasolabial'
   | 'lips'
   | 'chin'
-  | 'jawline'
+  | 'jawline';
+/**
+ * `photo`: foto da paciente, também usada como textura do modelo 3D do rosto.
+ * Uma região do rosto (`lips`, `nose`…) é o mapa ilustrado daquela região.
+ */
+export type ApplicationMapView = 'front' | 'left' | 'right' | 'body' | 'photo' | ApplicationMapFaceRegion;
+export type ApplicationMapRegion =
+  | ApplicationMapFaceRegion
   | 'submental'
   | 'arms'
   | 'abdomen'
