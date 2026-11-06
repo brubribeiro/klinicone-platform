@@ -2,8 +2,18 @@ import faceFrontSrc from '../../assets/application-map/face-frente.webp';
 import faceLeftSrc from '../../assets/application-map/face-perfil-e.webp';
 import faceRightSrc from '../../assets/application-map/face-perfil-d.webp';
 import bodySrc from '../../assets/application-map/corpo.webp';
+import foreheadSrc from '../../assets/application-map/regioes/testa.svg';
+import templesSrc from '../../assets/application-map/regioes/temporas.svg';
+import periorbitalSrc from '../../assets/application-map/regioes/olhos.svg';
+import noseSrc from '../../assets/application-map/regioes/nariz.svg';
+import malarSrc from '../../assets/application-map/regioes/malar.svg';
+import nasolabialSrc from '../../assets/application-map/regioes/nasogeniano.svg';
+import lipsSrc from '../../assets/application-map/regioes/labios.svg';
+import chinSrc from '../../assets/application-map/regioes/mento.svg';
+import jawlineSrc from '../../assets/application-map/regioes/mandibula.svg';
 import type {
   ApplicationMap,
+  ApplicationMapFaceRegion,
   ApplicationMapPoint,
   ApplicationMapProduct,
   ApplicationMapRegion,
@@ -43,11 +53,157 @@ export interface MapViewDef {
 /** Vistas ilustradas; a vista `photo` usa a foto da paciente e é montada na hora. */
 export type IllustratedView = Exclude<ApplicationMapView, 'photo'>;
 
+/** Ponto de aplicação sugerido num mapa de região; x/y em % da imagem. */
+export interface MapGuide {
+  x: number;
+  y: number;
+  label: string;
+}
+
+/** Região do rosto com mapa ilustrado próprio (anatomia + pontos sugeridos). */
+export interface FaceRegionMap {
+  id: ApplicationMapFaceRegion;
+  label: string;
+  image: MapViewDef;
+  guides: MapGuide[];
+}
+
+const REGION_W = 800;
+const REGION_H = 560;
+const regionImage = (label: string, src: string): MapViewDef => ({ label, src, width: REGION_W, height: REGION_H });
+/** Ponto sugerido nos dois lados da linha média. */
+const pair = (x: number, y: number, label: string): MapGuide[] => [
+  { x, y, label },
+  { x: 100 - x, y, label },
+];
+
+/**
+ * Mapas ilustrados por região (preenchimento, toxina…): cada um tem a anatomia rotulada e
+ * pontos sugeridos; os pontos marcados ficam na vista da própria região.
+ */
+export const FACE_REGIONS: FaceRegionMap[] = [
+  {
+    id: 'forehead',
+    label: 'Testa e glabela',
+    image: regionImage('Testa e glabela', foreheadSrc),
+    guides: [
+      ...pair(31.25, 33.9, 'Frontal'),
+      ...pair(40.6, 32.1, 'Frontal'),
+      { x: 50, y: 31.4, label: 'Frontal' },
+      { x: 50, y: 66.4, label: 'Prócero' },
+      ...pair(43.25, 61.8, 'Corrugador'),
+      ...pair(23.75, 62.5, 'Cauda da sobrancelha'),
+    ],
+  },
+  {
+    id: 'temples',
+    label: 'Têmporas',
+    image: regionImage('Têmporas', templesSrc),
+    guides: [
+      { x: 42.5, y: 35.7, label: 'Fossa temporal superior' },
+      { x: 49.4, y: 43.75, label: 'Fossa temporal' },
+      { x: 45, y: 54.5, label: 'Fossa temporal inferior' },
+    ],
+  },
+  {
+    id: 'periorbital',
+    label: 'Olheiras',
+    image: regionImage('Olheiras e região periorbital', periorbitalSrc),
+    guides: [
+      { x: 34.4, y: 55.7, label: 'Sulco lacrimal medial' },
+      { x: 40.6, y: 60.4, label: 'Sulco lacrimal' },
+      { x: 48.1, y: 62.5, label: 'Sulco lacrimal lateral' },
+      { x: 58.75, y: 61.1, label: 'Sulco palpebromalar' },
+      { x: 77.75, y: 31.8, label: 'Pés de galinha' },
+      { x: 80, y: 38.9, label: 'Pés de galinha' },
+      { x: 77.75, y: 46.8, label: 'Pés de galinha' },
+    ],
+  },
+  {
+    id: 'nose',
+    label: 'Nariz',
+    image: regionImage('Nariz (perfil)', noseSrc),
+    guides: [
+      { x: 61.5, y: 21.8, label: 'Radix' },
+      { x: 50.5, y: 42.9, label: 'Dorso' },
+      { x: 40.25, y: 59.8, label: 'Supra-ponta' },
+      { x: 36, y: 68.6, label: 'Ponta' },
+      { x: 50.25, y: 75.7, label: 'Espinha nasal (base da columela)' },
+    ],
+  },
+  {
+    id: 'malar',
+    label: 'Malar',
+    image: regionImage('Malar', malarSrc),
+    guides: [
+      { x: 31.25, y: 45, label: 'Arco zigomático' },
+      { x: 44, y: 52.1, label: 'Eminência malar' },
+      { x: 58.75, y: 57.1, label: 'Malar medial' },
+      { x: 45, y: 73.6, label: 'Submalar' },
+    ],
+  },
+  {
+    id: 'nasolabial',
+    label: 'Sulco nasogeniano',
+    image: regionImage('Sulco nasogeniano', nasolabialSrc),
+    guides: [
+      ...pair(34, 30, 'Base da asa (fossa piriforme)'),
+      ...pair(30.75, 42.9, 'Sulco nasogeniano'),
+      ...pair(29.5, 57.5, 'Sulco nasogeniano inferior'),
+      ...pair(29.75, 76.8, 'Linha de marionete'),
+    ],
+  },
+  {
+    id: 'lips',
+    label: 'Lábios',
+    image: regionImage('Lábios', lipsSrc),
+    guides: [
+      ...pair(43.1, 38, 'Pico do arco do cupido'),
+      { x: 50, y: 48.6, label: 'Tubérculo' },
+      ...pair(35.3, 47.9, 'Vermelhão superior'),
+      { x: 50, y: 62.5, label: 'Vermelhão inferior' },
+      ...pair(37.5, 60, 'Vermelhão inferior'),
+      ...pair(19, 53.6, 'Comissura'),
+      ...pair(44.75, 26.8, 'Coluna do filtro'),
+    ],
+  },
+  {
+    id: 'chin',
+    label: 'Mento',
+    image: regionImage('Mento', chinSrc),
+    guides: [
+      { x: 50, y: 36.6, label: 'Sulco mentolabial' },
+      { x: 50, y: 66.1, label: 'Pogônio' },
+      ...pair(41.9, 62.5, 'Mento lateral'),
+      { x: 50, y: 83.9, label: 'Mentoniano' },
+      ...pair(31, 57.1, 'Sulco pré-papada'),
+    ],
+  },
+  {
+    id: 'jawline',
+    label: 'Mandíbula',
+    image: regionImage('Mandíbula', jawlineSrc),
+    guides: [
+      ...pair(13.75, 30.4, 'Ramo da mandíbula'),
+      ...pair(19, 53.2, 'Ângulo mandibular'),
+      ...pair(29, 73.6, 'Corpo da mandíbula'),
+      ...pair(37.5, 82.5, 'Sulco pré-papada'),
+    ],
+  },
+];
+
+const FACE_REGION_BY_ID = new Map(FACE_REGIONS.map((r) => [r.id, r]));
+
+export function faceRegionMap(id?: ApplicationMapView | ApplicationMapRegion | null): FaceRegionMap | undefined {
+  return id ? FACE_REGION_BY_ID.get(id as ApplicationMapFaceRegion) : undefined;
+}
+
 export const MAP_VIEWS: Record<IllustratedView, MapViewDef> = {
   left: { label: 'Perfil esquerdo', src: faceLeftSrc, width: 600, height: 620 },
   front: { label: 'Frente', src: faceFrontSrc, width: 440, height: 680 },
   right: { label: 'Perfil direito', src: faceRightSrc, width: 600, height: 620 },
   body: { label: 'Corporal', src: bodySrc, width: 929, height: 768 },
+  ...(Object.fromEntries(FACE_REGIONS.map((r) => [r.id, r.image])) as Record<ApplicationMapFaceRegion, MapViewDef>),
 };
 
 export const FACE_VIEWS: IllustratedView[] = ['left', 'front', 'right'];
@@ -62,76 +218,12 @@ export interface MapCrop {
 
 export const FULL_CROP: MapCrop = { x: 0, y: 0, w: 100, h: 100 };
 
+/** Área do corpo: zoom (recorte) na ilustração corporal. */
 export interface MapRegionDef {
   id: ApplicationMapRegion;
   label: string;
   crops: Partial<Record<IllustratedView, MapCrop>>;
 }
-
-/** Recorte no perfil esquerdo espelhado para o direito (as ilustrações são simétricas). */
-function profiles(left: MapCrop): Pick<MapRegionDef['crops'], 'left' | 'right'> {
-  return { left, right: { ...left, x: 100 - left.x - left.w } };
-}
-
-/** Regiões do rosto com zoom (preenchimento, toxina…), por vista. */
-export const FACE_REGIONS: MapRegionDef[] = [
-  {
-    id: 'forehead',
-    label: 'Testa e glabela',
-    crops: {
-      front: { x: 18, y: 12, w: 64, h: 28 },
-      ...profiles({ x: 0, y: 12, w: 42, h: 30 }),
-    },
-  },
-  {
-    id: 'periorbital',
-    label: 'Olhos',
-    crops: {
-      front: { x: 16, y: 30, w: 68, h: 20 },
-      ...profiles({ x: 2, y: 30, w: 44, h: 22 }),
-    },
-  },
-  {
-    id: 'nose',
-    label: 'Nariz',
-    crops: {
-      front: { x: 33, y: 33, w: 34, h: 29 },
-      ...profiles({ x: 0, y: 40, w: 32, h: 30 }),
-    },
-  },
-  {
-    id: 'malar',
-    label: 'Malar',
-    crops: {
-      front: { x: 12, y: 38, w: 76, h: 28 },
-      ...profiles({ x: 4, y: 38, w: 52, h: 30 }),
-    },
-  },
-  {
-    id: 'lips',
-    label: 'Lábios',
-    crops: {
-      front: { x: 31, y: 58, w: 38, h: 19 },
-      ...profiles({ x: 0, y: 60, w: 30, h: 22 }),
-    },
-  },
-  {
-    id: 'chin',
-    label: 'Mento',
-    crops: {
-      front: { x: 29, y: 67, w: 42, h: 20 },
-      ...profiles({ x: 0, y: 68, w: 38, h: 24 }),
-    },
-  },
-  {
-    id: 'jawline',
-    label: 'Mandíbula',
-    crops: {
-      front: { x: 8, y: 50, w: 84, h: 40 },
-      ...profiles({ x: 0, y: 56, w: 62, h: 38 }),
-    },
-  },
-];
 
 /** Áreas de tratamento corporal (criolipólise) na ilustração de frente e perfil. */
 export const BODY_REGIONS: MapRegionDef[] = [
@@ -172,10 +264,19 @@ export const BODY_REGIONS: MapRegionDef[] = [
   },
 ];
 
-const REGION_BY_ID = new Map([...FACE_REGIONS, ...BODY_REGIONS].map((r) => [r.id, r]));
+const BODY_REGION_BY_ID = new Map(BODY_REGIONS.map((r) => [r.id, r]));
 
-export function regionDef(id?: ApplicationMapRegion): MapRegionDef | undefined {
-  return id ? REGION_BY_ID.get(id) : undefined;
+export function bodyRegionDef(id?: ApplicationMapRegion | null): MapRegionDef | undefined {
+  return id ? BODY_REGION_BY_ID.get(id) : undefined;
+}
+
+const REGION_LABELS = new Map<ApplicationMapRegion, string>([
+  ...FACE_REGIONS.map((r) => [r.id, r.label] as const),
+  ...BODY_REGIONS.map((r) => [r.id, r.label] as const),
+]);
+
+export function regionLabel(id: ApplicationMapRegion): string {
+  return REGION_LABELS.get(id) ?? id;
 }
 
 export function pointView(point: ApplicationMapPoint): ApplicationMapView {

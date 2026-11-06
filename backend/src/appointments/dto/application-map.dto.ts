@@ -25,20 +25,33 @@ export const APPLICATION_MAP_PRODUCTS = [
   'cryolipolysis',
 ] as const;
 /**
- * Imagem em que o ponto foi marcado: rosto (frente, perfis), corpo ou a foto da paciente
+ * Imagem em que o ponto foi marcado: rosto (frente, perfis), corpo, a foto da paciente
  * (`photo`, também usada pelo modelo 3D: a malha usa a foto como textura, então o ponto
- * marcado no 3D é gravado nas coordenadas da foto).
+ * marcado no 3D é gravado nas coordenadas da foto) ou o mapa ilustrado de uma região do
+ * rosto (o id da vista é o da região: `lips`, `nose`…).
  */
-export const APPLICATION_MAP_VIEWS = ['front', 'left', 'right', 'body', 'photo'] as const;
-/** Região ampliada em que o ponto foi marcado (rosto para preenchimento, corpo para criolipólise). */
-export const APPLICATION_MAP_REGIONS = [
+export const APPLICATION_MAP_FACE_REGION_VIEWS = [
   'forehead',
+  'temples',
   'periorbital',
   'nose',
   'malar',
+  'nasolabial',
   'lips',
   'chin',
   'jawline',
+] as const;
+export const APPLICATION_MAP_VIEWS = [
+  'front',
+  'left',
+  'right',
+  'body',
+  'photo',
+  ...APPLICATION_MAP_FACE_REGION_VIEWS,
+] as const;
+/** Região ampliada em que o ponto foi marcado (rosto para preenchimento, corpo para criolipólise). */
+export const APPLICATION_MAP_REGIONS = [
+  ...APPLICATION_MAP_FACE_REGION_VIEWS,
   'submental',
   'arms',
   'abdomen',

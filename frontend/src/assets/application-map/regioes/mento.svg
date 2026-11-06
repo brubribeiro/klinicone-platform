@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 800 560" width="800" height="560">
+<defs>
+<radialGradient id="skin" cx="50%" cy="45%" r="70%"><stop offset="0" stop-color="#FBE9DD"/><stop offset="1" stop-color="#F1D3C1"/></radialGradient>
+<linearGradient id="lipU" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#D98A86"/><stop offset="1" stop-color="#C7706E"/></linearGradient>
+<linearGradient id="lipL" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#C96E6C"/><stop offset="1" stop-color="#E4A19C"/></linearGradient>
+<style>
+.skin{fill:url(#skin);stroke:#B98670;stroke-width:3;stroke-linejoin:round}
+.line{fill:none;stroke:#A9735D;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
+.fine{fill:none;stroke:#C29682;stroke-width:1.8;stroke-linecap:round;opacity:.85}
+.fold{fill:none;stroke:#C98F78;stroke-width:5;stroke-linecap:round;opacity:.45}
+.shade{fill:#E3B9A4;opacity:.35}
+.anat{fill:none;stroke:#2F7F75;stroke-width:1.8;stroke-dasharray:7 6;stroke-linecap:round;opacity:.75}
+.danger{fill:none;stroke:#C0504D;stroke-width:2;stroke-dasharray:3 5;stroke-linecap:round;opacity:.8}
+.lip{stroke:#A65553;stroke-width:2.4;stroke-linejoin:round}
+.hair{fill:#B48B67;stroke:#8E6A4C;stroke-width:2}
+.brow{fill:#8C6A55}
+.lead{stroke:#3B5F59;stroke-width:1.2;opacity:.7;fill:none}
+.dot{fill:#3B5F59;opacity:.8}
+text{font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:16px;font-weight:600;fill:#2E4A45;paint-order:stroke;stroke:#fff;stroke-width:4px;stroke-linejoin:round}
+text.c{text-anchor:middle}
+text.e{text-anchor:end}
+text.t{font-size:14px;font-weight:700;letter-spacing:.6px;fill:#7A8E8A}
+</style>
+</defs>
+<rect width="800" height="560" fill="#fff"/>
+
+<rect width="800" height="560" fill="#EBC7B3"/>
+<path class="skin" d="M110 0 C 120 150, 196 320, 300 430 C 340 474, 370 500, 400 502 C 430 500, 460 474, 500 430 C 604 320, 680 150, 690 0 Z"/>
+<!-- lábio inferior -->
+<path class="lip" fill="url(#lipL)" d="M250 8 C 330 0, 470 0, 550 8 C 510 92, 450 112, 400 112 C 350 112, 290 92, 250 8 Z"/>
+<!-- sulcos -->
+<path class="fold" d="M310 178 C 360 204, 440 204, 490 178"/>
+<path class="fold" d="M244 64 C 232 130, 228 190, 236 252"/>
+<path class="fold" d="M556 64 C 568 130, 572 190, 564 252"/>
+<path class="fine" d="M228 296 C 236 318, 246 338, 260 352"/>
+<path class="fine" d="M572 296 C 564 318, 554 338, 540 352"/>
+<!-- coxim do mento -->
+<path class="shade" d="M300 300 C 330 420, 470 420, 500 300 C 470 250, 330 250, 300 300 Z"/>
+<path class="anat" d="M318 300 C 340 400, 460 400, 482 300"/>
+<text x="24" y="34" class="t">MENTO</text>
+<path class="lead" d="M223.60000000000002 91 L300 70"/><circle class="dot" cx="300" cy="70" r="3"/>
+<text x="100" y="96" class="">Lábio inferior</text>
+<path class="lead" d="M634 145 L482 184"/><circle class="dot" cx="482" cy="184" r="3"/>
+<text x="640" y="150" class="">Sulco mentolabial</text>
+<path class="lead" d="M234 182 L234 190"/><circle class="dot" cx="234" cy="190" r="3"/>
+<text x="100" y="200" class="">Linha de marionete</text>
+<path class="lead" d="M240.4 325 L236 316"/><circle class="dot" cx="236" cy="316" r="3"/>
+<text x="100" y="330" class="">Sulco pré-papada</text>
+<path class="lead" d="M614 367 L432 372"/><circle class="dot" cx="432" cy="372" r="3"/>
+<text x="620" y="372" class="">Pogônio (projeção)</text>
+<path class="lead" d="M534 535 L404 500"/><circle class="dot" cx="404" cy="500" r="3"/>
+<text x="540" y="540" class="">Mentoniano (base)</text>
+
+</svg>
