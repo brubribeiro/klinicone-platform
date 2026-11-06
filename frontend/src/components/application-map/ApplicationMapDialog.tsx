@@ -1,4 +1,4 @@
-import { useState, type Dispatch, type ReactNode, type SetStateAction } from 'react';
+import { Suspense, lazy, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react';
 import {
   Alert,
   Box,
@@ -45,6 +45,9 @@ import {
 } from './applicationMapModel';
 import { useMapPhoto } from './useMapPhoto';
 
+/** three.js + MediaPipe só carregam quando o 3D é aberto. */
+const ApplicationMap3D = lazy(() => import('./ApplicationMap3D'));
+
 type Area = 'face' | 'body' | 'photo';
 
 const AREA_LABEL: Record<Area, string> = {
@@ -79,7 +82,7 @@ export function ApplicationMapDialog({
   defaultRegion: 'face' | 'body';
   /** Esconde Facial/Corporal quando os procedimentos são de uma região só. */
   regionLocked: boolean;
-  /** Paciente do atendimento: habilita marcar sobre a foto dela . */
+  /** Paciente do atendimento: habilita marcar sobre a foto dela (2D e 3D). */
   patientId?: string;
 }) {
   const isMobile = useMediaQuery(useTheme().breakpoints.down('sm'));
@@ -255,6 +258,7 @@ function ApplicationMapEditor({
   const [tool, setTool] = useState<MapTool>('point');
   const [strokeColor, setStrokeColor] = useState<string>(STROKE_COLORS[0]);
   const [strokeWidth, setStrokeWidth] = useState<number>(STROKE_WIDTHS[1].value);
+  const [photoMode, setPhotoMode] = useState<'2d' | '3d'>('3d');
   const [selected, setSelected] = useState<number | null>(null);
 
   const areas: Area[] = [
@@ -366,6 +370,24 @@ function ApplicationMapEditor({
         )}
       </Stack>
     );
+  } else if (area === 'photo' && photoMode === '3d') {
+    canvas = (
+      <Suspense
+        fallback={
+          <Stack alignItems="center" justifyContent="center" sx={{ height: canvasHeight }}>
+            <CircularProgress size={28} />
+          </Stack>
+        }
+      >
+        <ApplicationMap3D
+          {...editing}
+          image={image}
+          height={canvasHeight}
+          toolbar={<PhotoModeSwitch value={photoMode} onChange={setPhotoMode} />}
+          onUnavailable={() => setPhotoMode('2d')}
+        />
+      </Suspense>
+    );
   } else {
     canvas = (
       <ApplicationMapCanvas
@@ -388,6 +410,8 @@ function ApplicationMapEditor({
                 setSelected(null);
               }}
             />
+          ) : area === 'photo' ? (
+            <PhotoModeSwitch value={photoMode} onChange={setPhotoMode} />
           ) : undefined
         }
       />
@@ -509,7 +533,9 @@ function ApplicationMapEditor({
                   flex: 1,
                 }}
               >
-                Marcação sobre a foto da paciente.
+                {photoMode === '3d'
+                  ? 'Modelo 3D gerado da foto: arraste fora do rosto (ou com o botão direito) para girar.'
+                  : 'Marcação sobre a foto da paciente.'}
               </Typography>
               <Tooltip title={photoHasMarks ? 'Apague as marcações da foto para trocar de foto' : ''}>
                 <span>
@@ -659,6 +685,20 @@ function ApplicationMapEditor({
   );
 }
 
+function PhotoModeSwitch({ value, onChange }: { value: '2d' | '3d'; onChange: (mode: '2d' | '3d') => void }) {
+  return (
+    <Segmented
+      size="sm"
+      options={[
+        { key: '3d', label: 'Modelo 3D' },
+        { key: '2d', label: 'Foto 2D' },
+      ]}
+      value={value}
+      onChange={onChange}
+    />
+  );
+}
+
 /** Escolha da foto (já salva no R2) sobre a qual o mapa será marcado. */
 function PhotoPicker({
   patientId,
@@ -686,7 +726,8 @@ function PhotoPicker({
     >
       <Typography sx={{ fontSize: fontSizes.sm, fontWeight: 700, mb: 0.5 }}>Escolha uma foto de frente</Typography>
       <Typography sx={{ fontSize: fontSizes.xs, color: 'text.secondary', mb: 1.5 }}>
-        Os pontos e desenhos ficam sobre a foto, que continua guardada no armazenamento da clínica.
+        O modelo 3D do rosto é gerado a partir dela. Funciona melhor com o rosto de frente, bem iluminado e sem cabelo
+        cobrindo a testa.
       </Typography>
       {isLoading ? (
         <CircularProgress size={24} />
