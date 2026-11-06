@@ -1,6 +1,5 @@
 import { Suspense, lazy, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react';
 import {
-  Alert,
   Box,
   Button,
   ButtonBase,
@@ -17,9 +16,7 @@ import {
 } from '@mui/material';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import UndoIcon from '@mui/icons-material/Undo';
-import { useQuery } from '@tanstack/react-query';
 
-import { patientsApi } from '../../api/patients';
 import { fontSizes } from '../../theme/fontSizes';
 import type {
   ApplicationMapProduct,
@@ -41,21 +38,32 @@ import {
   bodyRegionDef,
   faceRegionMap,
   formatProductTotal,
+  is3DView,
+  pointView,
   type ApplicationMapDraft,
   type IllustratedView,
 } from './applicationMapModel';
-import { useMapPhoto } from './useMapPhoto';
 
-/** three.js + MediaPipe só carregam quando o 3D é aberto. */
+/** three.js só carrega quando o 3D é aberto. */
 const ApplicationMap3D = lazy(() => import('./ApplicationMap3D'));
 
-type Area = 'face' | 'body' | 'photo';
+type Area = 'face' | 'body';
 
 const AREA_LABEL: Record<Area, string> = {
   face: 'Facial',
   body: 'Corporal',
-  photo: 'Foto da paciente',
 };
+
+type FaceMode = IllustratedView | 'head3d';
+type BodyMode = 'body3d' | 'body';
+
+/** Abre no 3D, a não ser que o mapa só tenha marcações na ilustração 2D daquela área. */
+function initialMode(map: ApplicationMapDraft, area: Area): boolean {
+  const views = [...map.points.map(pointView), ...map.strokes.map((s) => s.view)];
+  const in3D = views.includes(area === 'face' ? 'head3d' : 'body3d');
+  const in2D = area === 'face' ? views.some((v) => FACE_VIEWS.includes(v as IllustratedView)) : views.includes('body');
+  return in3D || !in2D;
+}
 
 const TOOLS: { key: MapTool; label: string }[] = [
   { key: 'point', label: 'Pontos' },
@@ -72,7 +80,6 @@ export function ApplicationMapDialog({
   products,
   defaultRegion,
   regionLocked,
-  patientId,
 }: {
   open: boolean;
   onClose: () => void;
@@ -83,8 +90,6 @@ export function ApplicationMapDialog({
   defaultRegion: 'face' | 'body';
   /** Esconde Facial/Corporal quando os procedimentos são de uma região só. */
   regionLocked: boolean;
-  /** Paciente do atendimento: habilita marcar sobre a foto dela (2D e 3D). */
-  patientId?: string;
 }) {
   const isMobile = useMediaQuery(useTheme().breakpoints.down('sm'));
 
@@ -120,7 +125,6 @@ export function ApplicationMapDialog({
         products={products}
         defaultRegion={defaultRegion}
         regionLocked={regionLocked}
-        patientId={patientId}
         isMobile={isMobile}
       />
     </Dialog>
@@ -240,7 +244,6 @@ function ApplicationMapEditor({
   products,
   defaultRegion,
   regionLocked,
-  patientId,
   isMobile,
 }: {
   onClose: () => void;
@@ -249,30 +252,24 @@ function ApplicationMapEditor({
   products: ApplicationMapProduct[];
   defaultRegion: 'face' | 'body';
   regionLocked: boolean;
-  patientId?: string;
   isMobile: boolean;
 }) {
   const [product, setProduct] = useState<ApplicationMapProduct>(products[0] ?? 'toxin');
   const [area, setArea] = useState<Area>(defaultRegion);
-  const [faceView, setFaceView] = useState<IllustratedView>('front');
+  const [faceView, setFaceView] = useState<FaceMode>(() => (initialMode(map, 'face') ? 'head3d' : 'front'));
+  const [bodyMode, setBodyMode] = useState<BodyMode>(() => (initialMode(map, 'body') ? 'body3d' : 'body'));
   const [region, setRegion] = useState<ApplicationMapRegion | null>(null);
   const [tool, setTool] = useState<MapTool>('point');
   const [strokeColor, setStrokeColor] = useState<string>(STROKE_COLORS[0]);
   const [strokeWidth, setStrokeWidth] = useState<number>(STROKE_WIDTHS[1].value);
-  const [photoMode, setPhotoMode] = useState<'2d' | '3d'>('3d');
   const [selected, setSelected] = useState<number | null>(null);
 
-  const areas: Area[] = [
-    ...(regionLocked ? [defaultRegion] : (['face', 'body'] as const)),
-    ...(patientId && (!regionLocked || defaultRegion === 'face') ? (['photo'] as const) : []),
-  ];
+  const areas: Area[] = regionLocked ? [defaultRegion] : ['face', 'body'];
 
-  // No rosto, a região escolhida abre o mapa ilustrado dela; no corpo, amplia a ilustração.
+  // No rosto, a região escolhida abre o mapa ilustrado dela; no corpo 2D, amplia a ilustração.
   const faceRegion = area === 'face' ? faceRegionMap(region) : undefined;
-  const bodyRegion = area === 'body' ? bodyRegionDef(region) : undefined;
-  const view: ApplicationMapView = area === 'face' ? (faceRegion?.id ?? faceView) : area;
-  const photo = useMapPhoto(patientId, area === 'photo' ? map.photoId : undefined);
-  const image = view === 'photo' ? photo.image : MAP_VIEWS[view];
+  const bodyRegion = area === 'body' && bodyMode === 'body' ? bodyRegionDef(region) : undefined;
+  const view: ApplicationMapView = area === 'face' ? (faceRegion?.id ?? faceView) : bodyMode;
   const crop = bodyRegion?.crops.body ?? FULL_CROP;
 
   /** Pontos já marcados com outro produto mantêm a linha dele no resumo. */
@@ -288,8 +285,8 @@ function ApplicationMapEditor({
   };
 
   const viewStrokes = map.strokes.filter((s) => s.view === view);
-  const addPoint = ({ x, y }: { x: number; y: number }) => {
-    const pointRegion = faceRegion?.id ?? bodyRegion?.id;
+  const addPoint = ({ x, y, region: hitRegion }: { x: number; y: number; region?: ApplicationMapRegion }) => {
+    const pointRegion = faceRegion?.id ?? bodyRegion?.id ?? hitRegion;
     setMap((m) => ({
       ...m,
       points: [
@@ -344,37 +341,39 @@ function ApplicationMapEditor({
     autoFocusQty: !isMobile,
   };
 
+  const changeFaceView = (next: FaceMode) => {
+    setFaceView(next);
+    setSelected(null);
+  };
+  const changeBodyMode = (next: BodyMode) => {
+    setBodyMode(next);
+    setRegion(null);
+    setSelected(null);
+  };
+  const toolbar = faceRegion ? undefined : area === 'face' ? (
+    <Segmented
+      size="sm"
+      options={[
+        { key: 'head3d' as FaceMode, label: 'Modelo 3D' },
+        ...FACE_VIEWS.map((key) => ({ key: key as FaceMode, label: MAP_VIEWS[key].label })),
+      ]}
+      value={faceView}
+      onChange={changeFaceView}
+    />
+  ) : (
+    <Segmented
+      size="sm"
+      options={[
+        { key: 'body3d' as BodyMode, label: 'Modelo 3D' },
+        { key: 'body' as BodyMode, label: 'Ilustração 2D' },
+      ]}
+      value={bodyMode}
+      onChange={changeBodyMode}
+    />
+  );
+
   let canvas: ReactNode;
-  if (area === 'photo' && !map.photoId) {
-    canvas = (
-      <PhotoPicker
-        patientId={patientId!}
-        height={canvasHeight}
-        onPick={(photoId) => setMap((m) => ({ ...m, photoId }))}
-      />
-    );
-  } else if (!image) {
-    canvas = (
-      <Stack
-        alignItems="center"
-        justifyContent="center"
-        sx={{
-          height: canvasHeight,
-          border: 1,
-          borderColor: 'divider',
-          borderRadius: '16px',
-        }}
-      >
-        {photo.isError ? (
-          <Typography sx={{ fontSize: fontSizes.sm, color: 'text.secondary' }}>
-            Não foi possível carregar a foto.
-          </Typography>
-        ) : (
-          <CircularProgress size={28} />
-        )}
-      </Stack>
-    );
-  } else if (area === 'photo' && photoMode === '3d') {
+  if (is3DView(view)) {
     canvas = (
       <Suspense
         fallback={
@@ -385,10 +384,10 @@ function ApplicationMapEditor({
       >
         <ApplicationMap3D
           {...editing}
-          image={image}
+          view={view}
           height={canvasHeight}
-          toolbar={<PhotoModeSwitch value={photoMode} onChange={setPhotoMode} />}
-          onUnavailable={() => setPhotoMode('2d')}
+          toolbar={toolbar}
+          onUnavailable={() => (view === 'head3d' ? changeFaceView('front') : changeBodyMode('body'))}
         />
       </Suspense>
     );
@@ -396,34 +395,16 @@ function ApplicationMapEditor({
     canvas = (
       <ApplicationMapCanvas
         {...editing}
-        image={image}
+        image={MAP_VIEWS[view as IllustratedView]}
         view={view}
         crop={crop}
         height={canvasHeight}
         guides={faceRegion?.guides}
-        toolbar={
-          area === 'face' && !faceRegion ? (
-            <Segmented
-              size="sm"
-              options={FACE_VIEWS.map((key) => ({
-                key,
-                label: MAP_VIEWS[key].label,
-              }))}
-              value={faceView}
-              onChange={(next) => {
-                setFaceView(next);
-                setSelected(null);
-              }}
-            />
-          ) : area === 'photo' ? (
-            <PhotoModeSwitch value={photoMode} onChange={setPhotoMode} />
-          ) : undefined
-        }
+        toolbar={toolbar}
       />
     );
   }
 
-  const photoHasMarks = map.points.some((p) => p.view === 'photo') || map.strokes.some((s) => s.view === 'photo');
 
   return (
     <>
@@ -518,13 +499,24 @@ function ApplicationMapEditor({
               }}
             />
           )}
+          {area === 'face' && faceView === 'head3d' && !faceRegion && (
+            <Typography sx={{ fontSize: fontSizes.xs, color: 'text.secondary' }}>
+              Modelo ilustrado: clique para marcar, arraste para girar e use a roda do mouse (ou pinça) para aproximar.
+            </Typography>
+          )}
+          {area === 'body' && bodyMode === 'body3d' && (
+            <Typography sx={{ fontSize: fontSizes.xs, color: 'text.secondary' }}>
+              Modelo ilustrado: clique para marcar e arraste para girar; a região de cada ponto (abdômen, flancos…) é
+              anotada pelo lugar marcado.
+            </Typography>
+          )}
           {faceRegion && (
             <Typography sx={{ fontSize: fontSizes.xs, color: 'text.secondary' }}>
               Mapa de {faceRegion.label.toLowerCase()}: os círculos tracejados são pontos de aplicação sugeridos —
               clique num deles ou em qualquer lugar do mapa para marcar.
             </Typography>
           )}
-          {area === 'body' && (
+          {area === 'body' && bodyMode === 'body' && (
             <RegionChips
               label="Corpo todo"
               regions={BODY_REGIONS}
@@ -535,33 +527,6 @@ function ApplicationMapEditor({
               }}
             />
           )}
-          {area === 'photo' && map.photoId && (
-            <Stack direction="row" alignItems="center" spacing={1}>
-              <Typography
-                sx={{
-                  fontSize: fontSizes.xs,
-                  color: 'text.secondary',
-                  flex: 1,
-                }}
-              >
-                {photoMode === '3d'
-                  ? 'Modelo 3D gerado da foto: arraste fora do rosto (ou com o botão direito) para girar.'
-                  : 'Marcação sobre a foto da paciente.'}
-              </Typography>
-              <Tooltip title={photoHasMarks ? 'Apague as marcações da foto para trocar de foto' : ''}>
-                <span>
-                  <Button
-                    size="small"
-                    disabled={photoHasMarks}
-                    onClick={() => setMap((m) => ({ ...m, photoId: undefined }))}
-                  >
-                    Trocar foto
-                  </Button>
-                </span>
-              </Tooltip>
-            </Stack>
-          )}
-
           <Box
             sx={{
               display: 'grid',
@@ -693,122 +658,5 @@ function ApplicationMapEditor({
         </Button>
       </DialogActions>
     </>
-  );
-}
-
-function PhotoModeSwitch({ value, onChange }: { value: '2d' | '3d'; onChange: (mode: '2d' | '3d') => void }) {
-  return (
-    <Segmented
-      size="sm"
-      options={[
-        { key: '3d', label: 'Modelo 3D' },
-        { key: '2d', label: 'Foto 2D' },
-      ]}
-      value={value}
-      onChange={onChange}
-    />
-  );
-}
-
-/** Escolha da foto (já salva no R2) sobre a qual o mapa será marcado. */
-function PhotoPicker({
-  patientId,
-  height,
-  onPick,
-}: {
-  patientId: string;
-  height: string;
-  onPick: (photoId: string) => void;
-}) {
-  const { data: photos = [], isLoading } = useQuery({
-    queryKey: ['patient-photos', patientId],
-    queryFn: () => patientsApi.listPhotos(patientId),
-  });
-  return (
-    <Box
-      sx={{
-        height,
-        overflowY: 'auto',
-        border: 1,
-        borderColor: 'divider',
-        borderRadius: '16px',
-        p: 2,
-      }}
-    >
-      <Typography sx={{ fontSize: fontSizes.sm, fontWeight: 700, mb: 0.5 }}>Escolha uma foto de frente</Typography>
-      <Typography sx={{ fontSize: fontSizes.xs, color: 'text.secondary', mb: 1.5 }}>
-        O modelo 3D do rosto é gerado a partir dela. Funciona melhor com o rosto de frente, bem iluminado e sem cabelo
-        cobrindo a testa.
-      </Typography>
-      {isLoading ? (
-        <CircularProgress size={24} />
-      ) : photos.length === 0 ? (
-        <Alert severity="info">
-          Esta paciente ainda não tem fotos. Adicione fotos de antes/depois no atendimento para marcar sobre elas.
-        </Alert>
-      ) : (
-        <Box
-          sx={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))',
-            gap: 1.25,
-          }}
-        >
-          {photos.map((photo) => (
-            <ButtonBase
-              key={photo.id}
-              onClick={() => onPick(photo.id)}
-              aria-label={`Usar foto de ${new Date(photo.takenAt).toLocaleDateString('pt-BR')}`}
-              sx={{
-                display: 'block',
-                borderRadius: '12px',
-                overflow: 'hidden',
-                border: 1,
-                borderColor: 'divider',
-                bgcolor: 'grey.100',
-                aspectRatio: '3 / 4',
-              }}
-            >
-              {photo.url ? (
-                <Box
-                  component="img"
-                  src={photo.url}
-                  alt=""
-                  sx={{
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'cover',
-                    display: 'block',
-                  }}
-                />
-              ) : (
-                <Typography
-                  sx={{
-                    fontSize: fontSizes['2xs'],
-                    color: 'text.disabled',
-                    p: 1,
-                  }}
-                >
-                  Sem prévia
-                </Typography>
-              )}
-              <Typography
-                sx={{
-                  position: 'relative',
-                  mt: '-26px',
-                  py: 0.5,
-                  fontSize: fontSizes['2xs'],
-                  fontWeight: 700,
-                  color: '#fff',
-                  bgcolor: 'rgba(0,0,0,.45)',
-                }}
-              >
-                {photo.phase === 'BEFORE' ? 'Antes' : 'Depois'} · {new Date(photo.takenAt).toLocaleDateString('pt-BR')}
-              </Typography>
-            </ButtonBase>
-          ))}
-        </Box>
-      )}
-    </Box>
   );
 }

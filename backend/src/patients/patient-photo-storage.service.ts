@@ -75,10 +75,6 @@ export class PatientPhotoStorageService {
     return { key, mimeType: compressed.mimeType, size: compressed.compressedSize };
   }
 
-  download(key: string) {
-    return this.r2.download(key);
-  }
-
   remove(key: string) {
     return this.r2.remove(key);
   }

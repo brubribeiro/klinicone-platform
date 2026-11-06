@@ -1,3 +1,4 @@
+import { Suspense, lazy } from 'react';
 import { Box, Stack, Typography } from '@mui/material';
 
 import type { ApplicationMap, ApplicationMapView } from '../../types';
@@ -7,24 +8,38 @@ import {
   MAP_PRODUCTS,
   MAP_VIEWS,
   formatProductTotal,
+  is3DView,
   pointView,
   productDef,
   regionLabel,
   strokePath,
+  toMapDraft,
+  type IllustratedView,
   type MapViewDef,
 } from './applicationMapModel';
-import { useMapPhoto } from './useMapPhoto';
+
+/** three.js só carrega quando o mapa tem marcações no modelo 3D. */
+const Map3DSnapshot = lazy(() => import('./Map3DSnapshot'));
 
 const PREVIEW_HEIGHT = 132;
-const VIEW_ORDER: ApplicationMapView[] = ['photo', 'front', 'left', 'right', ...FACE_REGIONS.map((r) => r.id), 'body'];
+const VIEW_ORDER: ApplicationMapView[] = [
+  'head3d',
+  'front',
+  'left',
+  'right',
+  ...FACE_REGIONS.map((r) => r.id),
+  'body3d',
+  'body',
+];
 
 /** Mapa de aplicação do atendimento (somente leitura) para a ficha do paciente. */
-export function ApplicationMapPreview({ map, patientId }: { map: ApplicationMap; patientId?: string }) {
-  const strokes = map.strokes ?? [];
+export function ApplicationMapPreview({ map: saved }: { map: ApplicationMap }) {
+  // Marcações antigas na foto da paciente aparecem na ilustração de frente.
+  const map = { ...saved, ...toMapDraft(saved) };
+  const strokes = map.strokes;
   const views = VIEW_ORDER.filter(
     (view) => map.points.some((p) => pointView(p) === view) || strokes.some((s) => s.view === view),
   );
-  const photo = useMapPhoto(patientId, views.includes('photo') ? map.photoId : undefined);
   const products = MAP_PRODUCTS.filter((product) => map.points.some((p) => p.product === product.id));
   const regions = [...new Set(map.points.flatMap((p) => (p.region ? [p.region] : [])))];
   const notes = map.points.flatMap((p, i) => (p.note ? [{ index: i, note: p.note }] : []));
@@ -45,10 +60,21 @@ export function ApplicationMapPreview({ map, patientId }: { map: ApplicationMap;
         {strokes.length > 0 && ` · ${strokes.length} ${strokes.length === 1 ? 'DESENHO' : 'DESENHOS'}`}
       </Box>
       <Stack direction="row" spacing={1.5} alignItems="flex-start" useFlexGap flexWrap="wrap">
-        {views.map((view) => {
-          const image = view === 'photo' ? photo.image : MAP_VIEWS[view];
-          return image ? <PreviewImage key={view} map={map} view={view} image={image} /> : null;
-        })}
+        {views.map((view) =>
+          is3DView(view) ? (
+            <Suspense key={view} fallback={null}>
+              <Map3DSnapshot
+                view={view}
+                points={map.points.filter((p) => pointView(p) === view)}
+                strokes={strokes.filter((s) => s.view === view)}
+                label={view === 'head3d' ? 'modelo 3D do rosto' : 'modelo 3D do corpo'}
+                height={PREVIEW_HEIGHT}
+              />
+            </Suspense>
+          ) : (
+            <PreviewImage key={view} map={map} view={view} image={MAP_VIEWS[view as IllustratedView]} />
+          ),
+        )}
         <Stack component="ul" spacing={0.4} sx={{ m: 0, p: 0, listStyle: 'none', minWidth: 0 }}>
           {products.map((product) => (
             <Stack key={product.id} component="li" direction="row" alignItems="center" spacing={0.75}>

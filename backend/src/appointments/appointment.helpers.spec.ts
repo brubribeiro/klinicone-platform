@@ -49,12 +49,14 @@ describe('toApplicationMapData', () => {
     });
   });
 
-  it('keeps strokes, regions and the photo of the 3D model', () => {
+  it('keeps strokes, regions and marks on the generic 3D models', () => {
     expect(
       toApplicationMapData({
         template: 'face',
-        photoId: '7a1c3c43-6f0b-4d1c-9a43-1b2f3c4d5e6f',
-        points: [{ x: 40, y: 70, product: 'filler', qty: 1, view: 'photo', region: 'lips' }],
+        points: [
+          { x: 50.123, y: 42.5, product: 'filler', qty: 1, view: 'head3d', region: 'lips' },
+          { x: 20, y: 60, product: 'cryolipolysis', qty: 2, view: 'body3d', region: 'abdomen' },
+        ],
         strokes: [
           { view: 'front', color: '#E53935', width: 0.6, points: [10.04, 20.06, 30, 40, 50] },
           { view: 'body', color: '#000000', width: 1, points: [5] },
@@ -62,8 +64,10 @@ describe('toApplicationMapData', () => {
       }),
     ).toEqual({
       template: 'face',
-      photoId: '7a1c3c43-6f0b-4d1c-9a43-1b2f3c4d5e6f',
-      points: [{ x: 40, y: 70, product: 'filler', qty: 1, view: 'photo', region: 'lips' }],
+      points: [
+        { x: 50.12, y: 42.5, product: 'filler', qty: 1, view: 'head3d', region: 'lips' },
+        { x: 20, y: 60, product: 'cryolipolysis', qty: 2, view: 'body3d', region: 'abdomen' },
+      ],
       strokes: [{ view: 'front', color: '#e53935', width: 0.6, points: [10, 20.1, 30, 40] }],
     });
   });

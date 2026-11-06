@@ -50,8 +50,15 @@ export interface MapViewDef {
   height: number;
 }
 
-/** Vistas ilustradas; a vista `photo` usa a foto da paciente e é montada na hora. */
-export type IllustratedView = Exclude<ApplicationMapView, 'photo'>;
+/** Vistas do modelo 3D genérico (cabeça e corpo). */
+export type Model3DView = 'head3d' | 'body3d';
+
+/** Vistas ilustradas em 2D (`photo` é legado e abre como `front`). */
+export type IllustratedView = Exclude<ApplicationMapView, 'photo' | Model3DView>;
+
+export function is3DView(view: ApplicationMapView): view is Model3DView {
+  return view === 'head3d' || view === 'body3d';
+}
 
 /** Ponto de aplicação sugerido num mapa de região; x/y em % da imagem. */
 export interface MapGuide {
@@ -280,7 +287,7 @@ export function regionLabel(id: ApplicationMapRegion): string {
 }
 
 export function pointView(point: ApplicationMapPoint): ApplicationMapView {
-  return point.view ?? 'front';
+  return !point.view || point.view === 'photo' ? 'front' : point.view;
 }
 
 /** Cores do desenho livre. */
@@ -297,23 +304,27 @@ export const STROKE_WIDTHS = [
 export interface ApplicationMapDraft {
   points: ApplicationMapPoint[];
   strokes: ApplicationMapStroke[];
-  photoId?: string;
 }
 
 export const EMPTY_MAP_DRAFT: ApplicationMapDraft = { points: [], strokes: [] };
 
+/**
+ * Marcações antigas feitas sobre a foto da paciente (vista `photo`, já sem foto nem malha
+ * gerada dela) passam para a ilustração de frente, nas mesmas coordenadas.
+ */
+const fromLegacyView = <T extends { view?: ApplicationMapView }>(mark: T): T =>
+  mark.view === 'photo' ? { ...mark, view: 'front' } : mark;
+
 export function toMapDraft(map?: ApplicationMap | null): ApplicationMapDraft {
   if (!map) return EMPTY_MAP_DRAFT;
   return {
-    points: map.points ?? [],
-    strokes: map.strokes ?? [],
-    ...(map.photoId ? { photoId: map.photoId } : {}),
+    points: (map.points ?? []).map(fromLegacyView),
+    strokes: (map.strokes ?? []).map(fromLegacyView),
   };
 }
 
 /** Mapa no formato da API; sem pontos nem traços a API apaga o mapa. */
 export function toApplicationMapPayload(draft: ApplicationMapDraft): ApplicationMap {
-  const hasPhotoContent = draft.points.some((p) => p.view === 'photo') || draft.strokes.some((s) => s.view === 'photo');
   return {
     template: 'face',
     points: draft.points.map((p) => {
@@ -329,8 +340,6 @@ export function toApplicationMapPayload(draft: ApplicationMapDraft): Application
       };
     }),
     ...(draft.strokes.length > 0 ? { strokes: draft.strokes } : {}),
-    // A foto só vale para o mapa quando há marcação nela.
-    ...(draft.photoId && hasPhotoContent ? { photoId: draft.photoId } : {}),
   };
 }
 

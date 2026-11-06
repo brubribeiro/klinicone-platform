@@ -1,4 +1,13 @@
-import { FACE_REGIONS, MAP_VIEWS, faceRegionMap, regionLabel, toApplicationMapPayload } from './applicationMapModel';
+import { describe, expect, it } from 'vitest';
+
+import {
+  FACE_REGIONS,
+  MAP_VIEWS,
+  faceRegionMap,
+  regionLabel,
+  toApplicationMapPayload,
+  toMapDraft,
+} from './applicationMapModel';
 
 describe('mapas por região do rosto', () => {
   it('cada região tem ilustração própria e pontos sugeridos dentro da imagem', () => {
@@ -31,5 +40,27 @@ describe('mapas por região do rosto', () => {
     });
     expect(payload.points.map((p) => p.view)).toEqual(['front', 'lips']);
     expect(payload.strokes).toHaveLength(1);
+  });
+
+  it('marcações antigas na foto da paciente abrem na ilustração de frente', () => {
+    const draft = toMapDraft({
+      template: 'face',
+      points: [{ x: 40, y: 55, product: 'toxin', view: 'photo' }],
+      strokes: [{ view: 'photo', color: '#e53935', width: 0.5, points: [1, 2, 3, 4] }],
+    });
+    expect(draft.points[0].view).toBe('front');
+    expect(draft.strokes[0].view).toBe('front');
+    const payload = toApplicationMapPayload(draft);
+    expect(payload.points[0].view).toBe('front');
+    expect(payload).not.toHaveProperty('photoId');
+  });
+
+  it('mantém as marcações do modelo 3D genérico', () => {
+    const payload = toApplicationMapPayload({
+      points: [{ x: 50, y: 44.5, product: 'filler', view: 'head3d' }],
+      strokes: [{ view: 'body3d', color: '#1e88e5', width: 1, points: [10, 20, 11, 21] }],
+    });
+    expect(payload.points[0].view).toBe('head3d');
+    expect(payload.strokes?.[0].view).toBe('body3d');
   });
 });
