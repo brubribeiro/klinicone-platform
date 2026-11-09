@@ -4,6 +4,10 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ## [Unreleased]
 
+### Fixed
+- Equipamentos e Estoque — o botão **Excluir** não some mais para quem não tem permissão: ao clicar, aparece o motivo ("sem permissão para excluir", com o caminho para liberar no grupo). Antes o botão ficava oculto e parecia bug (reports da Camila, grupo Profissional).
+- Equipamentos — excluir equipamento vinculado a procedimentos agora retorna mensagem clara (lista os procedimentos e sugere inativar) em vez de erro genérico.
+
 ### Changed
 - Painel — modal **Novo lançamento** (Financeiro) no design Aurora: campos em seções, corpo com fundo padrão e rodapé de ações igual ao das demais modais. Sem mudança de campos ou lógica.
 - Console KlinicOne — painel da plataforma renomeado para **Console KlinicOne** em todo texto visível (escolha de painel, título, sidebar, "Voltar ao Console", mensagens da API) e diferenciado do **Painel da clínica**: selo "Console" ao lado da marca e acento índigo (`createAppTheme(mode, 'console')`) só no layout admin, claro e escuro. Rotas, pastas e variáveis inalteradas.
