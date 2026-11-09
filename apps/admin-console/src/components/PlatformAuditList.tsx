@@ -32,6 +32,8 @@ export const PLATFORM_AUDIT_LABELS: Record<PlatformAuditAction, { label: string;
   MEASUREMENT_TYPE_DEACTIVATE: { label: 'Desativou a medida', color: '#C25A4C' },
   MEASUREMENT_TYPE_DELETE: { label: 'Excluiu a medida', color: '#C25A4C' },
   FEEDBACK_STATUS_CHANGE: { label: 'Mudou o status do report', color: '#5BA8DE' },
+  FEEDBACK_REPLY: { label: 'Respondeu o report', color: '#15998B' },
+  FEEDBACK_DELETE: { label: 'Excluiu o report', color: '#C25A4C' },
   ANNOUNCEMENT_GENERATE: { label: 'Gerou avisos do release', color: '#9B7BD4' },
   ANNOUNCEMENT_CREATE: { label: 'Criou o aviso', color: '#15998B' },
   ANNOUNCEMENT_UPDATE: { label: 'Editou o aviso', color: '#5BA8DE' },
@@ -133,6 +135,10 @@ export function auditDetailsText(entry: PlatformAuditLog): string | null {
       const status = (v: unknown) => FEEDBACK_STATUS_META[v as FeedbackStatus]?.label ?? String(v);
       return `${String(d.title ?? '')}: ${status(d.old)} → ${status(d.new)}`;
     }
+    case 'FEEDBACK_REPLY':
+      return `${String(d.title ?? '')}${d.edited ? ' · resposta atualizada' : ''}`;
+    case 'FEEDBACK_DELETE':
+      return [d.title, d.author].filter(Boolean).map(String).join(' · ') || null;
     case 'ANNOUNCEMENT_GENERATE': {
       const created = (d.created as string[] | undefined) ?? [];
       return created.length ? `Versão ${String(d.version)}: ${created.join(', ')}` : `Versão ${String(d.version)}: nada novo`;

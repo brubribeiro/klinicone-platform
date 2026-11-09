@@ -272,6 +272,15 @@ export const adminApi = {
     return data;
   },
 
+  replyFeedback: async (id: string, text: string): Promise<AdminFeedbackReport> => {
+    const { data } = await api.put<AdminFeedbackReport>(`/admin/feedback/${id}/reply`, { text });
+    return data;
+  },
+
+  deleteFeedback: async (id: string): Promise<void> => {
+    await api.delete(`/admin/feedback/${id}`);
+  },
+
   listAnnouncements: async (): Promise<PlatformAnnouncement[]> => {
     const { data } = await api.get<PlatformAnnouncement[]>('/admin/announcements');
     return data;

@@ -11,12 +11,17 @@ import {
   ToggleButtonGroup,
   Typography,
 } from '@mui/material';
-import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { adminApi } from '../api/admin';
 import { useUrlState, urlEnum, urlPage } from '../../../../frontend/src/hooks/useUrlState';
 import { LIST_HEADER_SELECT_SX, ListCardHeader, ListSearchField } from '../../../../frontend/src/components/ListCardHeader';
 import { FeedbackDetailDialog } from '../components/FeedbackDetailDialog';
+import { RowActionButton } from '../../../../frontend/src/components/RowActionButton';
+import { useAppDialog } from '../../../../frontend/src/contexts/AppDialogContext';
+import { useAppToast } from '../../../../frontend/src/contexts/AppToastContext';
+import { getApiErrorMessage } from '../../../../frontend/src/utils/apiError';
 import { formatDateTime } from '../components/adminUi';
 import {
   FEEDBACK_STATUSES,
@@ -26,10 +31,10 @@ import {
 } from '../components/feedbackUi';
 import { clickableProps } from '../../../../frontend/src/utils/a11y';
 import { fontSizes } from '../../../../frontend/src/theme/fontSizes';
-import type { FeedbackStatus, FeedbackType } from '../../../../frontend/src/types';
+import type { AdminFeedbackReport, FeedbackStatus, FeedbackType } from '../../../../frontend/src/types';
 
 const PAGE_SIZE = 25;
-const GRID_COLS = '96px minmax(0, 2.4fr) minmax(0, 1.2fr) minmax(0, 1.2fr) 140px 104px';
+const GRID_COLS = '96px minmax(0, 2.4fr) minmax(0, 1.2fr) minmax(0, 1.2fr) 140px 104px 30px';
 const GRID_MIN_WIDTH = 900;
 
 type StatusFilter = 'ALL' | FeedbackStatus;
@@ -57,6 +62,30 @@ export function AdminFeedback() {
   const [page, setPage] = useUrlState('pagina', 0, urlPage);
   const [openId, setOpenId] = useUrlState('report', '');
   const deferredSearch = useDeferredValue(search.trim());
+  const { confirm } = useAppDialog();
+  const toast = useAppToast();
+  const queryClient = useQueryClient();
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => adminApi.deleteFeedback(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'feedback', 'list'] });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'audit'] });
+      toast.success('Report excluído.');
+    },
+    onError: (err) => toast.error(getApiErrorMessage(err, 'Não foi possível excluir o report.')),
+  });
+
+  const handleDelete = async (report: AdminFeedbackReport) => {
+    const ok = await confirm({
+      title: 'Excluir report',
+      message: `Excluir “${report.title}” (${report.tenant.name}) de vez?`,
+      details: ['Não dá para desfazer.', 'Notificações já enviadas ao autor continuam com ele.'],
+      confirmLabel: 'Excluir',
+      confirmColor: 'error',
+    });
+    if (ok) deleteMutation.mutate(report.id);
+  };
 
   const { data: tenants = [] } = useQuery({
     queryKey: ['admin', 'tenants', { search: '', status: 'ALL' }],
@@ -178,6 +207,7 @@ export function AdminFeedback() {
           <span>Autor</span>
           <span>Data</span>
           <span>Status</span>
+          <span />
         </Box>
 
         {isLoading ? (
@@ -246,6 +276,19 @@ export function AdminFeedback() {
               </Typography>
               <Box>
                 <FeedbackStatusPill status={r.status} />
+              </Box>
+              <Box sx={{ display: { xs: 'none', md: 'block' } }}>
+                <RowActionButton
+                  title="Excluir"
+                  ariaLabel={`Excluir report ${r.title}`}
+                  danger
+                  onClick={(ev) => {
+                    ev.stopPropagation();
+                    void handleDelete(r);
+                  }}
+                >
+                  <DeleteOutlineIcon sx={{ fontSize: 16 }} />
+                </RowActionButton>
               </Box>
             </Box>
           ))

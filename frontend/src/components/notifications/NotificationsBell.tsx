@@ -235,8 +235,10 @@ export function NotificationsBell({ iconColor }: NotificationsBellProps) {
                       color: 'text.secondary',
                       fontWeight: 500,
                       mt: 0.25,
-                      // Avisos da plataforma vêm em várias linhas (tópicos do release)
-                      ...(n.type === 'PLATFORM_ANNOUNCEMENT' ? { whiteSpace: 'pre-line' } : {}),
+                      // Avisos da plataforma e respostas a feedback vêm em várias linhas
+                      ...(n.type === 'PLATFORM_ANNOUNCEMENT' || n.type === 'FEEDBACK_REPLIED'
+                        ? { whiteSpace: 'pre-line', overflowWrap: 'anywhere' }
+                        : {}),
                     }}
                   >
                     {n.message}
