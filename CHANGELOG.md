@@ -4,6 +4,10 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ## [Unreleased]
 
+### Fixed
+- Equipamentos e Estoque — o botão **Excluir** não some mais para quem não tem permissão: ao clicar, aparece o motivo ("sem permissão para excluir", com o caminho para liberar no grupo). Antes o botão ficava oculto e parecia bug (reports da Camila, grupo Profissional).
+- Equipamentos — excluir equipamento vinculado a procedimentos agora retorna mensagem clara (lista os procedimentos e sugere inativar) em vez de erro genérico.
+
 ### Changed
 - **Logotipo KlinicOne**: símbolo novo ("K" com hastes em folha sobre o bloco em degradê verde-água) e nome "KlinicOne" vetorizado (Plus Jakarta Sans ExtraBold em paths; "One" em verde-água). Arquivos em `docs/brand/` (`klinicone-mark.svg`, `klinicone-logo.svg`, `klinicone-logo-dark.svg`, PNG 512). Componentes `KlinicOneMark` / `KlinicOneWordmark` (`frontend/src/components/brand/`) aplicados na tela de Login (claro, escuro e painel de destaque), na sidebar (expandida: símbolo + nome; recolhida: só o símbolo), no cabeçalho da landing e no Console KlinicOne (símbolo em degradê índigo e "One" lavanda, mantendo o selo "Console"). Textos inalterados.
 - Favicon dos três apps (painel, landing, admin-console) trocado pelo novo símbolo: `favicon.svg`, `favicon-32.png`, `favicon.ico` (16/32/48), `apple-touch-icon.png` (180, sem cantos) e novo `icon-512.png` linkado no `index.html`.

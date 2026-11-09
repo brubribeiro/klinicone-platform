@@ -159,6 +159,10 @@ export function Inventory() {
   };
 
   const handleDelete = async (item: InventoryItem) => {
+    if (!canDelete) {
+      toast.error('Você não tem permissão para excluir itens do estoque. Peça a um administrador para liberar "Estoque > Excluir" no seu grupo.');
+      return;
+    }
     let preview;
     try {
       preview = await inventoryApi.getDeletionPreview(item.id);
@@ -378,7 +382,7 @@ export function Inventory() {
         onClose={() => setDetailId(null)}
         onMovement={openMovement}
         onEdit={canEdit ? openEdit : undefined}
-        onDelete={canDelete ? handleDelete : undefined}
+        onDelete={handleDelete}
         onOpenPage={(id) => navigate(`/estoque/${id}`)}
       />
       <InventoryFormDialog
