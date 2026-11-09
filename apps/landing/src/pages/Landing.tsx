@@ -21,6 +21,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import { publicApi } from '../../../../frontend/src/api/public';
 import { AuroraIcon } from '../../../../frontend/src/components/AuroraIcon';
+import { KlinicOneMark, KlinicOneWordmark } from '../../../../frontend/src/components/brand/KlinicOneLogo';
 import { LandingHeroPreview } from '../components/LandingHeroPreview';
 import { LandingPlans } from '../components/LandingPlans';
 import { LandingVideo } from '../components/LandingVideo';
@@ -69,27 +70,9 @@ const loginHref = clinicPanelUrl('/login');
 function BrandLogo() {
   return (
     <Stack direction="row" alignItems="center" sx={{ gap: '12px' }}>
-      <Box
-        sx={{
-          width: 40,
-          height: 40,
-          borderRadius: '12px',
-          background: 'linear-gradient(135deg,#22BBAA,#0E7C7B)',
-          boxShadow: '0 4px 12px -4px rgba(15,124,123,.7)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexShrink: 0,
-        }}
-      >
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="#fff" aria-hidden="true">
-          <path d="M12 3c4.2 5 6.2 8.2 6.2 11.2A6.2 6.2 0 0 1 5.8 14.2C5.8 11.2 7.8 8 12 3z" />
-        </svg>
-      </Box>
+      <KlinicOneMark size={40} sx={{ filter: 'drop-shadow(0 4px 8px rgba(15,124,123,.5))' }} />
       <Box sx={{ display: 'flex', flexDirection: 'column', lineHeight: 1.05 }}>
-        <Box component="span" sx={{ fontWeight: 800, fontSize: fontSizes['2xl'], color: '#fff', letterSpacing: '-0.3px' }}>
-          {BRAND_NAME}
-        </Box>
+        <KlinicOneWordmark height={20} color="#fff" accentColor="#5FD3C6" sx={{ mb: '5px' }} />
         <Box
           component="span"
           sx={{
