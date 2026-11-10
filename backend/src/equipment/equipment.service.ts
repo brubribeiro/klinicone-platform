@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import {
   IsBoolean,
   IsDateString,
@@ -203,6 +203,16 @@ export class EquipmentService {
 
   async remove(id: string, user?: AuditUser) {
     const oldData = await this.findOne(id);
+    const procedures = await this.prisma.procedureEquipment.findMany({
+      where: { equipmentId: id },
+      include: { procedure: { select: { name: true } } },
+    });
+    if (procedures.length > 0) {
+      const names = [...new Set(procedures.map((p) => p.procedure.name))].join(', ');
+      throw new BadRequestException(
+        `Não é possível excluir: equipamento usado nos procedimentos: ${names}. Remova-o dos procedimentos ou apenas inative o equipamento.`,
+      );
+    }
     await this.prisma.equipment.delete({ where: { id } });
     this.auditLog.logDelete('Equipment', id, oldData as unknown as Record<string, unknown>, user).catch(() => undefined);
     return { ok: true };
