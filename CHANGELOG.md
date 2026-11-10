@@ -4,6 +4,8 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-10
+
 ### Fixed
 - Equipamentos e Estoque — o botão **Excluir** não some mais para quem não tem permissão: ao clicar, aparece o motivo ("sem permissão para excluir", com o caminho para liberar no grupo). Antes o botão ficava oculto e parecia bug (reports da Camila, grupo Profissional).
 - Equipamentos — excluir equipamento vinculado a procedimentos agora retorna mensagem clara (lista os procedimentos e sugere inativar) em vez de erro genérico.
