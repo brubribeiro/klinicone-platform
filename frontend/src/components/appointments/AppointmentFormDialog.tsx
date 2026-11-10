@@ -67,6 +67,7 @@ import {
   normalizeExtraMaterials,
   reconcileProcedureIds,
   type ExtraMaterialRow,
+  resolveAppointmentEnd,
   totalProcedureDurationMinutes,
   type FormValues,
   type SectionKey,
@@ -590,7 +591,7 @@ export function AppointmentFormDialog({
       if (!start.isValid()) {
         throw new Error('Data ou horário inválidos.');
       }
-      const end = start.add(totalProcedureDurationMinutes(procedureOptions, values.procedureIds), 'minute');
+      const end = resolveAppointmentEnd(start, values.procedureIds, procedureOptions, appointment);
       if (!end.isValid() || !end.isAfter(start)) {
         throw new Error('Intervalo de horário inválido.');
       }

@@ -38,6 +38,16 @@ const RESTRICTED_UPDATE_FIELDS = [
   'endAt',
 ] as const;
 
+const SLOT_HOLDING_STATUSES: AppointmentStatus[] = [
+  AppointmentStatus.SCHEDULED,
+  AppointmentStatus.CONFIRMED,
+  AppointmentStatus.IN_PROGRESS,
+];
+
+function holdsSlot(status: AppointmentStatus) {
+  return SLOT_HOLDING_STATUSES.includes(status);
+}
+
 @Injectable()
 export class AppointmentsService {
   constructor(
@@ -214,15 +224,29 @@ export class AppointmentsService {
     });
     if (!current) throw new NotFoundException('Agendamento não encontrado');
 
-    const scheduleChanged = !!(dto.startAt || dto.endAt || dto.professionalId);
     const requestedSlot = (base: { startAt: Date; endAt: Date; professionalId: string }) => ({
       startAt: dto.startAt ? new Date(dto.startAt) : base.startAt,
       endAt: dto.endAt ? new Date(dto.endAt) : base.endAt,
       professionalId: dto.professionalId ?? base.professionalId,
     });
+    // O formulário sempre reenvia início/fim/profissional: compara com o salvo em vez de checar
+    // presença. Concluído/cancelado/falta não ocupa a agenda, então não revalida o horário.
+    const needsSlotCheck = (base: {
+      startAt: Date;
+      endAt: Date;
+      professionalId: string;
+      status: AppointmentStatus;
+    }) => {
+      if (!holdsSlot(dto.status ?? base.status)) return false;
+      const slot = requestedSlot(base);
+      const scheduleChanged =
+        slot.startAt.getTime() !== base.startAt.getTime() ||
+        slot.endAt.getTime() !== base.endAt.getTime() ||
+        slot.professionalId !== base.professionalId;
+      return scheduleChanged || !holdsSlot(base.status);
+    };
 
-    // Quando há mudança de horário/profissional, valida disponibilidade
-    if (scheduleChanged) {
+    if (needsSlotCheck(current)) {
       const slot = requestedSlot(current);
       await this.rules.assertProfessionalAvailable(slot.professionalId, slot.startAt, slot.endAt, id);
     }
@@ -260,7 +284,7 @@ export class AppointmentsService {
         }
       }
 
-      if (scheduleChanged) {
+      if (needsSlotCheck(before)) {
         const slot = requestedSlot(before);
         await this.availability.assertNoAppointmentConflict(
           slot.professionalId,
