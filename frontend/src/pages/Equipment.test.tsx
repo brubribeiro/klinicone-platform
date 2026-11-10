@@ -276,8 +276,11 @@ describe('EquipmentPage', () => {
     renderPage();
     await screen.findByText('Laser CO2');
     expect(screen.queryByRole('button', { name: 'Adicionar equipamento' })).not.toBeInTheDocument();
-    expect(screen.queryByTestId('DeleteIcon')).not.toBeInTheDocument();
     expect(screen.queryByTestId('EditIcon')).not.toBeInTheDocument();
+    // Excluir fica visível; sem permissão, explica em vez de esconder.
+    await userEvent.click(iconBtn(card('Laser CO2'), 'Delete'));
+    expect(toast.error).toHaveBeenCalledWith(expect.stringContaining('não tem permissão para excluir equipamentos'));
+    expect(dialogs.confirm).not.toHaveBeenCalled();
     await userEvent.click(screen.getByText('Laser CO2'));
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });

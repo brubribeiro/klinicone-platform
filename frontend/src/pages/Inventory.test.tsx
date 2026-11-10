@@ -185,7 +185,9 @@ describe('Inventory (página)', () => {
     await waitFor(() => expect(inventoryApi.findOne).toHaveBeenCalledWith('a'));
     await screen.findByText('Lotes cadastrados');
     expect(screen.queryByRole('button', { name: 'Editar' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Excluir item' })).not.toBeInTheDocument();
+    // Excluir fica visível; sem permissão, explica em vez de esconder.
+    await userEvent.click(screen.getByRole('button', { name: 'Excluir item' }));
+    expect(toast.error).toHaveBeenCalledWith(expect.stringContaining('não tem permissão para excluir itens'));
   });
 
   it('clicar numa linha abre o detalhe; de lá edita, movimenta e abre a página do item', async () => {
