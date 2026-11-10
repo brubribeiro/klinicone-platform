@@ -234,7 +234,11 @@ export function MovementDialog({ open, onClose, item: fixedItem, items }: Moveme
                   control={control}
                   rules={{
                     required: 'Informe a quantidade',
-                    min: { value: 1, message: 'A quantidade mínima é 1' },
+                    // Ajuste é o novo total do item: zerar o estoque é válido
+                    min:
+                      type === 'ADJUSTMENT'
+                        ? { value: 0, message: 'A quantidade não pode ser negativa' }
+                        : { value: 1, message: 'A quantidade mínima é 1' },
                   }}
                   render={({ field, fieldState }) => (
                     <Box>
@@ -244,7 +248,7 @@ export function MovementDialog({ open, onClose, item: fixedItem, items }: Moveme
                         fullWidth
                         required
                         autoFocus={!showPicker}
-                        inputProps={{ inputMode: 'numeric', min: 1, 'aria-label': 'Quantidade' }}
+                        inputProps={{ inputMode: 'numeric', min: type === 'ADJUSTMENT' ? 0 : 1, 'aria-label': 'Quantidade' }}
                         error={!!fieldState.error || newQuantity < 0}
                         sx={FIELD_HELPER_SX}
                       />

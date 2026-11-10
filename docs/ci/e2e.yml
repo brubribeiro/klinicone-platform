@@ -1,0 +1,81 @@
+# Workflow proposto para o smoke E2E (Playwright). Para ativar, copie para
+# .github/workflows/e2e.yml (o token dos agentes não tem escopo `workflow`).
+# Sobe Postgres de serviço, aplica migrations e roda `npm run test:e2e` no frontend,
+# que inicia backend (3333) e painel (5173) pelo webServer do playwright.config.ts.
+name: E2E
+
+on:
+  pull_request:
+    branches:
+      - develop
+      - main
+      - 'release/**'
+
+concurrency:
+  group: e2e-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    name: Smoke E2E (agendar, concluir e pagar)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: klinicone
+          POSTGRES_PASSWORD: klinicone
+          POSTGRES_DB: klinicone_platform
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U klinicone -d klinicone_platform"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      CI: 'true'
+      DATABASE_URL: postgresql://klinicone:klinicone@localhost:5432/klinicone_platform?schema=public
+      DIRECT_URL: postgresql://klinicone:klinicone@localhost:5432/klinicone_platform?schema=public
+      NODE_ENV: test
+      APP_ENV: development
+      # Só de teste: o global-setup assina o JWT da sessão com este segredo
+      JWT_SECRET: e2e-only-jwt-secret-with-at-least-32-chars
+      GOOGLE_CLIENT_ID: e2e-client-id.apps.googleusercontent.com
+      CORS_ORIGIN: http://localhost:5173
+      PORT: '3333'
+      VITE_API_URL: /api
+      VITE_APP_ENV: development
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            backend/package-lock.json
+      - name: Install backend
+        working-directory: backend
+        run: npm ci
+      - name: Prisma generate + migrate deploy
+        working-directory: backend
+        run: npx prisma generate && npx prisma migrate deploy
+      - name: Install frontend (workspaces)
+        run: npm ci
+      - name: Install Chromium
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+      - name: Smoke E2E
+        working-directory: frontend
+        run: npm run test:e2e
+      - name: Upload report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            frontend/playwright-report
+            frontend/test-results
+          retention-days: 7

@@ -47,3 +47,7 @@ coverage/
 
 # Uploads de documentos
 backend/uploads/
+
+# Playwright (frontend/e2e)
+test-results/
+playwright-report/
