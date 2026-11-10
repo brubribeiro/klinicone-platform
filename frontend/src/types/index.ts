@@ -452,7 +452,7 @@ export type ApplicationMapProduct =
   | 'bioremodeler'
   | 'skinbooster'
   | 'cryolipolysis';
-/** Regiões do rosto com mapa ilustrado próprio; o id é também o da vista do ponto. */
+/** Regiões do rosto (zoom na ilustração do rosto); como vista do ponto, só em mapas antigos. */
 export type ApplicationMapFaceRegion =
   | 'forehead'
   | 'temples'
@@ -465,7 +465,8 @@ export type ApplicationMapFaceRegion =
   | 'jawline';
 /**
  * `head3d`/`body3d`: modelo 3D ilustrado (genérico) da cabeça e do corpo; x/y em % da textura dele.
- * Uma região do rosto (`lips`, `nose`…) é o mapa ilustrado daquela região.
+ * Uma região do rosto (`lips`, `nose`…) como vista é legado (antigo desenho próprio da região):
+ * ao abrir, vira a ilustração do rosto que a região amplia (ver `toMapDraft`).
  * `photo` é legado (marcação sobre a foto da paciente): ao abrir, vira a vista de frente.
  */
 export type ApplicationMapView =

@@ -41,6 +41,7 @@ import {
   is3DView,
   pointView,
   type ApplicationMapDraft,
+  type FaceView,
   type IllustratedView,
 } from './applicationMapModel';
 
@@ -61,7 +62,7 @@ type BodyMode = 'body3d' | 'body';
 function initialMode(map: ApplicationMapDraft, area: Area): boolean {
   const views = [...map.points.map(pointView), ...map.strokes.map((s) => s.view)];
   const in3D = views.includes(area === 'face' ? 'head3d' : 'body3d');
-  const in2D = area === 'face' ? views.some((v) => FACE_VIEWS.includes(v as IllustratedView)) : views.includes('body');
+  const in2D = area === 'face' ? views.some((v) => FACE_VIEWS.includes(v as FaceView)) : views.includes('body');
   return in3D || !in2D;
 }
 
@@ -266,11 +267,11 @@ function ApplicationMapEditor({
 
   const areas: Area[] = regionLocked ? [defaultRegion] : ['face', 'body'];
 
-  // No rosto, a região escolhida abre o mapa ilustrado dela; no corpo 2D, amplia a ilustração.
+  // A região escolhida amplia a ilustração do rosto (frente ou perfil) ou do corpo 2D.
   const faceRegion = area === 'face' ? faceRegionMap(region) : undefined;
   const bodyRegion = area === 'body' && bodyMode === 'body' ? bodyRegionDef(region) : undefined;
-  const view: ApplicationMapView = area === 'face' ? (faceRegion?.id ?? faceView) : bodyMode;
-  const crop = bodyRegion?.crops.body ?? FULL_CROP;
+  const view: ApplicationMapView = area === 'face' ? (faceRegion?.view ?? faceView) : bodyMode;
+  const crop = faceRegion?.crop ?? bodyRegion?.crops.body ?? FULL_CROP;
 
   /** Pontos já marcados com outro produto mantêm a linha dele no resumo. */
   const productRows =
@@ -395,7 +396,11 @@ function ApplicationMapEditor({
     canvas = (
       <ApplicationMapCanvas
         {...editing}
-        image={MAP_VIEWS[view as IllustratedView]}
+        image={
+          faceRegion
+            ? { ...MAP_VIEWS[faceRegion.view], label: faceRegion.label }
+            : MAP_VIEWS[view as IllustratedView]
+        }
         view={view}
         crop={crop}
         height={canvasHeight}

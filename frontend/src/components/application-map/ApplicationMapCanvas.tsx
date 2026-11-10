@@ -1,4 +1,4 @@
-import { useRef, useState, type KeyboardEvent, type MouseEvent, type PointerEvent, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent, type PointerEvent, type ReactNode } from 'react';
 import { Box, IconButton, InputBase, Stack, Tooltip, Typography, alpha } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import CloseIcon from '@mui/icons-material/Close';
@@ -23,6 +23,50 @@ const ZOOM_MAX = 3;
 const ZOOM_STEP = 0.2;
 /** Distância mínima entre dois pontos de um traço, em % da largura visível. */
 const STROKE_MIN_STEP = 0.35;
+const ZOOM_MS = 320;
+
+const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+const sameCrop = (a: MapCrop, b: MapCrop) => a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h;
+
+/**
+ * Recorte mostrado: anima a troca de recorte (rosto todo ↔ região) na mesma imagem. A cada
+ * quadro a proporção do quadro sai do próprio recorte, então a imagem nunca aparece esticada;
+ * ao trocar de imagem (frente → perfil), o novo recorte entra direto.
+ */
+function useCropTransition(target: MapCrop, src: string): MapCrop {
+  const [state, setState] = useState({ crop: target, src });
+  const shown = state.src === src ? state.crop : target;
+  const shownRef = useRef(shown);
+  shownRef.current = shown;
+
+  useEffect(() => {
+    const from = shownRef.current;
+    const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (state.src !== src || reduceMotion || sameCrop(from, target)) {
+      if (state.src !== src || !sameCrop(state.crop, target)) setState({ crop: target, src });
+      return;
+    }
+    const start = performance.now();
+    let frame = requestAnimationFrame(function tick(now) {
+      const t = Math.min(1, (now - start) / ZOOM_MS);
+      const k = t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
+      setState({
+        crop: {
+          x: lerp(from.x, target.x, k),
+          y: lerp(from.y, target.y, k),
+          w: lerp(from.w, target.w, k),
+          h: lerp(from.h, target.h, k),
+        },
+        src,
+      });
+      if (t < 1) frame = requestAnimationFrame(tick);
+    });
+    return () => cancelAnimationFrame(frame);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- anima só quando o recorte ou a imagem mudam
+  }, [target.x, target.y, target.w, target.h, src]);
+
+  return shown;
+}
 
 export type MapTool = 'point' | 'draw' | 'erase';
 
@@ -50,7 +94,7 @@ const clamp100 = (n: number) => Math.min(100, Math.max(0, n));
 export function ApplicationMapCanvas({
   image,
   view,
-  crop,
+  crop: targetCrop,
   points,
   strokes,
   tool,
@@ -92,6 +136,7 @@ export function ApplicationMapCanvas({
   guides?: MapGuide[];
 }) {
   const [zoom, setZoom] = useState(1);
+  const crop = useCropTransition(targetCrop, image.src);
   const stageRef = useRef<HTMLDivElement>(null);
   const [draft, setDraft] = useState<number[] | null>(null);
   const selected = selectedIndex !== null ? points[selectedIndex] : undefined;
@@ -204,6 +249,8 @@ export function ApplicationMapCanvas({
           >
             <Box
               component="img"
+              // Elemento novo por imagem: o quadro anterior não aparece esticado enquanto a nova carrega.
+              key={image.src}
               src={image.src}
               alt=""
               draggable={false}
