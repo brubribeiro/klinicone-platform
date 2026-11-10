@@ -568,6 +568,8 @@ enum NotificationType {
   PLATFORM_ANNOUNCEMENT
   // Report de bug/sugestão finalizado no /admin
   FEEDBACK_CLOSED
+  // Resposta do super-admin a um report (texto vai na notificação)
+  FEEDBACK_REPLIED
 }
 
 model Notification {
@@ -1378,6 +1380,11 @@ model FeedbackReport {
   status      FeedbackStatus @default(OPEN)
   // Última troca de status (quem/quando fica na platform_audit_logs)
   statusChangedAt DateTime?
+  // Resposta do super-admin (a última; responder de novo sobrescreve). Sem FK: super-admin não é da clínica.
+  replyText       String?
+  repliedAt       DateTime?
+  repliedById     String?
+  repliedByName   String?
   createdAt   DateTime     @default(now())
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)

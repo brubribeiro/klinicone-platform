@@ -1,4 +1,15 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Put,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser, type AuthenticatedUser } from '../common/decorators/current-user.decorator';
@@ -6,6 +17,7 @@ import { SuperAdminGuard } from '../tenancy/super-admin.guard';
 import {
   FeedbackAdminQueryDto,
   ObservabilityQueryDto,
+  ReplyFeedbackDto,
   UpdateFeedbackStatusDto,
   UsageQueryDto,
 } from './dto/feedback-admin.dto';
@@ -50,5 +62,19 @@ export class PlatformInsightsController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.feedback.setStatus(id, dto.status, user);
+  }
+
+  @Put('feedback/:id/reply')
+  replyFeedback(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ReplyFeedbackDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.feedback.reply(id, dto.text, user);
+  }
+
+  @Delete('feedback/:id')
+  deleteFeedback(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.feedback.remove(id, user);
   }
 }

@@ -34,6 +34,7 @@ describe('FeedbackAdminService', () => {
         ]),
         findUnique: jest.fn(),
         update: jest.fn(),
+        delete: jest.fn().mockResolvedValue(undefined),
       },
       platformAuditLog: { create: jest.fn() },
       user: {
@@ -92,10 +93,15 @@ describe('FeedbackAdminService', () => {
     });
   });
 
-  it('detalhe inclui a descrição; 404 se não existe', async () => {
+  it('detalhe inclui a descrição e a resposta; 404 se não existe', async () => {
     prisma.feedbackReport.findUnique.mockResolvedValueOnce(report);
     await service.get('fb-1');
-    expect(prisma.feedbackReport.findUnique.mock.calls[0][0].select.description).toBe(true);
+    expect(prisma.feedbackReport.findUnique.mock.calls[0][0].select).toMatchObject({
+      description: true,
+      replyText: true,
+      repliedAt: true,
+      repliedByName: true,
+    });
 
     prisma.feedbackReport.findUnique.mockResolvedValueOnce(null);
     await expect(service.get('x')).rejects.toThrow(NotFoundException);
@@ -164,6 +170,96 @@ describe('FeedbackAdminService', () => {
     it('404 se não existe', async () => {
       prisma.feedbackReport.findUnique.mockResolvedValue(null);
       await expect(service.setStatus('x', 'CLOSED' as any, actor)).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('reply', () => {
+    beforeEach(() => {
+      jest.spyOn(TenantContext, 'run').mockImplementation((_id, fn) => fn());
+    });
+    afterEach(() => jest.restoreAllMocks());
+
+    it('grava texto, autor e data, audita e envia o texto ao autor sem mudar o status', async () => {
+      prisma.feedbackReport.findUnique.mockResolvedValue(report);
+      prisma.feedbackReport.update.mockResolvedValue({ ...report, replyText: 'Corrigido na 1.4' });
+
+      const result = await service.reply('fb-1', 'Corrigido na 1.4', actor);
+
+      expect(result.replyText).toBe('Corrigido na 1.4');
+      const data = prisma.feedbackReport.update.mock.calls[0][0].data;
+      expect(data).toEqual({
+        replyText: 'Corrigido na 1.4',
+        repliedAt: expect.any(Date),
+        repliedById: 'root-1',
+        repliedByName: 'Dono',
+      });
+      expect(data.status).toBeUndefined();
+      expect(prisma.platformAuditLog.create.mock.calls[0][0].data).toMatchObject({
+        action: 'FEEDBACK_REPLY',
+        targetTenantId: 'tenant-1',
+        details: { feedbackId: 'fb-1', title: 'Botão não salva', edited: false },
+      });
+      await new Promise(setImmediate);
+      expect(notifications.notifyMany).toHaveBeenCalledWith(['u1'], {
+        type: 'FEEDBACK_REPLIED',
+        title: 'Resposta da plataforma: Botão não salva',
+        message: 'Corrigido na 1.4',
+        metadata: { feedbackId: 'fb-1', feedbackType: 'BUG' },
+      });
+    });
+
+    it('responder de novo sobrescreve e marca como edição', async () => {
+      prisma.feedbackReport.findUnique.mockResolvedValue({ ...report, replyText: 'Antiga' });
+      prisma.feedbackReport.update.mockResolvedValue({ ...report, replyText: 'Nova' });
+
+      await service.reply('fb-1', 'Nova', actor);
+
+      expect(prisma.feedbackReport.update.mock.calls[0][0].data.replyText).toBe('Nova');
+      expect(prisma.platformAuditLog.create.mock.calls[0][0].data.details.edited).toBe(true);
+      await new Promise(setImmediate);
+      expect(notifications.notifyMany).toHaveBeenCalledTimes(1);
+    });
+
+    it('autor inativo: notifica admins da clínica', async () => {
+      prisma.feedbackReport.findUnique.mockResolvedValue(report);
+      prisma.feedbackReport.update.mockResolvedValue(report);
+      prisma.user.findUnique.mockResolvedValue({ id: 'u1', active: false });
+      prisma.user.findMany.mockResolvedValue([{ id: 'admin-1' }]);
+
+      await service.reply('fb-1', 'Ok', actor);
+      await new Promise(setImmediate);
+
+      expect(notifications.notifyMany).toHaveBeenCalledWith(['admin-1'], expect.objectContaining({ message: 'Ok' }));
+    });
+
+    it('404 se não existe', async () => {
+      prisma.feedbackReport.findUnique.mockResolvedValue(null);
+      await expect(service.reply('x', 'Oi', actor)).rejects.toThrow(NotFoundException);
+      expect(prisma.feedbackReport.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('remove', () => {
+    it('apaga de vez e audita com a clínica e o título', async () => {
+      prisma.feedbackReport.findUnique.mockResolvedValue(report);
+
+      await expect(service.remove('fb-1', actor)).resolves.toEqual({ ok: true });
+
+      expect(prisma.feedbackReport.delete).toHaveBeenCalledWith({ where: { id: 'fb-1' } });
+      expect(prisma.platformAuditLog.create.mock.calls[0][0].data).toMatchObject({
+        action: 'FEEDBACK_DELETE',
+        actorId: 'root-1',
+        targetTenantId: 'tenant-1',
+        targetName: 'Clínica Um',
+        details: { feedbackId: 'fb-1', type: 'BUG', title: 'Botão não salva', status: 'OPEN', author: 'ana@clinica.dev' },
+      });
+      expect(notifications.notifyMany).not.toHaveBeenCalled();
+    });
+
+    it('404 se não existe', async () => {
+      prisma.feedbackReport.findUnique.mockResolvedValue(null);
+      await expect(service.remove('x', actor)).rejects.toThrow(NotFoundException);
+      expect(prisma.feedbackReport.delete).not.toHaveBeenCalled();
     });
   });
 });

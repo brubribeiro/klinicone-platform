@@ -127,6 +127,8 @@ export type PlatformAuditAction =
   | 'MEASUREMENT_TYPE_DEACTIVATE'
   | 'MEASUREMENT_TYPE_DELETE'
   | 'FEEDBACK_STATUS_CHANGE'
+  | 'FEEDBACK_REPLY'
+  | 'FEEDBACK_DELETE'
   | 'ANNOUNCEMENT_GENERATE'
   | 'ANNOUNCEMENT_CREATE'
   | 'ANNOUNCEMENT_UPDATE'
@@ -760,7 +762,8 @@ export type NotificationType =
   | 'USER_CREATED'
   | 'EQUIPMENT_MAINTENANCE'
   | 'PLATFORM_ANNOUNCEMENT'
-  | 'FEEDBACK_CLOSED';
+  | 'FEEDBACK_CLOSED'
+  | 'FEEDBACK_REPLIED';
 
 export interface Notification {
   id: string;
@@ -793,10 +796,14 @@ export interface AdminFeedbackReport {
   pageUrl: string | null;
   createdAt: string;
   statusChangedAt: string | null;
+  repliedAt: string | null;
   tenant: { id: string; name: string };
   user: { id: string; name: string; email: string };
   /** Só no detalhe. */
   description?: string;
+  /** Só no detalhe: última resposta enviada ao autor. */
+  replyText?: string | null;
+  repliedByName?: string | null;
 }
 
 export interface PlatformModuleUsage {
