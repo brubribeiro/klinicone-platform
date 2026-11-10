@@ -61,13 +61,17 @@ describe('atalhos do formulário de agendamento', () => {
   it('mapa de aplicação: texto conforme a quantidade de pontos e clique', async () => {
     const onClick = vi.fn();
     const { rerender } = render(<ApplicationMapShortcut pointsCount={0} onClick={onClick} />);
-    expect(screen.getByText('Marcar pontos faciais ou corporais')).toBeInTheDocument();
+    expect(screen.getByText('Marcar pontos e desenhar no rosto ou corpo')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button'));
     expect(onClick).toHaveBeenCalledTimes(1);
     rerender(<ApplicationMapShortcut pointsCount={1} onClick={onClick} />);
     expect(screen.getByText('1 ponto marcado')).toBeInTheDocument();
     rerender(<ApplicationMapShortcut pointsCount={7} onClick={onClick} />);
     expect(screen.getByText('7 pontos marcados')).toBeInTheDocument();
+    rerender(<ApplicationMapShortcut pointsCount={2} strokesCount={1} onClick={onClick} />);
+    expect(screen.getByText('2 pontos marcados · 1 desenho')).toBeInTheDocument();
+    rerender(<ApplicationMapShortcut pointsCount={0} strokesCount={3} onClick={onClick} />);
+    expect(screen.getByText('3 desenhos')).toBeInTheDocument();
   });
 
   it('anamnese de pele: clique chama onClick', async () => {
