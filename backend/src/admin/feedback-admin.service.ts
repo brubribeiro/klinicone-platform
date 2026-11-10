@@ -10,6 +10,13 @@ import { parseUsageRange } from './usage.service';
 import type { FeedbackAdminQueryDto } from './dto/feedback-admin.dto';
 import { recordPlatformAudit } from './platform-audit';
 
+const DETAIL_SELECT = {
+  description: true,
+  replyText: true,
+  repliedById: true,
+  repliedByName: true,
+} as const;
+
 const FEEDBACK_TYPE_LABEL: Record<FeedbackType, string> = {
   BUG: 'Bug',
   SUGGESTION: 'Sugestão',
@@ -23,6 +30,7 @@ const LIST_SELECT = {
   pageUrl: true,
   createdAt: true,
   statusChangedAt: true,
+  repliedAt: true,
   tenant: { select: { id: true, name: true } },
   user: { select: { id: true, name: true, email: true } },
 } as const;
@@ -90,7 +98,7 @@ export class FeedbackAdminService {
       const updated = await this.prisma.feedbackReport.update({
         where: { id },
         data: { status, statusChangedAt: new Date() },
-        select: { ...LIST_SELECT, description: true },
+        select: { ...LIST_SELECT, ...DETAIL_SELECT },
       });
       await recordPlatformAudit(
         this.prisma,
@@ -106,8 +114,55 @@ export class FeedbackAdminService {
     });
   }
 
-  /** Quem reportou (se ativo); senão admins da clínica. */
-  private async notifyClinicFeedbackClosed(report: {
+  /** Grava (ou substitui) a resposta e envia o texto ao autor. Não muda o status. */
+  reply(id: string, text: string, actor: AuthenticatedUser) {
+    return TenantContext.runUnscoped(async () => {
+      const report = await this.findOrThrow(id);
+      const updated = await this.prisma.feedbackReport.update({
+        where: { id },
+        data: { replyText: text, repliedAt: new Date(), repliedById: actor.id, repliedByName: actor.name },
+        select: { ...LIST_SELECT, ...DETAIL_SELECT },
+      });
+      await recordPlatformAudit(
+        this.prisma,
+        actor,
+        'FEEDBACK_REPLY',
+        { tenantId: report.tenant.id, name: report.tenant.name },
+        { feedbackId: report.id, type: report.type, title: report.title, edited: !!report.replyText },
+      );
+      this.notifyClinic(report, {
+        type: NotificationType.FEEDBACK_REPLIED,
+        title: `Resposta da plataforma: ${report.title}`,
+        message: text,
+        metadata: { feedbackId: report.id, feedbackType: report.type },
+      }).catch(() => undefined);
+      return updated;
+    });
+  }
+
+  /** Exclusão definitiva (notificações já enviadas continuam com o autor). */
+  remove(id: string, actor: AuthenticatedUser) {
+    return TenantContext.runUnscoped(async () => {
+      const report = await this.findOrThrow(id);
+      await this.prisma.feedbackReport.delete({ where: { id } });
+      await recordPlatformAudit(
+        this.prisma,
+        actor,
+        'FEEDBACK_DELETE',
+        { tenantId: report.tenant.id, name: report.tenant.name },
+        {
+          feedbackId: report.id,
+          type: report.type,
+          title: report.title,
+          status: report.status,
+          author: report.user.email,
+        },
+      );
+      return { ok: true };
+    });
+  }
+
+  private notifyClinicFeedbackClosed(report: {
     id: string;
     type: FeedbackType;
     title: string;
@@ -115,11 +170,24 @@ export class FeedbackAdminService {
     tenant: { id: string };
     user: { id: string };
   }) {
-    const tenantId = report.tenant.id;
     const typeLabel = FEEDBACK_TYPE_LABEL[report.type];
     const link =
       report.pageUrl && report.pageUrl.startsWith('/') ? report.pageUrl : undefined;
+    return this.notifyClinic(report, {
+      type: NotificationType.FEEDBACK_CLOSED,
+      title: `${typeLabel} concluído`,
+      message: `"${report.title}" foi finalizado pela equipe da plataforma.`,
+      link,
+      metadata: { feedbackId: report.id, feedbackType: report.type },
+    });
+  }
 
+  /** Quem reportou (se ativo); senão admins da clínica. */
+  private async notifyClinic(
+    report: { tenant: { id: string }; user: { id: string } },
+    notification: Parameters<NotificationsService['notifyMany']>[1],
+  ) {
+    const tenantId = report.tenant.id;
     await TenantContext.run(tenantId, async () => {
       const reporter = await this.prisma.user.findUnique({
         where: { id: report.user.id },
@@ -140,20 +208,14 @@ export class FeedbackAdminService {
       }
       if (!userIds.length) return;
 
-      await this.notifications.notifyMany(userIds, {
-        type: NotificationType.FEEDBACK_CLOSED,
-        title: `${typeLabel} concluído`,
-        message: `"${report.title}" foi finalizado pela equipe da plataforma.`,
-        link,
-        metadata: { feedbackId: report.id, feedbackType: report.type },
-      });
+      await this.notifications.notifyMany(userIds, notification);
     });
   }
 
   private async findOrThrow(id: string) {
     const report = await this.prisma.feedbackReport.findUnique({
       where: { id },
-      select: { ...LIST_SELECT, description: true },
+      select: { ...LIST_SELECT, ...DETAIL_SELECT },
     });
     if (!report) throw new NotFoundException('Report não encontrado.');
     return report;

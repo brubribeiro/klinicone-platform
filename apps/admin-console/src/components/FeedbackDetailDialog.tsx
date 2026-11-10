@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import {
   Box,
@@ -8,6 +9,7 @@ import {
   Link,
   Skeleton,
   Stack,
+  TextField,
   Typography,
   useMediaQuery,
   useTheme,
@@ -26,6 +28,7 @@ import { FEEDBACK_STATUS_META, FeedbackStatusPill, FeedbackTypePill } from './fe
 import type { FeedbackStatus } from '../../../../frontend/src/types';
 
 const DIALOG_MAX_WIDTH = 620;
+const REPLY_MAX_LENGTH = 2000;
 
 const LABEL_SX = {
   fontSize: fontSizes['2xs'],
@@ -49,7 +52,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-/** Detalhe de um report (super-admin) com a troca de status. */
+/** Detalhe de um report (super-admin): troca de status, resposta ao autor e exclusão. */
 export function FeedbackDetailDialog({ reportId, onClose }: Props) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -62,6 +65,40 @@ export function FeedbackDetailDialog({ reportId, onClose }: Props) {
     enabled: !!reportId,
   });
 
+  const [draft, setDraft] = useState('');
+  const [editingReply, setEditingReply] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  useEffect(() => {
+    setDraft('');
+    setEditingReply(false);
+    setConfirmDelete(false);
+  }, [reportId]);
+
+  const replyMutation = useMutation({
+    mutationFn: (text: string) => adminApi.replyFeedback(reportId!, text),
+    onSuccess: (updated) => {
+      queryClient.setQueryData(['admin', 'feedback', 'detail', reportId], updated);
+      queryClient.invalidateQueries({ queryKey: ['admin', 'audit'] });
+      setEditingReply(false);
+      setDraft('');
+      toast.success('Resposta enviada ao autor.');
+    },
+    onError: (err) => toast.error(getApiErrorMessage(err, 'Não foi possível enviar a resposta.')),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => adminApi.deleteFeedback(reportId!),
+    onSuccess: () => {
+      queryClient.removeQueries({ queryKey: ['admin', 'feedback', 'detail', reportId] });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'feedback', 'list'] });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'audit'] });
+      toast.success('Report excluído.');
+      onClose();
+    },
+    onError: (err) => toast.error(getApiErrorMessage(err, 'Não foi possível excluir o report.')),
+  });
+
+
   const statusMutation = useMutation({
     mutationFn: (status: FeedbackStatus) => adminApi.setFeedbackStatus(reportId!, status),
     onSuccess: (updated) => {
@@ -72,6 +109,10 @@ export function FeedbackDetailDialog({ reportId, onClose }: Props) {
     },
     onError: (err) => toast.error(getApiErrorMessage(err, 'Não foi possível alterar o status.')),
   });
+
+  const busy = statusMutation.isPending || replyMutation.isPending || deleteMutation.isPending;
+  const showReplyForm = !!report && (!report.replyText || editingReply);
+  const trimmedDraft = draft.trim();
 
   const actions: { status: FeedbackStatus; label: string; variant: 'contained' | 'outlined' }[] = !report
     ? []
@@ -90,7 +131,7 @@ export function FeedbackDetailDialog({ reportId, onClose }: Props) {
   return (
     <Dialog
       open={!!reportId}
-      onClose={statusMutation.isPending ? undefined : onClose}
+      onClose={busy ? undefined : onClose}
       maxWidth={false}
       fullWidth
       fullScreen={isMobile}
@@ -155,23 +196,115 @@ export function FeedbackDetailDialog({ reportId, onClose }: Props) {
                 {report.statusChangedAt ? formatDateTime(report.statusChangedAt) : 'Sem alteração'}
               </Field>
             </Box>
+
+            <Box>
+              <Typography sx={{ ...LABEL_SX, mb: 0.75 }}>Resposta ao autor</Typography>
+              {report.replyText && !editingReply && (
+                <Box
+                  sx={{
+                    border: 1,
+                    borderColor: 'divider',
+                    borderLeft: 3,
+                    borderLeftColor: 'primary.main',
+                    borderRadius: '12px',
+                    p: 2,
+                  }}
+                >
+                  <Typography sx={{ fontSize: fontSizes.sm, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
+                    {report.replyText}
+                  </Typography>
+                  <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1} sx={{ mt: 1 }}>
+                    <Typography sx={{ fontSize: fontSizes.xs, color: 'text.secondary' }}>
+                      {[report.repliedByName, report.repliedAt ? formatDateTime(report.repliedAt) : null]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </Typography>
+                    <Button
+                      size="small"
+                      disabled={busy}
+                      onClick={() => {
+                        setDraft(report.replyText ?? '');
+                        setEditingReply(true);
+                      }}
+                    >
+                      Responder de novo
+                    </Button>
+                  </Stack>
+                </Box>
+              )}
+              {showReplyForm && (
+                <Stack spacing={1}>
+                  <TextField
+                    multiline
+                    minRows={3}
+                    maxRows={10}
+                    fullWidth
+                    value={draft}
+                    onChange={(e) => setDraft(e.target.value)}
+                    placeholder="Escreva a resposta. O autor recebe o texto como notificação no app."
+                    inputProps={{ maxLength: REPLY_MAX_LENGTH, 'aria-label': 'Resposta ao autor' }}
+                    helperText={`${draft.length}/${REPLY_MAX_LENGTH} · enviar não muda o status`}
+                    disabled={busy}
+                  />
+                  <Stack direction="row" spacing={1} justifyContent="flex-end">
+                    {editingReply && (
+                      <Button size="small" disabled={busy} onClick={() => setEditingReply(false)}>
+                        Cancelar
+                      </Button>
+                    )}
+                    <Button
+                      size="small"
+                      variant="contained"
+                      disabled={busy || !trimmedDraft || trimmedDraft === report.replyText}
+                      onClick={() => replyMutation.mutate(trimmedDraft)}
+                    >
+                      {editingReply ? 'Atualizar resposta' : 'Enviar resposta'}
+                    </Button>
+                  </Stack>
+                </Stack>
+              )}
+            </Box>
           </Stack>
         )}
       </DialogContent>
-      <DialogActions sx={dialogActionsBorderSx}>
-        <Button onClick={onClose} disabled={statusMutation.isPending} sx={{ mr: 'auto' }}>
-          Fechar
-        </Button>
-        {actions.map((a) => (
-          <Button
-            key={a.status}
-            variant={a.variant}
-            disabled={statusMutation.isPending}
-            onClick={() => statusMutation.mutate(a.status)}
-          >
-            {a.label}
-          </Button>
-        ))}
+      <DialogActions sx={{ ...dialogActionsBorderSx, flexWrap: 'wrap', gap: 1 }}>
+        {confirmDelete ? (
+          <>
+            <Typography sx={{ fontSize: fontSizes.sm, fontWeight: 700, color: 'error.main', mr: 'auto' }}>
+              Excluir este report de vez? Não dá para desfazer.
+            </Typography>
+            <Button onClick={() => setConfirmDelete(false)} disabled={deleteMutation.isPending}>
+              Cancelar
+            </Button>
+            <Button
+              variant="contained"
+              color="error"
+              disabled={deleteMutation.isPending}
+              onClick={() => deleteMutation.mutate()}
+            >
+              Excluir
+            </Button>
+          </>
+        ) : (
+          <>
+            <Button onClick={onClose} disabled={busy}>
+              Fechar
+            </Button>
+            <Button color="error" disabled={busy || !report} onClick={() => setConfirmDelete(true)} sx={{ mr: 'auto' }}>
+              Excluir
+            </Button>
+            {actions.map((a) => (
+              <Button
+                key={a.status}
+                variant={a.variant}
+                disabled={busy}
+                onClick={() => statusMutation.mutate(a.status)}
+              >
+                {a.label}
+              </Button>
+            ))}
+          </>
+        )}
       </DialogActions>
     </Dialog>
   );

@@ -77,5 +77,14 @@ describe('adminUi', () => {
         auditDetailsText(entry('FEEDBACK_STATUS_CHANGE', { title: 'Botão não salva', old: 'OPEN', new: 'CLOSED' })),
       ).toBe('Botão não salva: Aberto → Fechado');
     });
+
+    it('resposta e exclusão de report', () => {
+      expect(auditDetailsText(entry('FEEDBACK_REPLY', { title: 'Botão não salva', edited: true }))).toBe(
+        'Botão não salva · resposta atualizada',
+      );
+      expect(auditDetailsText(entry('FEEDBACK_DELETE', { title: 'Botão não salva', author: 'ana@clinica.dev' }))).toBe(
+        'Botão não salva · ana@clinica.dev',
+      );
+    });
   });
 });

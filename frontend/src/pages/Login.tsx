@@ -9,6 +9,7 @@ import { APP_VERSION } from '../version';
 import { fontSizes } from '../theme/fontSizes';
 import { ExternalRedirect } from '../components/ExternalRedirect';
 import { BRAND_LEGAL_NAME, BRAND_NAME, BRAND_TAGLINE } from '../brand';
+import { KlinicOneMark, KlinicOneWordmark } from '../components/brand/KlinicOneLogo';
 import { adminConsoleUrl } from '../utils/appUrls';
 import { clearAuthNotice, readAuthNotice, tenantSuspendedMessage } from '../utils/authNotice';
 
@@ -38,35 +39,14 @@ const auroraFloat2 = keyframes`
 function BrandLogo({ dark = false }: { dark?: boolean }) {
   return (
     <Stack direction="row" alignItems="center" sx={{ gap: '14px' }}>
-      <Box
-        sx={{
-          width: 48,
-          height: 48,
-          borderRadius: '14px',
-          background: 'linear-gradient(135deg,#22BBAA,#0E7C7B)',
-          boxShadow: '0 8px 22px -4px rgba(15,124,123,.7)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexShrink: 0,
-        }}
-      >
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="#fff" aria-hidden="true">
-          <path d="M12 3c4.2 5 6.2 8.2 6.2 11.2A6.2 6.2 0 0 1 5.8 14.2C5.8 11.2 7.8 8 12 3z" />
-        </svg>
-      </Box>
+      <KlinicOneMark size={48} sx={{ filter: 'drop-shadow(0 8px 14px rgba(15,124,123,.45))' }} />
       <Box sx={{ display: 'flex', flexDirection: 'column', lineHeight: 1.05, minWidth: 0 }}>
-        <Box
-          component="span"
-          sx={{
-            fontWeight: 800,
-            fontSize: fontSizes['3xl'],
-            letterSpacing: '-0.4px',
-            color: dark ? '#fff' : 'text.primary',
-          }}
-        >
-          {BRAND_NAME}
-        </Box>
+        <KlinicOneWordmark
+          height={24}
+          color={dark ? '#fff' : 'text.primary'}
+          accentColor={dark ? '#5FD3C6' : undefined}
+          sx={{ mb: '6px' }}
+        />
         <Box
           component="span"
           sx={{

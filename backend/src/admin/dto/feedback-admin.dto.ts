@@ -1,5 +1,17 @@
-import { Type } from 'class-transformer';
-import { IsEnum, IsIn, IsInt, IsOptional, IsString, IsUUID, Matches, Max, MaxLength, Min } from 'class-validator';
+import { Transform, Type } from 'class-transformer';
+import {
+  IsEnum,
+  IsIn,
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Matches,
+  Max,
+  MaxLength,
+  Min,
+} from 'class-validator';
 import { FeedbackStatus, FeedbackType } from '@prisma/client';
 
 import { OBSERVABILITY_WINDOWS_HOURS } from '../observability.service';
@@ -53,6 +65,15 @@ export class FeedbackAdminQueryDto extends UsageQueryDto {
 export class UpdateFeedbackStatusDto {
   @IsEnum(FeedbackStatus)
   status!: FeedbackStatus;
+}
+
+/** Resposta do super-admin a um report (vai para o autor como notificação). */
+export class ReplyFeedbackDto {
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @IsString()
+  @IsNotEmpty({ message: 'Escreva a resposta.' })
+  @MaxLength(2000, { message: 'A resposta pode ter até 2000 caracteres.' })
+  text!: string;
 }
 
 /** Janela do painel de saúde da API (24 h, 7 dias ou 30 dias). */

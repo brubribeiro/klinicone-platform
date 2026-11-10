@@ -127,6 +127,10 @@ export function EquipmentPage() {
 
   const handleDelete = async (ev: MouseEvent, e: Equipment) => {
     ev.stopPropagation();
+    if (!canDelete) {
+      toast.error('Você não tem permissão para excluir equipamentos. Peça a um administrador para liberar "Equipamentos > Excluir" no seu grupo.');
+      return;
+    }
     const ok = await confirm({
       title: 'Excluir equipamento',
       message: `Excluir ${e.name}?`,
@@ -238,7 +242,7 @@ export function EquipmentPage() {
               key={e.id}
               equipment={e}
               canEdit={canEdit}
-              canDelete={canDelete}
+              canDelete
               onEdit={() => handleEdit(e)}
               onMaintenance={(ev) => handleMaintenance(ev, e)}
               onDelete={(ev) => handleDelete(ev, e)}

@@ -60,6 +60,11 @@ export const NOTIFICATION_TYPES: {
     label: 'Feedback concluído',
     description: 'Receba quando um bug ou sugestão que você enviou for finalizado pela plataforma',
   },
+  {
+    type: 'FEEDBACK_REPLIED',
+    label: 'Resposta a feedback',
+    description: 'Receba a resposta da plataforma a um bug ou sugestão que você enviou',
+  },
 ];
 
 export function labelForType(type: NotificationType): string {

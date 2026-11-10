@@ -24,6 +24,7 @@ import SwapHorizOutlinedIcon from '@mui/icons-material/SwapHorizOutlined';
 import type { User } from '../../types';
 import { FeedbackReportDialog } from '../feedback/FeedbackReportDialog';
 import { fontSizes } from '../../theme/fontSizes';
+import { KlinicOneMark, KlinicOneWordmark } from '../brand/KlinicOneLogo';
 import { isNavPathActive, type NavGroup } from './navConfig';
 import {
   SIDEBAR_ACTIVE as CLINIC_SIDEBAR_ACTIVE,
@@ -150,36 +151,23 @@ export function SidebarContent({ collapsed: isCollapsed, groups, pathname, onNav
             justifyContent: isCollapsed ? 'center' : 'flex-start',
           }}
         >
-          <Box
+          <KlinicOneMark
+            size={40}
+            variant={consoleBadge ? 'console' : 'teal'}
             sx={{
-              width: 40,
-              height: 40,
-              borderRadius: '12px',
-              background: consoleBadge ? 'linear-gradient(135deg,#7C86E8,#3B44A8)' : 'linear-gradient(135deg,#22BBAA,#0E7C7B)',
-              boxShadow: consoleBadge ? '0 6px 18px -4px rgba(79,91,213,.6)' : '0 6px 18px -4px rgba(15,124,123,.6)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0,
+              filter: consoleBadge
+                ? 'drop-shadow(0 6px 10px rgba(79,91,213,.45))'
+                : 'drop-shadow(0 6px 10px rgba(15,124,123,.45))',
             }}
-          >
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="#fff">
-              <path d="M12 3c4.2 5 6.2 8.2 6.2 11.2A6.2 6.2 0 0 1 5.8 14.2C5.8 11.2 7.8 8 12 3z" />
-            </svg>
-          </Box>
+          />
           {!isCollapsed && (
             <Box sx={{ minWidth: 0 }}>
-              <Typography
-                variant="subtitle1"
-                fontWeight={800}
-                sx={{ letterSpacing: '-0.02em', lineHeight: 1.05, color: '#fff' }}
-              >
-                KlinicOne
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                <KlinicOneWordmark height={16} color="#fff" accentColor={consoleBadge ? '#A9B0F5' : '#5FD3C6'} />
                 {consoleBadge && (
                   <Box
                     component="span"
                     sx={{
-                      ml: 0.75,
                       px: 0.75,
                       py: 0.15,
                       borderRadius: '6px',
@@ -196,12 +184,12 @@ export function SidebarContent({ collapsed: isCollapsed, groups, pathname, onNav
                     Console
                   </Box>
                 )}
-              </Typography>
+              </Box>
               <Typography
                 variant="caption"
                 sx={{
                   display: 'block',
-                  mt: 0,
+                  mt: '5px',
                   lineHeight: 1.1,
                   color: SIDEBAR_TEXT,
                   fontWeight: 700,
