@@ -1,7 +1,6 @@
 import dayjs from 'dayjs';
 
 import type {
-  ApplicationMapPoint,
   Appointment,
   AppointmentKind,
   AppointmentStatus,
@@ -137,18 +136,4 @@ export function normalizeExtraMaterials(rows: ExtraMaterialRow[]) {
   return rows
     .filter((m) => m.itemId && m.quantity > 0)
     .map((m) => ({ itemId: m.itemId, quantity: Number(m.quantity) }));
-}
-
-export function normalizeApplicationMapPoints(points: ApplicationMapPoint[]): ApplicationMapPoint[] {
-  return points.map((p) => {
-    const note = p.note?.trim();
-    return {
-      x: p.x,
-      y: p.y,
-      ...(note ? { note } : {}),
-      ...(p.product ? { product: p.product } : {}),
-      ...(p.qty !== undefined ? { qty: p.qty } : {}),
-      ...(p.view ? { view: p.view } : {}),
-    };
-  });
 }

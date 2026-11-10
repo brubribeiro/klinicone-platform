@@ -3,7 +3,15 @@ import { Box, ButtonBase, Stack, Typography, alpha } from '@mui/material';
 import { fontSizes } from '../../theme/fontSizes';
 
 /** Atalho para o mapa de aplicação do agendamento (abre o editor em outra modal). */
-export function ApplicationMapShortcut({ pointsCount, onClick }: { pointsCount: number; onClick: () => void }) {
+export function ApplicationMapShortcut({
+  pointsCount,
+  strokesCount = 0,
+  onClick,
+}: {
+  pointsCount: number;
+  strokesCount?: number;
+  onClick: () => void;
+}) {
   return (
     <ButtonBase
       onClick={onClick}
@@ -55,9 +63,14 @@ export function ApplicationMapShortcut({ pointsCount, onClick }: { pointsCount: 
         <Box sx={{ lineHeight: 1.25, minWidth: 0 }}>
           <Typography sx={{ fontSize: fontSizes.sm, fontWeight: 800 }}>Mapa de aplicação</Typography>
           <Typography sx={{ fontSize: fontSizes['2xs'], color: 'text.secondary' }}>
-            {pointsCount === 0
-              ? 'Marcar pontos faciais ou corporais'
-              : `${pointsCount} ${pointsCount === 1 ? 'ponto marcado' : 'pontos marcados'}`}
+            {pointsCount === 0 && strokesCount === 0
+              ? 'Marcar pontos e desenhar no rosto ou corpo'
+              : [
+                  pointsCount > 0 && `${pointsCount} ${pointsCount === 1 ? 'ponto marcado' : 'pontos marcados'}`,
+                  strokesCount > 0 && `${strokesCount} ${strokesCount === 1 ? 'desenho' : 'desenhos'}`,
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
           </Typography>
         </Box>
       </Stack>

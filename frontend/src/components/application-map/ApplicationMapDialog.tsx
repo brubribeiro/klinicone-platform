@@ -1,48 +1,94 @@
-import { useState, type Dispatch, type SetStateAction } from 'react';
+import { Suspense, lazy, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react';
 import {
   Box,
   Button,
   ButtonBase,
+  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
+  IconButton,
   Stack,
+  Tooltip,
   Typography,
   useMediaQuery,
   useTheme,
 } from '@mui/material';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import UndoIcon from '@mui/icons-material/Undo';
 
 import { fontSizes } from '../../theme/fontSizes';
-import type { ApplicationMapPoint, ApplicationMapProduct, ApplicationMapView } from '../../types';
+import type {
+  ApplicationMapProduct,
+  ApplicationMapRegion,
+  ApplicationMapStroke,
+  ApplicationMapView,
+} from '../../types';
 import { DialogHeader, dialogActionsBorderSx } from '../DialogCloseButton';
-import { ApplicationMapCanvas } from './ApplicationMapCanvas';
-import { MAP_PRODUCTS, formatProductTotal } from './applicationMapModel';
+import { ApplicationMapCanvas, type MapTool } from './ApplicationMapCanvas';
+import {
+  BODY_REGIONS,
+  FACE_REGIONS,
+  FACE_VIEWS,
+  FULL_CROP,
+  MAP_PRODUCTS,
+  MAP_VIEWS,
+  STROKE_COLORS,
+  STROKE_WIDTHS,
+  bodyRegionDef,
+  faceRegionMap,
+  formatProductTotal,
+  is3DView,
+  pointView,
+  type ApplicationMapDraft,
+  type FaceView,
+  type IllustratedView,
+} from './applicationMapModel';
 
-type Region = 'face' | 'body';
+/** three.js só carrega quando o 3D é aberto. */
+const ApplicationMap3D = lazy(() => import('./ApplicationMap3D'));
 
-const REGIONS: { key: Region; label: string }[] = [
-  { key: 'face', label: 'Facial' },
-  { key: 'body', label: 'Corporal' },
+type Area = 'face' | 'body';
+
+const AREA_LABEL: Record<Area, string> = {
+  face: 'Facial',
+  body: 'Corporal',
+};
+
+type FaceMode = IllustratedView | 'head3d';
+type BodyMode = 'body3d' | 'body';
+
+/** Abre no 3D, a não ser que o mapa só tenha marcações na ilustração 2D daquela área. */
+function initialMode(map: ApplicationMapDraft, area: Area): boolean {
+  const views = [...map.points.map(pointView), ...map.strokes.map((s) => s.view)];
+  const in3D = views.includes(area === 'face' ? 'head3d' : 'body3d');
+  const in2D = area === 'face' ? views.some((v) => FACE_VIEWS.includes(v as FaceView)) : views.includes('body');
+  return in3D || !in2D;
+}
+
+const TOOLS: { key: MapTool; label: string }[] = [
+  { key: 'point', label: 'Pontos' },
+  { key: 'draw', label: 'Desenho' },
+  { key: 'erase', label: 'Borracha' },
 ];
 
-/** Editor do mapa de aplicação do atendimento; os pontos são gravados ao salvar o agendamento. */
+/** Editor do mapa de aplicação do atendimento; o mapa é gravado ao salvar o agendamento. */
 export function ApplicationMapDialog({
   open,
   onClose,
-  points,
-  setPoints,
+  map,
+  setMap,
   products,
   defaultRegion,
   regionLocked,
 }: {
   open: boolean;
   onClose: () => void;
-  points: ApplicationMapPoint[];
-  setPoints: Dispatch<SetStateAction<ApplicationMapPoint[]>>;
+  map: ApplicationMapDraft;
+  setMap: Dispatch<SetStateAction<ApplicationMapDraft>>;
   /** Produtos do atendimento; vazio lista todos. */
   products: ApplicationMapProduct[];
-  defaultRegion: Region;
+  defaultRegion: 'face' | 'body';
   /** Esconde Facial/Corporal quando os procedimentos são de uma região só. */
   regionLocked: boolean;
 }) {
@@ -58,8 +104,8 @@ export function ApplicationMapDialog({
       PaperProps={{
         sx: {
           width: '100%',
-          maxWidth: isMobile ? '100%' : 880,
-          maxHeight: isMobile ? '100%' : '94vh',
+          maxWidth: isMobile ? '100%' : 960,
+          maxHeight: isMobile ? '100%' : '96vh',
           borderRadius: isMobile ? 0 : '20px',
           boxShadow: '0 8px 40px -16px rgba(16,40,37,.22)',
           overflow: 'hidden',
@@ -67,12 +113,16 @@ export function ApplicationMapDialog({
           flexDirection: 'column',
         },
       }}
-      slotProps={{ backdrop: { sx: { bgcolor: 'rgba(7,18,17,.55)', backdropFilter: 'blur(3px)' } } }}
+      slotProps={{
+        backdrop: {
+          sx: { bgcolor: 'rgba(7,18,17,.55)', backdropFilter: 'blur(3px)' },
+        },
+      }}
     >
       <ApplicationMapEditor
         onClose={onClose}
-        points={points}
-        setPoints={setPoints}
+        map={map}
+        setMap={setMap}
         products={products}
         defaultRegion={defaultRegion}
         regionLocked={regionLocked}
@@ -82,38 +132,284 @@ export function ApplicationMapDialog({
   );
 }
 
+function Segmented<T extends string>({
+  options,
+  value,
+  onChange,
+  size = 'md',
+}: {
+  options: { key: T; label: string }[];
+  value: T;
+  onChange: (key: T) => void;
+  size?: 'sm' | 'md';
+}) {
+  return (
+    <Stack
+      direction="row"
+      spacing={0.5}
+      sx={{
+        bgcolor: 'grey.100',
+        p: 0.5,
+        borderRadius: '11px',
+        alignSelf: 'flex-start',
+        maxWidth: '100%',
+        overflowX: 'auto',
+      }}
+    >
+      {options.map((o) => {
+        const active = o.key === value;
+        return (
+          <ButtonBase
+            key={o.key}
+            aria-pressed={active}
+            onClick={() => onChange(o.key)}
+            sx={{
+              height: size === 'sm' ? 32 : 36,
+              px: size === 'sm' ? 1.5 : 2.25,
+              whiteSpace: 'nowrap',
+              fontSize: size === 'sm' ? fontSizes.xs : fontSizes.sm,
+              fontWeight: 700,
+              borderRadius: '9px',
+              bgcolor: active ? 'background.paper' : 'transparent',
+              color: active ? 'primary.main' : 'text.secondary',
+              boxShadow: active ? 1 : 'none',
+            }}
+          >
+            {o.label}
+          </ButtonBase>
+        );
+      })}
+    </Stack>
+  );
+}
+
+function RegionChips({
+  label,
+  regions,
+  value,
+  onChange,
+}: {
+  label: string;
+  regions: { id: ApplicationMapRegion; label: string }[];
+  value: ApplicationMapRegion | null;
+  onChange: (region: ApplicationMapRegion | null) => void;
+}) {
+  const chip = (key: ApplicationMapRegion | null, text: string) => {
+    const active = key === value;
+    return (
+      <ButtonBase
+        key={key ?? 'all'}
+        aria-pressed={active}
+        onClick={() => onChange(key)}
+        sx={{
+          height: 30,
+          px: 1.4,
+          flexShrink: 0,
+          borderRadius: '15px',
+          border: 1,
+          borderColor: active ? 'primary.main' : 'divider',
+          bgcolor: active ? 'primary.main' : 'background.paper',
+          color: active ? 'primary.contrastText' : 'text.secondary',
+          fontSize: fontSizes.xs,
+          fontWeight: 700,
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {text}
+      </ButtonBase>
+    );
+  };
+  return (
+    <Stack
+      direction="row"
+      spacing={0.75}
+      role="group"
+      aria-label="Zoom por região"
+      sx={{
+        overflowX: 'auto',
+        pb: 0.25,
+        mx: { xs: -0.5, sm: 0 },
+        px: { xs: 0.5, sm: 0 },
+      }}
+    >
+      {chip(null, label)}
+      {regions.map((r) => chip(r.id, r.label))}
+    </Stack>
+  );
+}
+
 function ApplicationMapEditor({
   onClose,
-  points,
-  setPoints,
+  map,
+  setMap,
   products,
   defaultRegion,
   regionLocked,
   isMobile,
 }: {
   onClose: () => void;
-  points: ApplicationMapPoint[];
-  setPoints: Dispatch<SetStateAction<ApplicationMapPoint[]>>;
+  map: ApplicationMapDraft;
+  setMap: Dispatch<SetStateAction<ApplicationMapDraft>>;
   products: ApplicationMapProduct[];
-  defaultRegion: Region;
+  defaultRegion: 'face' | 'body';
   regionLocked: boolean;
   isMobile: boolean;
 }) {
   const [product, setProduct] = useState<ApplicationMapProduct>(products[0] ?? 'toxin');
-  const [view, setView] = useState<ApplicationMapView>(defaultRegion === 'body' ? 'body' : 'front');
+  const [area, setArea] = useState<Area>(defaultRegion);
+  const [faceView, setFaceView] = useState<FaceMode>(() => (initialMode(map, 'face') ? 'head3d' : 'front'));
+  const [bodyMode, setBodyMode] = useState<BodyMode>(() => (initialMode(map, 'body') ? 'body3d' : 'body'));
+  const [region, setRegion] = useState<ApplicationMapRegion | null>(null);
+  const [tool, setTool] = useState<MapTool>('point');
+  const [strokeColor, setStrokeColor] = useState<string>(STROKE_COLORS[0]);
+  const [strokeWidth, setStrokeWidth] = useState<number>(STROKE_WIDTHS[1].value);
   const [selected, setSelected] = useState<number | null>(null);
-  const region: Region = view === 'body' ? 'body' : 'face';
+
+  const areas: Area[] = regionLocked ? [defaultRegion] : ['face', 'body'];
+
+  // A região escolhida amplia a ilustração do rosto (frente ou perfil) ou do corpo 2D.
+  const faceRegion = area === 'face' ? faceRegionMap(region) : undefined;
+  const bodyRegion = area === 'body' && bodyMode === 'body' ? bodyRegionDef(region) : undefined;
+  const view: ApplicationMapView = area === 'face' ? (faceRegion?.view ?? faceView) : bodyMode;
+  const crop = faceRegion?.crop ?? bodyRegion?.crops.body ?? FULL_CROP;
 
   /** Pontos já marcados com outro produto mantêm a linha dele no resumo. */
   const productRows =
     products.length === 0
       ? MAP_PRODUCTS
-      : MAP_PRODUCTS.filter((p) => products.includes(p.id) || points.some((point) => point.product === p.id));
+      : MAP_PRODUCTS.filter((p) => products.includes(p.id) || map.points.some((point) => point.product === p.id));
 
-  const changeView = (next: ApplicationMapView) => {
-    setView(next);
+  const changeArea = (next: Area) => {
+    setArea(next);
+    setRegion(null);
     setSelected(null);
   };
+
+  const viewStrokes = map.strokes.filter((s) => s.view === view);
+  const addPoint = ({ x, y, region: hitRegion }: { x: number; y: number; region?: ApplicationMapRegion }) => {
+    const pointRegion = faceRegion?.id ?? bodyRegion?.id ?? hitRegion;
+    setMap((m) => ({
+      ...m,
+      points: [
+        ...m.points,
+        {
+          x,
+          y,
+          product,
+          view,
+          ...(pointRegion ? { region: pointRegion } : {}),
+        },
+      ],
+    }));
+    setSelected(map.points.length);
+  };
+  const updateQty = (index: number, qty: number | undefined) =>
+    setMap((m) => ({
+      ...m,
+      points: m.points.map((row, i) => {
+        if (i !== index) return row;
+        const next = { ...row, qty };
+        if (qty === undefined) delete next.qty;
+        return next;
+      }),
+    }));
+  const removePoint = (index: number) => {
+    setMap((m) => ({ ...m, points: m.points.filter((_, i) => i !== index) }));
+    setSelected(null);
+  };
+  const addStroke = (stroke: ApplicationMapStroke) => setMap((m) => ({ ...m, strokes: [...m.strokes, stroke] }));
+  const removeStroke = (index: number) => setMap((m) => ({ ...m, strokes: m.strokes.filter((_, i) => i !== index) }));
+  const undoStroke = () =>
+    setMap((m) => {
+      const last = m.strokes.map((s) => s.view).lastIndexOf(view);
+      return last < 0 ? m : { ...m, strokes: m.strokes.filter((_, i) => i !== last) };
+    });
+
+  const canvasHeight = isMobile ? '56vh' : '54vh';
+  const editing = {
+    points: map.points,
+    strokes: map.strokes,
+    tool,
+    strokeColor,
+    strokeWidth,
+    selectedIndex: selected,
+    onSelect: setSelected,
+    onAdd: addPoint,
+    onQtyChange: updateQty,
+    onRemove: removePoint,
+    onAddStroke: addStroke,
+    onRemoveStroke: removeStroke,
+    autoFocusQty: !isMobile,
+  };
+
+  const changeFaceView = (next: FaceMode) => {
+    setFaceView(next);
+    setSelected(null);
+  };
+  const changeBodyMode = (next: BodyMode) => {
+    setBodyMode(next);
+    setRegion(null);
+    setSelected(null);
+  };
+  const toolbar = faceRegion ? undefined : area === 'face' ? (
+    <Segmented
+      size="sm"
+      options={[
+        { key: 'head3d' as FaceMode, label: 'Modelo 3D' },
+        ...FACE_VIEWS.map((key) => ({ key: key as FaceMode, label: MAP_VIEWS[key].label })),
+      ]}
+      value={faceView}
+      onChange={changeFaceView}
+    />
+  ) : (
+    <Segmented
+      size="sm"
+      options={[
+        { key: 'body3d' as BodyMode, label: 'Modelo 3D' },
+        { key: 'body' as BodyMode, label: 'Ilustração 2D' },
+      ]}
+      value={bodyMode}
+      onChange={changeBodyMode}
+    />
+  );
+
+  let canvas: ReactNode;
+  if (is3DView(view)) {
+    canvas = (
+      <Suspense
+        fallback={
+          <Stack alignItems="center" justifyContent="center" sx={{ height: canvasHeight }}>
+            <CircularProgress size={28} />
+          </Stack>
+        }
+      >
+        <ApplicationMap3D
+          {...editing}
+          view={view}
+          height={canvasHeight}
+          toolbar={toolbar}
+          onUnavailable={() => (view === 'head3d' ? changeFaceView('front') : changeBodyMode('body'))}
+        />
+      </Suspense>
+    );
+  } else {
+    canvas = (
+      <ApplicationMapCanvas
+        {...editing}
+        image={
+          faceRegion
+            ? { ...MAP_VIEWS[faceRegion.view], label: faceRegion.label }
+            : MAP_VIEWS[view as IllustratedView]
+        }
+        view={view}
+        crop={crop}
+        height={canvasHeight}
+        guides={faceRegion?.guides}
+        toolbar={toolbar}
+      />
+    );
+  }
+
 
   return (
     <>
@@ -121,42 +417,121 @@ function ApplicationMapEditor({
         onClose={onClose}
         isMobile={isMobile}
         title="Mapa de aplicação"
-        subtitle="Marque os pontos e as doses deste atendimento"
+        subtitle="Marque os pontos, as doses e desenhe sobre o mapa deste atendimento"
       />
 
-      <DialogContent sx={{ px: { xs: 2, sm: 3 }, py: { xs: 2, sm: 2.5 }, '&&': { pt: { xs: 2, sm: 2.5 } } }}>
-        <Stack spacing={1.75}>
-          {!regionLocked && (
-            <Stack
-              direction="row"
-              spacing={0.5}
-              sx={{ bgcolor: 'grey.100', p: 0.5, borderRadius: '11px', alignSelf: 'flex-start' }}
-            >
-              {REGIONS.map((r) => {
-                const active = r.key === region;
-                return (
+      <DialogContent
+        sx={{
+          px: { xs: 2, sm: 3 },
+          py: { xs: 2, sm: 2.5 },
+          '&&': { pt: { xs: 2, sm: 2.5 } },
+        }}
+      >
+        <Stack spacing={1.5}>
+          <Stack direction="row" spacing={1.5} useFlexGap flexWrap="wrap" alignItems="center">
+            {areas.length > 1 && (
+              <Segmented
+                options={areas.map((key) => ({ key, label: AREA_LABEL[key] }))}
+                value={area}
+                onChange={changeArea}
+              />
+            )}
+            <Segmented
+              options={TOOLS}
+              value={tool}
+              onChange={(next) => {
+                setTool(next);
+                setSelected(null);
+              }}
+            />
+            {tool === 'draw' && (
+              <Stack
+                direction="row"
+                spacing={0.75}
+                alignItems="center"
+                role="group"
+                aria-label="Cor e espessura do traço"
+              >
+                {STROKE_COLORS.map((color) => (
                   <ButtonBase
-                    key={r.key}
-                    aria-pressed={active}
-                    onClick={() => changeView(r.key === 'body' ? 'body' : 'front')}
+                    key={color}
+                    aria-label={`Cor ${color}`}
+                    aria-pressed={color === strokeColor}
+                    onClick={() => setStrokeColor(color)}
                     sx={{
-                      height: 36,
-                      px: 2.5,
-                      fontSize: fontSizes.sm,
-                      fontWeight: 700,
-                      borderRadius: '9px',
-                      bgcolor: active ? 'background.paper' : 'transparent',
-                      color: active ? 'primary.main' : 'text.secondary',
-                      boxShadow: active ? 1 : 'none',
+                      width: 24,
+                      height: 24,
+                      borderRadius: '50%',
+                      bgcolor: color,
+                      border: '2px solid #fff',
+                      boxShadow: color === strokeColor ? `0 0 0 2px ${color}` : '0 0 0 1px rgba(0,0,0,.15)',
                     }}
-                  >
-                    {r.label}
-                  </ButtonBase>
-                );
-              })}
-            </Stack>
-          )}
+                  />
+                ))}
+                <Segmented
+                  size="sm"
+                  options={STROKE_WIDTHS.map((w) => ({
+                    key: String(w.value),
+                    label: w.label,
+                  }))}
+                  value={String(strokeWidth)}
+                  onChange={(next) => setStrokeWidth(Number(next))}
+                />
+                <Tooltip title="Desfazer último traço">
+                  <span>
+                    <IconButton
+                      aria-label="Desfazer último traço"
+                      disabled={viewStrokes.length === 0}
+                      onClick={undoStroke}
+                      size="small"
+                    >
+                      <UndoIcon fontSize="small" />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+              </Stack>
+            )}
+          </Stack>
 
+          {area === 'face' && (
+            <RegionChips
+              label="Rosto todo"
+              regions={FACE_REGIONS}
+              value={region}
+              onChange={(r) => {
+                setRegion(r);
+                setSelected(null);
+              }}
+            />
+          )}
+          {area === 'face' && faceView === 'head3d' && !faceRegion && (
+            <Typography sx={{ fontSize: fontSizes.xs, color: 'text.secondary' }}>
+              Modelo ilustrado: clique para marcar, arraste para girar e use a roda do mouse (ou pinça) para aproximar.
+            </Typography>
+          )}
+          {area === 'body' && bodyMode === 'body3d' && (
+            <Typography sx={{ fontSize: fontSizes.xs, color: 'text.secondary' }}>
+              Modelo ilustrado: clique para marcar e arraste para girar; a região de cada ponto (abdômen, flancos…) é
+              anotada pelo lugar marcado.
+            </Typography>
+          )}
+          {faceRegion && (
+            <Typography sx={{ fontSize: fontSizes.xs, color: 'text.secondary' }}>
+              Mapa de {faceRegion.label.toLowerCase()}: os círculos tracejados são pontos de aplicação sugeridos —
+              clique num deles ou em qualquer lugar do mapa para marcar.
+            </Typography>
+          )}
+          {area === 'body' && bodyMode === 'body' && (
+            <RegionChips
+              label="Corpo todo"
+              regions={BODY_REGIONS}
+              value={region}
+              onChange={(r) => {
+                setRegion(r);
+                setSelected(null);
+              }}
+            />
+          )}
           <Box
             sx={{
               display: 'grid',
@@ -165,38 +540,12 @@ function ApplicationMapEditor({
               alignItems: 'start',
             }}
           >
-            <ApplicationMapCanvas
-              points={points}
-              view={view}
-              onViewChange={changeView}
-              selectedIndex={selected}
-              onSelect={setSelected}
-              height={isMobile ? '58vh' : '52vh'}
-              autoFocusQty={!isMobile}
-              onAdd={({ x, y }) => {
-                setPoints((rows) => [...rows, { x, y, product, view }]);
-                setSelected(points.length);
-              }}
-              onQtyChange={(index, qty) =>
-                setPoints((rows) =>
-                  rows.map((row, i) => {
-                    if (i !== index) return row;
-                    const next = { ...row, qty };
-                    if (qty === undefined) delete next.qty;
-                    return next;
-                  }),
-                )
-              }
-              onRemove={(index) => {
-                setPoints((rows) => rows.filter((_, i) => i !== index));
-                setSelected(null);
-              }}
-            />
+            {canvas}
 
             <Stack spacing={1.1}>
               {productRows.map((p) => {
                 const active = p.id === product;
-                const count = points.filter((point) => point.product === p.id).length;
+                const count = map.points.filter((point) => point.product === p.id).length;
                 return (
                   <ButtonBase
                     key={p.id}
@@ -226,7 +575,14 @@ function ApplicationMapEditor({
                       }}
                     />
                     <Box sx={{ flex: 1, minWidth: 0, lineHeight: 1.25 }}>
-                      <Typography noWrap sx={{ fontSize: fontSizes.sm, fontWeight: 700, lineHeight: 1.3 }}>
+                      <Typography
+                        noWrap
+                        sx={{
+                          fontSize: fontSizes.sm,
+                          fontWeight: 700,
+                          lineHeight: 1.3,
+                        }}
+                      >
                         {p.label}
                       </Typography>
                       <Typography
@@ -237,7 +593,7 @@ function ApplicationMapEditor({
                           color: count > 0 ? p.color : 'text.disabled',
                         }}
                       >
-                        {count} pts · {formatProductTotal(p, points)}
+                        {count} pts · {formatProductTotal(p, map.points)}
                       </Typography>
                     </Box>
                   </ButtonBase>
@@ -256,14 +612,28 @@ function ApplicationMapEditor({
                   borderColor: 'divider',
                 }}
               >
-                <Typography sx={{ fontSize: fontSizes.xs, color: 'text.secondary', fontWeight: 600 }}>
+                <Typography
+                  sx={{
+                    fontSize: fontSizes.xs,
+                    color: 'text.secondary',
+                    fontWeight: 600,
+                  }}
+                >
                   Total de pontos
                 </Typography>
-                <Typography sx={{ fontSize: fontSizes.lg, fontWeight: 800 }}>{points.length}</Typography>
+                <Typography sx={{ fontSize: fontSizes.lg, fontWeight: 800 }}>{map.points.length}</Typography>
               </Stack>
-              <Typography sx={{ fontSize: fontSizes['2xs'], color: 'text.disabled', lineHeight: 1.45, px: 0.25 }}>
-                Escolha o produto e clique no mapa para marcar. Clique num ponto para informar a dose ou
-                removê-lo.
+              <Typography
+                sx={{
+                  fontSize: fontSizes['2xs'],
+                  color: 'text.disabled',
+                  lineHeight: 1.45,
+                  px: 0.25,
+                }}
+              >
+                {tool === 'draw'
+                  ? 'Arraste sobre o mapa para desenhar. Use a borracha para apagar um traço ou ponto.'
+                  : 'Escolha o produto e clique no mapa para marcar. Clique num ponto para informar a dose ou removê-lo.'}
               </Typography>
             </Stack>
           </Box>
@@ -275,14 +645,18 @@ function ApplicationMapEditor({
           variant="outlined"
           color="inherit"
           startIcon={<DeleteOutlineIcon />}
-          disabled={points.length === 0}
+          disabled={map.points.length === 0 && map.strokes.length === 0}
           onClick={() => {
-            setPoints([]);
+            setMap((m) => ({ ...m, points: [], strokes: [] }));
             setSelected(null);
           }}
-          sx={{ color: 'text.secondary', borderColor: 'divider', bgcolor: 'background.paper' }}
+          sx={{
+            color: 'text.secondary',
+            borderColor: 'divider',
+            bgcolor: 'background.paper',
+          }}
         >
-          Limpar pontos
+          Limpar mapa
         </Button>
         <Button variant="contained" onClick={onClose}>
           Concluir

@@ -447,8 +447,48 @@ export interface Appointment {
   finishedAt?: string | null;
 }
 
-export type ApplicationMapProduct = 'toxin' | 'filler' | 'biostimulator' | 'bioremodeler' | 'skinbooster';
-export type ApplicationMapView = 'front' | 'left' | 'right' | 'body';
+export type ApplicationMapProduct =
+  | 'toxin'
+  | 'filler'
+  | 'biostimulator'
+  | 'bioremodeler'
+  | 'skinbooster'
+  | 'cryolipolysis';
+/** Regiões do rosto (zoom na ilustração do rosto); como vista do ponto, só em mapas antigos. */
+export type ApplicationMapFaceRegion =
+  | 'forehead'
+  | 'temples'
+  | 'periorbital'
+  | 'nose'
+  | 'malar'
+  | 'nasolabial'
+  | 'lips'
+  | 'chin'
+  | 'jawline';
+/**
+ * `head3d`/`body3d`: modelo 3D ilustrado (genérico) da cabeça e do corpo; x/y em % da textura dele.
+ * Uma região do rosto (`lips`, `nose`…) como vista é legado (antigo desenho próprio da região):
+ * ao abrir, vira a ilustração do rosto que a região amplia (ver `toMapDraft`).
+ * `photo` é legado (marcação sobre a foto da paciente): ao abrir, vira a vista de frente.
+ */
+export type ApplicationMapView =
+  | 'front'
+  | 'left'
+  | 'right'
+  | 'body'
+  | 'head3d'
+  | 'body3d'
+  | 'photo'
+  | ApplicationMapFaceRegion;
+export type ApplicationMapRegion =
+  | ApplicationMapFaceRegion
+  | 'submental'
+  | 'arms'
+  | 'abdomen'
+  | 'flanks'
+  | 'back'
+  | 'saddlebags'
+  | 'thighs';
 
 /** Ponto do mapa de aplicação; x/y em % da largura/altura da imagem. */
 export interface ApplicationMapPoint {
@@ -457,15 +497,27 @@ export interface ApplicationMapPoint {
   /** Anotação livre dos mapas anteriores ao seletor de produto. */
   note?: string;
   product?: ApplicationMapProduct;
-  /** Quantidade na unidade do produto (U ou ml). */
+  /** Quantidade na unidade do produto (U, ml ou ciclos). */
   qty?: number;
   /** Sem `view`, o ponto é da frente do rosto. */
   view?: ApplicationMapView;
+  /** Região ampliada em que o ponto foi marcado. */
+  region?: ApplicationMapRegion;
+}
+
+/** Traço de desenho livre; `points` = [x1, y1, x2, y2, …] em % da imagem. */
+export interface ApplicationMapStroke {
+  view: ApplicationMapView;
+  color: string;
+  /** Espessura em % da largura da imagem. */
+  width: number;
+  points: number[];
 }
 
 export interface ApplicationMap {
   template: 'face';
   points: ApplicationMapPoint[];
+  strokes?: ApplicationMapStroke[];
 }
 
 export type PackageType = 'COMBO' | 'SESSIONS';

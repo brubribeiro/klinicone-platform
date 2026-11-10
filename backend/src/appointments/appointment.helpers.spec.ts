@@ -11,19 +11,19 @@ describe('toApplicationMapData', () => {
     expect(toApplicationMapData({ template: 'face', points: [] })).toBe(Prisma.DbNull);
   });
 
-  it('rounds coordinates and drops blank notes', () => {
+  it('rounds coordinates to 2 decimals and drops blank notes', () => {
     expect(
       toApplicationMapData({
         template: 'face',
         points: [
-          { x: 33.333, y: 40.06, note: '  Toxina 4U ' },
+          { x: 33.3333, y: 40.0612, note: '  Toxina 4U ' },
           { x: 66.6, y: 40, note: '   ' },
         ],
       }),
     ).toEqual({
       template: 'face',
       points: [
-        { x: 33.3, y: 40.1, note: 'Toxina 4U' },
+        { x: 33.33, y: 40.06, note: 'Toxina 4U' },
         { x: 66.6, y: 40 },
       ],
     });
@@ -46,6 +46,57 @@ describe('toApplicationMapData', () => {
         { x: 20, y: 60, product: 'filler', qty: 0.33, view: 'body' },
         { x: 70, y: 45, product: 'skinbooster', view: 'left' },
       ],
+    });
+  });
+
+  it('keeps strokes, regions and marks on the generic 3D models', () => {
+    expect(
+      toApplicationMapData({
+        template: 'face',
+        points: [
+          { x: 50.123, y: 42.5, product: 'filler', qty: 1, view: 'head3d', region: 'lips' },
+          { x: 20, y: 60, product: 'cryolipolysis', qty: 2, view: 'body3d', region: 'abdomen' },
+        ],
+        strokes: [
+          { view: 'front', color: '#E53935', width: 0.6, points: [10.04, 20.06, 30, 40, 50] },
+          { view: 'body', color: '#000000', width: 1, points: [5] },
+        ],
+      }),
+    ).toEqual({
+      template: 'face',
+      points: [
+        { x: 50.12, y: 42.5, product: 'filler', qty: 1, view: 'head3d', region: 'lips' },
+        { x: 20, y: 60, product: 'cryolipolysis', qty: 2, view: 'body3d', region: 'abdomen' },
+      ],
+      strokes: [{ view: 'front', color: '#e53935', width: 0.6, points: [10, 20.1, 30, 40] }],
+    });
+  });
+
+  it('keeps points and strokes of the illustrated region maps', () => {
+    expect(
+      toApplicationMapData({
+        template: 'face',
+        points: [{ x: 43.1, y: 38, product: 'filler', qty: 0.1, view: 'lips', region: 'lips' }],
+        strokes: [{ view: 'nose', color: '#1e88e5', width: 0.5, points: [40, 50, 42, 52] }],
+      }),
+    ).toEqual({
+      template: 'face',
+      points: [{ x: 43.1, y: 38, product: 'filler', qty: 0.1, view: 'lips', region: 'lips' }],
+      strokes: [{ view: 'nose', color: '#1e88e5', width: 0.5, points: [40, 50, 42, 52] }],
+    });
+  });
+
+  it('keeps a map that only has drawings', () => {
+    expect(
+      toApplicationMapData({
+        template: 'face',
+        points: [],
+        strokes: [{ view: 'body', color: '#1e88e5', width: 1, points: [1, 2, 3, 4] }],
+      }),
+    ).toEqual({
+      template: 'face',
+      points: [],
+      strokes: [{ view: 'body', color: '#1e88e5', width: 1, points: [1, 2, 3, 4] }],
     });
   });
 });
