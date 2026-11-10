@@ -25,25 +25,41 @@ export const appointmentRelationsInclude = {
   },
 } as const;
 
-/** Snapshot do mapa de aplicação para gravar; sem pontos, apaga o mapa. */
+const round2 = (n: number) => Math.round(n * 100) / 100;
+const round1 = (n: number) => Math.round(n * 10) / 10;
+
+/** Snapshot do mapa de aplicação para gravar; sem pontos nem traços, apaga o mapa. */
 export function toApplicationMapData(
   map: ApplicationMapDto | undefined,
 ): Prisma.InputJsonValue | typeof Prisma.DbNull | undefined {
   if (map === undefined) return undefined;
-  if (map.points.length === 0) return Prisma.DbNull;
+  const strokes = (map.strokes ?? []).filter((s) => s.points.length >= 2);
+  if (map.points.length === 0 && strokes.length === 0) return Prisma.DbNull;
   return {
     template: map.template,
     points: map.points.map((p) => {
       const note = p.note?.trim();
       return {
-        x: Math.round(p.x * 10) / 10,
-        y: Math.round(p.y * 10) / 10,
+        x: round2(p.x),
+        y: round2(p.y),
         ...(note ? { note } : {}),
         ...(p.product ? { product: p.product } : {}),
-        ...(p.qty !== undefined && p.qty !== null ? { qty: Math.round(p.qty * 100) / 100 } : {}),
+        ...(p.qty !== undefined && p.qty !== null ? { qty: round2(p.qty) } : {}),
         ...(p.view ? { view: p.view } : {}),
+        ...(p.region ? { region: p.region } : {}),
       };
     }),
+    ...(strokes.length > 0
+      ? {
+          strokes: strokes.map((s) => ({
+            view: s.view,
+            color: s.color.toLowerCase(),
+            width: round2(s.width),
+            // número par de coordenadas: um x sem y é descartado
+            points: s.points.slice(0, s.points.length - (s.points.length % 2)).map(round1),
+          })),
+        }
+      : {}),
   };
 }
 
