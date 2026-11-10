@@ -4,7 +4,6 @@ import { Box, Stack, Typography } from '@mui/material';
 import type { ApplicationMap, ApplicationMapView } from '../../types';
 import { fontSizes } from '../../theme/fontSizes';
 import {
-  FACE_REGIONS,
   MAP_PRODUCTS,
   MAP_VIEWS,
   formatProductTotal,
@@ -27,7 +26,6 @@ const VIEW_ORDER: ApplicationMapView[] = [
   'front',
   'left',
   'right',
-  ...FACE_REGIONS.map((r) => r.id),
   'body3d',
   'body',
 ];
