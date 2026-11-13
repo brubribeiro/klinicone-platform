@@ -104,7 +104,7 @@ describe('despesas recorrentes', () => {
 
     const upd = await as(() => recurring.update(rent.id, { amount: 2500 }, C.actor));
     expect(Number(upd.amount)).toBe(2500);
-    expect(await as(() => recurring.remove(tmp.id, C.actor))).toEqual({ ok: true });
+    expect(await as(() => recurring.remove(tmp.id, C.actor))).toEqual({ ok: true, unlinked: [] });
     await expect(as(() => recurring.findOne(tmp.id))).rejects.toBeInstanceOf(NotFoundException);
 
     // fevereiro/2031 tem 28 dias: vencimento dia 31 vira 28
