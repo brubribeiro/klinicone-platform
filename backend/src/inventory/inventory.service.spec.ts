@@ -145,6 +145,16 @@ describe('InventoryService', () => {
 
       await expect(service.remove('item-1')).rejects.toThrow(BadRequestException);
     });
+
+    it('should delete the item and its movements when unused', async () => {
+      prisma.inventoryItem.findUnique.mockResolvedValue(mockItem);
+      prisma.inventoryMovement.deleteMany = jest.fn().mockResolvedValue({ count: 2 });
+      prisma.inventoryItem.delete = jest.fn().mockResolvedValue(mockItem);
+
+      await expect(service.remove('item-1')).resolves.toEqual({ ok: true });
+      expect(prisma.inventoryMovement.deleteMany).toHaveBeenCalledWith({ where: { itemId: 'item-1' } });
+      expect(prisma.inventoryItem.delete).toHaveBeenCalledWith({ where: { id: 'item-1' } });
+    });
   });
 
   describe('createMovement', () => {

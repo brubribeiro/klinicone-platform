@@ -1,4 +1,5 @@
-import { Box, Typography } from '@mui/material';
+import { Box, IconButton, Tooltip, Typography } from '@mui/material';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { StatusPill } from './InventoryDetailParts';
 import { EXPIRING_DAYS, STOCK_STATUS_COLOR, daysToExpiry, isLowStock } from './inventoryStatus';
 import { formatDateOnlyFromApi } from '../../utils/dateOnly';
@@ -6,7 +7,7 @@ import type { InventoryItem } from '../../types';
 import { fontSizes } from '../../theme/fontSizes';
 import { brl } from '../../utils/money';
 
-export const INVENTORY_GRID_COLUMNS = '2.4fr 1fr 1.2fr 1fr 1fr 1fr';
+export const INVENTORY_GRID_COLUMNS = '2.4fr 1fr 1.2fr 1fr 1fr 1fr 44px';
 
 function formatQty(value: number | string) {
   return Number(Number(value).toFixed(3)).toLocaleString('pt-BR');
@@ -15,10 +16,11 @@ function formatQty(value: number | string) {
 interface InventoryListRowProps {
   item: InventoryItem;
   onOpen: () => void;
+  onDelete?: () => void;
 }
 
 /** Linha da tabela de produtos & insumos; abre o detalhe ao clicar ou com Enter/Espaço. */
-export function InventoryListRow({ item, onOpen }: InventoryListRowProps) {
+export function InventoryListRow({ item, onOpen, onDelete }: InventoryListRowProps) {
   const low = isLowStock(item);
   const days = daysToExpiry(item.expiresAt);
   return (
@@ -93,6 +95,23 @@ export function InventoryListRow({ item, onOpen }: InventoryListRowProps) {
       <Typography sx={{ fontSize: fontSizes.md, fontWeight: 800, textAlign: 'right' }}>
         {item.costPrice != null ? brl.format(Number(item.costPrice)) : '—'}
       </Typography>
+      <Box sx={{ textAlign: 'right' }}>
+        {onDelete && (
+          <Tooltip title="Excluir item">
+            <IconButton
+              size="small"
+              aria-label={`Excluir ${item.name}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete();
+              }}
+              onKeyDown={(e) => e.stopPropagation()}
+            >
+              <DeleteOutlineIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        )}
+      </Box>
     </Box>
   );
 }

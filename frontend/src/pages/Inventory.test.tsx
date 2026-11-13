@@ -164,18 +164,16 @@ describe('Inventory (página)', () => {
     expect(dialogs.alert).not.toHaveBeenCalled();
   });
 
-  it('botões da barra abrem cadastro, movimentação livre e compra em lote', async () => {
+  it('botões da barra abrem movimentação livre e compra em lote', async () => {
     renderPage();
     await screen.findByText('Toxina');
-    await userEvent.click(screen.getByRole('button', { name: 'Cadastrar produto' }));
-    expect(screen.getByRole('dialog', { name: 'form' })).toHaveTextContent('Novo produto');
     await userEvent.click(screen.getByRole('button', { name: 'Movimentar' }));
     expect(screen.getByRole('dialog', { name: 'movimento' })).toHaveTextContent('Movimento livre (12 produtos)');
     await userEvent.click(screen.getByRole('button', { name: 'Adicionar item' }));
     expect(screen.getByRole('dialog', { name: 'lote' })).toBeInTheDocument();
   });
 
-  it('sem permissões esconde cadastrar, adicionar item e as ações do detalhe', async () => {
+  it('sem permissões esconde adicionar item e as ações do detalhe', async () => {
     auth.user.permissions = [];
     renderPage();
     await screen.findByText('Toxina');
@@ -205,6 +203,16 @@ describe('Inventory (página)', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Abrir página do item' }));
     expect(await screen.findByTestId('where')).toHaveTextContent('/estoque/a');
+  });
+
+  it('ícone Excluir na linha confirma e remove sem abrir o detalhe', async () => {
+    mocked(inventoryApi.getDeletionPreview).mockResolvedValue({ procedures: [], appointmentCount: 0, movementsCount: 0, canDelete: true });
+    mocked(inventoryApi.remove).mockResolvedValue(undefined);
+    renderPage();
+    await screen.findByText('Toxina');
+    await userEvent.click(screen.getByRole('button', { name: 'Excluir Toxina' }));
+    await waitFor(() => expect(inventoryApi.remove).toHaveBeenCalledWith('a'));
+    expect(inventoryApi.findOne).not.toHaveBeenCalled();
   });
 
   it('exclusão: consulta o que será afetado, confirma e remove', async () => {
