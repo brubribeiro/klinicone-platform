@@ -197,8 +197,8 @@ describe('Procedures page', () => {
     const { invalidate } = renderPage();
     await screen.findByText('Toxina Botulínica');
     await userEvent.click(screen.getByRole('button', { name: 'Excluir Consulta' }));
-    expect(dialogs.confirm).toHaveBeenCalledWith(expect.objectContaining({ title: 'Excluir procedimento', message: 'Excluir procedimento Consulta?' }));
-    await waitFor(() => expect(proceduresApi.remove).toHaveBeenCalledWith('p3'));
+    expect(dialogs.confirm).toHaveBeenCalledWith(expect.objectContaining({ title: 'Excluir procedimento', message: 'Excluir procedimento Consulta? Esta ação não pode ser desfeita.' }));
+    await waitFor(() => expect(proceduresApi.remove).toHaveBeenCalledWith('p3', {}));
     expect(toast.success).toHaveBeenCalledWith('Procedimento excluído.');
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['procedures'] });
 

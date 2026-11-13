@@ -1407,7 +1407,9 @@ enum MovementType {
 model InventoryMovement {
   id        String       @id @default(uuid())
   tenantId  String       @default(dbgenerated("current_setting('app.tenant_id'::text, true)"))
-  itemId    String
+  // Nulo quando o item foi excluído: a movimentação fica no histórico com o nome em itemName
+  itemId    String?
+  itemName  String?
   type      MovementType
   quantity  Decimal      @db.Decimal(12, 3)
   reason    String?
@@ -1416,7 +1418,7 @@ model InventoryMovement {
   expiresAt DateTime?
   createdAt DateTime     @default(now())
 
-  item InventoryItem @relation(fields: [itemId], references: [id])
+  item InventoryItem? @relation(fields: [itemId], references: [id], onDelete: SetNull)
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 

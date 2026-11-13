@@ -35,6 +35,7 @@ import { StatCard } from '../components/StatCard';
 import { usePagination } from '../hooks/usePagination';
 import { useAppDialog } from '../contexts/AppDialogContext';
 import { useAppToast } from '../contexts/AppToastContext';
+import { useDeleteWithDependencies } from '../hooks/useDeleteWithDependencies';
 import { getApiErrorMessage } from '../utils/apiError';
 import { usePermissions } from '../contexts/usePermissions';
 import type { InventoryItem } from '../types';
@@ -63,6 +64,7 @@ export function Inventory() {
   const navigate = useNavigate();
   const { confirm, alert } = useAppDialog();
   const toast = useAppToast();
+  const deleteWithDependencies = useDeleteWithDependencies();
   const { has } = usePermissions();
   const canEdit = has('inventory:edit');
   const canDelete = has('inventory:delete');
@@ -112,17 +114,6 @@ export function Inventory() {
     filteredItems,
     PAGE_SIZE);
 
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) => inventoryApi.remove(id),
-    onSuccess: (_, id) => {
-      queryClient.invalidateQueries({ queryKey: ['inventory'] });
-      setDetailId((open) => (open === id ? null : open));
-      toast.success('Item excluído.');
-    },
-    onError: (err) => {
-      toast.error(getApiErrorMessage(err, 'Não foi possível excluir o item.'));
-    },
-  });
 
   const exportCsv = async () => {
     const ok = downloadCsv(
@@ -161,46 +152,17 @@ export function Inventory() {
       toast.error('Você não tem permissão para excluir itens do estoque. Peça a um administrador para liberar "Estoque > Excluir" no seu grupo.');
       return;
     }
-    let preview;
-    try {
-      preview = await inventoryApi.getDeletionPreview(item.id);
-    } catch (err: unknown) {
-      const msg =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-        'Não foi possível verificar o item.';
-      await alert({ title: 'Erro', message: msg, severity: 'error' });
-      return;
-    }
-
-    const procedureNames = preview.procedures.map((p) => p.name);
-    const extraLines: string[] = [];
-    if (preview.appointmentCount > 0) {
-      extraLines.push(`${preview.appointmentCount} agendamento(s) com este material`);
-    }
-    if (preview.movementsCount > 0 && preview.canDelete) {
-      extraLines.push(`${preview.movementsCount} movimentação(ões) de estoque serão removidas`);
-    }
-
-    let message = preview.canDelete
-      ? `Excluir o item "${item.name}"? Esta ação não pode ser desfeita.`
-      : `O item "${item.name}" não pode ser excluído enquanto estiver em uso.`;
-    if (preview.appointmentCount > 0 && !preview.canDelete) {
-      message += ` Há ${preview.appointmentCount} agendamento(s) com este material.`;
-    }
-
-    const ok = await confirm({
+    await deleteWithDependencies({
       title: 'Excluir item',
-      message,
-      detailsTitle: procedureNames.length > 0 ? 'Procedimentos que usam este item:' : undefined,
-      details:
-        procedureNames.length > 0 || extraLines.length > 0
-          ? [...procedureNames, ...extraLines]
-          : undefined,
-      confirmLabel: 'Excluir',
-      confirmColor: 'error',
-      disableConfirm: !preview.canDelete,
+      message: `Excluir o item "${item.name}"?`,
+      remove: (options) => inventoryApi.remove(item.id, options),
+      successMessage: 'Item excluído.',
+      errorMessage: 'Não foi possível excluir o item.',
+      onDeleted: () => {
+        queryClient.invalidateQueries({ queryKey: ['inventory'] });
+        setDetailId((open) => (open === item.id ? null : open));
+      },
     });
-    if (ok) deleteMutation.mutate(item.id);
   };
 
   return (

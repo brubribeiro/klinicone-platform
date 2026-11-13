@@ -1,5 +1,7 @@
 import { api } from './client';
 import type { Equipment } from '../types';
+import { deleteWithUnlink } from './deletion';
+import type { RemoveOptions } from '../utils/deletionConflict';
 
 export interface EquipmentPayload {
   name: string;
@@ -38,7 +40,7 @@ export const equipmentApi = {
     const { data } = await api.post<Equipment>(`/equipment/${id}/maintenance`);
     return data;
   },
-  remove: async (id: string): Promise<void> => {
-    await api.delete(`/equipment/${id}`);
+  remove: async (id: string, options?: RemoveOptions): Promise<void> => {
+    await deleteWithUnlink(`/equipment/${id}`, options);
   },
 };
