@@ -32,6 +32,7 @@ import { ROW_ACTION_BUTTON_SX } from '../components/RowActionButton';
 import { usePagination } from '../hooks/usePagination';
 import { useAppDialog } from '../contexts/AppDialogContext';
 import { useAppToast } from '../contexts/AppToastContext';
+import { useDeleteWithDependencies } from '../hooks/useDeleteWithDependencies';
 import { getApiErrorMessage } from '../utils/apiError';
 import type { RecurringExpense } from '../types';
 import { fontSizes } from '../theme/fontSizes';
@@ -47,6 +48,7 @@ export function RecurringExpensesPage() {
   const queryClient = useQueryClient();
   const { confirm } = useAppDialog();
   const toast = useAppToast();
+  const deleteWithDependencies = useDeleteWithDependencies();
   const [search, setSearch] = useUrlState('busca', '');
   const [activeFilter, setActiveFilter] = useUrlState<ActiveFilter>('status', 'ALL', ACTIVE_FILTER_CODEC);
   const [typeFilter, setTypeFilter] = useUrlState<ExpenseTypeFilter>('tipo', 'ALL', TYPE_FILTER_CODEC);
@@ -56,17 +58,6 @@ export function RecurringExpensesPage() {
   const { data: items = [], isLoading } = useQuery({
     queryKey: ['recurring-expenses'],
     queryFn: () => recurringExpensesApi.list(),
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) => recurringExpensesApi.remove(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['recurring-expenses'] });
-      toast.success('Despesa excluída.');
-    },
-    onError: (err) => {
-      toast.error(getApiErrorMessage(err, 'Não foi possível excluir a despesa.'));
-    },
   });
 
   const generateMutation = useMutation({
@@ -144,13 +135,16 @@ export function RecurringExpensesPage() {
   };
 
   const handleDelete = async (expense: RecurringExpense) => {
-    const ok = await confirm({
+    await deleteWithDependencies({
       title: 'Excluir despesa',
       message: `Excluir "${expense.name}"?`,
-      confirmLabel: 'Excluir',
-      confirmColor: 'error',
+      remove: (options) => recurringExpensesApi.remove(expense.id, options),
+      successMessage: 'Despesa excluída.',
+      errorMessage: 'Não foi possível excluir a despesa.',
+      onDeleted: () => {
+        queryClient.invalidateQueries({ queryKey: ['recurring-expenses'] });
+      },
     });
-    if (ok) deleteMutation.mutate(expense.id);
   };
 
   return (

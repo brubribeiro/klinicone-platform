@@ -29,6 +29,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { documentTemplatesApi, type DocumentTemplatePayload } from '../../api/documentTemplates';
 import { useAppDialog } from '../../contexts/AppDialogContext';
 import { useAppToast } from '../../contexts/AppToastContext';
+import { useDeleteWithDependencies } from '../../hooks/useDeleteWithDependencies';
 import { getApiErrorMessage } from '../../utils/apiError';
 import { DialogHeader, dialogActionsBorderSx, dialogPaperSx } from '../DialogCloseButton';
 import { LabeledField } from '../LabeledField';
@@ -57,6 +58,7 @@ export function DocumentTemplatesDialog({ open, onClose, canEdit, canDelete }: P
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const queryClient = useQueryClient();
   const toast = useAppToast();
+  const deleteWithDependencies = useDeleteWithDependencies();
   const { confirm } = useAppDialog();
   const contentRef = useRef<HTMLTextAreaElement>(null);
   const [form, setForm] = useState<FormState | null>(null);
@@ -101,15 +103,6 @@ export function DocumentTemplatesDialog({ open, onClose, canEdit, canDelete }: P
     },
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) => documentTemplatesApi.remove(id),
-    onSuccess: (_res, id) => {
-      queryClient.setQueryData<DocumentTemplate[]>(TEMPLATES_KEY, (old = []) => old.filter((t) => t.id !== id));
-      toast.success('Modelo excluído.');
-    },
-    onError: (err) => toast.error(getApiErrorMessage(err, 'Não foi possível excluir o modelo.')),
-  });
-
   const handleClose = () => {
     setForm(null);
     onClose();
@@ -130,17 +123,16 @@ export function DocumentTemplatesDialog({ open, onClose, canEdit, canDelete }: P
   };
 
   const handleDelete = async (t: DocumentTemplate) => {
-    const used = t._count?.documents ?? 0;
-    const ok = await confirm({
+    await deleteWithDependencies({
       title: 'Excluir modelo',
       message: `Excluir o modelo "${t.name}"?`,
-      subtitle: used
-        ? `${used} documento(s) gerado(s) com ele continuam salvos, apenas sem o vínculo com o modelo.`
-        : undefined,
-      confirmLabel: 'Excluir',
-      confirmColor: 'error',
+      remove: (options) => documentTemplatesApi.remove(t.id, options),
+      successMessage: 'Modelo excluído.',
+      errorMessage: 'Não foi possível excluir o modelo.',
+      onDeleted: () => {
+        queryClient.setQueryData<DocumentTemplate[]>(TEMPLATES_KEY, (old = []) => old.filter((item) => item.id !== t.id));
+      },
     });
-    if (ok) deleteMutation.mutate(t.id);
   };
 
   const canSave = !!form && form.name.trim().length > 0 && form.content.trim().length > 0;

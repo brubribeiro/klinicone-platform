@@ -5,6 +5,7 @@ import { PackagesService } from './packages.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { PromotionsService } from '../promotions/promotions.service';
+import { DeletionConflictException } from '../common/deletion/deletion-dependencies';
 
 describe('PackagesService', () => {
   let service: PackagesService;
@@ -198,14 +199,59 @@ describe('PackagesService', () => {
   });
 
   describe('remove', () => {
-    it('should throw if active patient packages exist', async () => {
-      prisma.patientPackage.count.mockResolvedValue(2);
+    const conflictOf = async (promise: Promise<unknown>) => {
+      const err = await promise.catch((e) => e);
+      expect(err).toBeInstanceOf(DeletionConflictException);
+      return (err as DeletionConflictException).getResponse() as Record<string, any>;
+    };
 
-      await expect(service.remove('pkg-1')).rejects.toThrow(BadRequestException);
+    beforeEach(() => {
+      prisma.patientPackage.findMany.mockResolvedValue([]);
+      prisma.promotionPackage = {
+        findMany: jest.fn().mockResolvedValue([]),
+        deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+      };
+      prisma.$transactionWithRetry = jest.fn().mockImplementation(async (fn) => fn(prisma));
     });
 
-    it('should delete when no active patient packages', async () => {
-      await service.remove('pkg-1');
+    it('responde 409 com canUnlink true listando as promoções', async () => {
+      prisma.promotionPackage.findMany.mockResolvedValue([{ promotion: { name: 'Combo' } }]);
+      const body = await conflictOf(service.remove('pkg-1'));
+      expect(body.canUnlink).toBe(true);
+      expect(body.dependencies).toEqual([
+        expect.objectContaining({ type: 'promotions', count: 1, names: ['Combo'], unlinkable: true }),
+      ]);
+      expect(prisma.package.delete).not.toHaveBeenCalled();
+    });
+
+    it('bloqueia (canUnlink false) quando há pacotes vendidos, mesmo desvinculando', async () => {
+      prisma.patientPackage.findMany.mockResolvedValue([{ patient: { name: 'João' } }]);
+      prisma.promotionPackage.findMany.mockResolvedValue([{ promotion: { name: 'Combo' } }]);
+      const body = await conflictOf(service.remove('pkg-1', undefined, true));
+      expect(body.canUnlink).toBe(false);
+      expect(body.dependencies).toEqual(
+        expect.arrayContaining([expect.objectContaining({ type: 'patientPackages', names: ['João'] })]),
+      );
+      expect(prisma.promotionPackage.deleteMany).not.toHaveBeenCalled();
+      expect(prisma.package.delete).not.toHaveBeenCalled();
+    });
+
+    it('desvincula das promoções e exclui', async () => {
+      prisma.promotionPackage.findMany.mockResolvedValue([{ promotion: { name: 'Combo' } }]);
+      const result = await service.remove('pkg-1', { id: 'u1' } as never, true);
+      expect(result).toEqual({ ok: true, unlinked: [expect.objectContaining({ type: 'promotions' })] });
+      expect(prisma.promotionPackage.deleteMany).toHaveBeenCalledWith({ where: { packageId: 'pkg-1' } });
+      expect(prisma.package.delete).toHaveBeenCalledWith({ where: { id: 'pkg-1' } });
+      expect(auditLog.logDelete).toHaveBeenCalledWith(
+        'Package',
+        'pkg-1',
+        expect.objectContaining({ unlinkedDependencies: expect.any(Array) }),
+        expect.anything(),
+      );
+    });
+
+    it('exclui direto quando não há vínculos', async () => {
+      await expect(service.remove('pkg-1')).resolves.toEqual({ ok: true, unlinked: [] });
       expect(prisma.package.delete).toHaveBeenCalledWith({ where: { id: 'pkg-1' } });
     });
   });

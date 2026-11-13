@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 
 import { ProceduresService } from './procedures.service';
 import { CreateProcedureDto } from './dto/create-procedure.dto';
@@ -9,6 +9,7 @@ import { FeatureGuard } from '../common/guards/feature.guard';
 import { RequirePermissions } from '../common/decorators/require-permissions.decorator';
 import { RequireFeature } from '../common/decorators/require-feature.decorator';
 import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
+import { parseUnlinkFlag } from '../common/deletion/deletion-dependencies';
 
 @RequireFeature('procedures')
 @UseGuards(JwtAuthGuard, FeatureGuard, PermissionsGuard)
@@ -42,7 +43,11 @@ export class ProceduresController {
 
   @RequirePermissions('procedures:delete')
   @Delete(':id')
-  remove(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
-    return this.procedures.remove(id, user);
+  remove(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Query('unlink') unlink?: string,
+  ) {
+    return this.procedures.remove(id, user, parseUnlinkFlag(unlink));
   }
 }

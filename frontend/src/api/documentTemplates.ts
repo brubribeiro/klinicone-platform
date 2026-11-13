@@ -1,5 +1,7 @@
 import { api } from './client';
 import type { DocumentTemplate } from '../types';
+import { deleteWithUnlink } from './deletion';
+import type { RemoveOptions } from '../utils/deletionConflict';
 
 export interface DocumentTemplatePayload {
   name: string;
@@ -24,7 +26,7 @@ export const documentTemplatesApi = {
     return data;
   },
 
-  remove: async (id: string): Promise<void> => {
-    await api.delete(`/document-templates/${id}`);
+  remove: async (id: string, options?: RemoveOptions): Promise<void> => {
+    await deleteWithUnlink(`/document-templates/${id}`, options);
   },
 };

@@ -1,5 +1,7 @@
 import { api } from './client';
 import type { Promotion } from '../types';
+import { deleteWithUnlink } from './deletion';
+import type { RemoveOptions } from '../utils/deletionConflict';
 
 export interface CreatePromotionPayload {
   name: string;
@@ -37,7 +39,7 @@ export const promotionsApi = {
     return data;
   },
 
-  remove: async (id: string): Promise<void> => {
-    await api.delete(`/promotions/${id}`);
+  remove: async (id: string, options?: RemoveOptions): Promise<void> => {
+    await deleteWithUnlink(`/promotions/${id}`, options);
   },
 };

@@ -10,6 +10,7 @@ import { BulkPurchaseDto } from './dto/bulk-purchase.dto';
 import { NotificationsService } from '../notifications/notifications.service';
 import { parseDateOnlyToUtcNoon } from '../common/utils/date-only.util';
 import { AuditLogService, AuditUser } from '../audit-log/audit-log.service';
+import { assertDeletable, dependency } from '../common/deletion/deletion-dependencies';
 
 @Injectable()
 export class InventoryService {
@@ -51,71 +52,67 @@ export class InventoryService {
     return updated;
   }
 
-  async getDeletionPreview(id: string) {
-    await this.findOne(id);
-
+  /** Vínculos que impedem ou exigem desvincular antes de excluir o item. */
+  private async collectDeletionDependencies(tx: Prisma.TransactionClient, id: string) {
     const [procedureUsages, appointmentCount, movementsCount] = await Promise.all([
-      this.prisma.procedureMaterial.findMany({
+      tx.procedureMaterial.findMany({
         where: { itemId: id },
-        include: { procedure: { select: { id: true, name: true } } },
+        select: { procedure: { select: { id: true, name: true } } },
       }),
-      this.prisma.appointmentMaterial.count({ where: { itemId: id } }),
-      this.prisma.inventoryMovement.count({ where: { itemId: id } }),
+      tx.appointmentMaterial.count({ where: { itemId: id } }),
+      tx.inventoryMovement.count({ where: { itemId: id } }),
     ]);
-
-    const procedureMap = new Map<string, { id: string; name: string }>();
-    for (const usage of procedureUsages) {
-      procedureMap.set(usage.procedure.id, {
-        id: usage.procedure.id,
-        name: usage.procedure.name,
-      });
-    }
-    const procedures = [...procedureMap.values()].sort((a, b) =>
-      a.name.localeCompare(b.name, 'pt-BR'),
-    );
-
-    const canDelete = procedures.length === 0 && appointmentCount === 0;
-
-    return {
-      procedures,
-      appointmentCount,
-      movementsCount,
-      canDelete,
-    };
+    const procedures = new Map(procedureUsages.map((u) => [u.procedure.id, u.procedure.name]));
+    return [
+      dependency({
+        type: 'procedures',
+        label: 'Procedimentos',
+        count: procedures.size,
+        names: [...procedures.values()],
+        unlinkable: true,
+        note: 'O item sai da lista de materiais desses procedimentos.',
+      }),
+      dependency({
+        type: 'appointments',
+        label: 'Atendimentos',
+        count: appointmentCount,
+        unlinkable: false,
+        note: 'O consumo do item em atendimentos faz parte do histórico e não pode ser desvinculado.',
+      }),
+      dependency({
+        type: 'movements',
+        label: 'Movimentações de estoque',
+        count: movementsCount,
+        unlinkable: true,
+        note: 'As movimentações continuam no histórico com o nome do item.',
+      }),
+    ];
   }
 
-  async remove(id: string, user?: AuditUser) {
-    const preview = await this.getDeletionPreview(id);
-
-    if (!preview.canDelete) {
-      const procedureNames = preview.procedures.map((p) => p.name).join(', ');
-      if (preview.appointmentCount > 0 && preview.procedures.length > 0) {
-        throw new BadRequestException(
-          `Não é possível excluir: item usado em ${preview.appointmentCount} agendamento(s) e nos procedimentos: ${procedureNames}. Remova os vínculos antes.`,
-        );
-      }
-      if (preview.appointmentCount > 0) {
-        throw new BadRequestException(
-          `Não é possível excluir: item usado em ${preview.appointmentCount} agendamento(s).`,
-        );
-      }
-      throw new BadRequestException(
-        `Não é possível excluir: item usado nos procedimentos: ${procedureNames}. Remova o material dos procedimentos antes.`,
-      );
-    }
-
+  async remove(id: string, user?: AuditUser, unlink = false) {
     const oldData = await this.prisma.inventoryItem.findUnique({ where: { id } });
+    if (!oldData) throw new NotFoundException('Item não encontrado');
 
-    await this.prisma.$transaction([
-      this.prisma.inventoryMovement.deleteMany({ where: { itemId: id } }),
-      this.prisma.inventoryItem.delete({ where: { id } }),
-    ]);
+    const unlinked = await this.prisma.$transactionWithRetry(async (tx) => {
+      const deps = assertDeletable(
+        `o item "${oldData.name}"`,
+        await this.collectDeletionDependencies(tx, id),
+        { unlink },
+      );
+      await tx.procedureMaterial.deleteMany({ where: { itemId: id } });
+      await tx.inventoryMovement.updateMany({
+        where: { itemId: id },
+        data: { itemId: null, itemName: oldData.name },
+      });
+      await tx.inventoryItem.delete({ where: { id } });
+      return deps;
+    });
 
-    if (oldData) {
-      this.auditLog.logDelete('InventoryItem', id, oldData as unknown as Record<string, unknown>, user).catch(() => undefined);
-    }
+    this.auditLog
+      .logDelete('InventoryItem', id, { ...oldData, unlinkedDependencies: unlinked } as unknown as Record<string, unknown>, user)
+      .catch(() => undefined);
 
-    return { ok: true };
+    return { ok: true, unlinked };
   }
 
   async createMovement(itemId: string, dto: CreateMovementDto, user?: AuditUser) {
