@@ -1,5 +1,7 @@
 import { api } from './client';
 import type { InventoryItem } from '../types';
+import { deleteWithUnlink } from './deletion';
+import type { RemoveOptions } from '../utils/deletionConflict';
 
 export interface InventoryItemPayload {
   name: string;
@@ -68,13 +70,6 @@ export interface BulkPurchaseResult {
   }[];
 }
 
-export interface InventoryDeletionPreview {
-  procedures: { id: string; name: string }[];
-  appointmentCount: number;
-  movementsCount: number;
-  canDelete: boolean;
-}
-
 export const inventoryApi = {
   list: async (): Promise<InventoryItem[]> => {
     const { data } = await api.get<InventoryItem[]>('/inventory');
@@ -88,10 +83,6 @@ export const inventoryApi = {
     const { data } = await api.get<InventoryItemWithMovements>(`/inventory/${id}`);
     return data;
   },
-  getDeletionPreview: async (id: string): Promise<InventoryDeletionPreview> => {
-    const { data } = await api.get<InventoryDeletionPreview>(`/inventory/${id}/deletion-preview`);
-    return data;
-  },
   create: async (payload: InventoryItemPayload): Promise<InventoryItem> => {
     const { data } = await api.post<InventoryItem>('/inventory', payload);
     return data;
@@ -100,8 +91,8 @@ export const inventoryApi = {
     const { data } = await api.patch<InventoryItem>(`/inventory/${id}`, payload);
     return data;
   },
-  remove: async (id: string): Promise<void> => {
-    await api.delete(`/inventory/${id}`);
+  remove: async (id: string, options?: RemoveOptions): Promise<void> => {
+    await deleteWithUnlink(`/inventory/${id}`, options);
   },
   createMovement: async (id: string, payload: MovementPayload) => {
     const { data } = await api.post(`/inventory/${id}/movements`, payload);

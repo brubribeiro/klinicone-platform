@@ -166,8 +166,8 @@ describe('RecurringExpensesPage', () => {
     const { invalidate } = renderPage();
     await screen.findByText('Aluguel');
     await userEvent.click(screen.getByRole('button', { name: 'Excluir Aluguel' }));
-    expect(dialogs.confirm).toHaveBeenCalledWith(expect.objectContaining({ title: 'Excluir despesa', message: 'Excluir "Aluguel"?' }));
-    await waitFor(() => expect(recurringExpensesApi.remove).toHaveBeenCalledWith('a'));
+    expect(dialogs.confirm).toHaveBeenCalledWith(expect.objectContaining({ title: 'Excluir despesa', message: 'Excluir "Aluguel"? Esta ação não pode ser desfeita.' }));
+    await waitFor(() => expect(recurringExpensesApi.remove).toHaveBeenCalledWith('a', {}));
     expect(toast.success).toHaveBeenCalledWith('Despesa excluída.');
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['recurring-expenses'] });
 

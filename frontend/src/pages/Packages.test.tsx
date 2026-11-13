@@ -154,8 +154,8 @@ describe('Packages', () => {
     mocked(dialogs.confirm).mockResolvedValueOnce(true);
     mocked(packagesApi.remove).mockResolvedValueOnce(undefined);
     await userEvent.click(screen.getByRole('button', { name: 'Excluir Pacote Corpo' }));
-    expect(dialogs.confirm).toHaveBeenLastCalledWith(expect.objectContaining({ message: 'Excluir o pacote "Pacote Corpo"?' }));
-    await waitFor(() => expect(packagesApi.remove).toHaveBeenCalledWith('Pacote Corpo'));
+    expect(dialogs.confirm).toHaveBeenLastCalledWith(expect.objectContaining({ message: 'Excluir o pacote "Pacote Corpo"? Esta ação não pode ser desfeita.' }));
+    await waitFor(() => expect(packagesApi.remove).toHaveBeenCalledWith('Pacote Corpo', {}));
     await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Pacote excluído.'));
 
     mocked(dialogs.confirm).mockResolvedValueOnce(true);

@@ -20,6 +20,7 @@ import { FeatureGuard } from '../common/guards/feature.guard';
 import { RequirePermissions } from '../common/decorators/require-permissions.decorator';
 import { RequireFeature } from '../common/decorators/require-feature.decorator';
 import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
+import { parseUnlinkFlag } from '../common/deletion/deletion-dependencies';
 
 @RequireFeature('recurring_expenses')
 @UseGuards(JwtAuthGuard, FeatureGuard, PermissionsGuard)
@@ -83,7 +84,11 @@ export class RecurringExpensesController {
 
   @RequirePermissions('finance:delete')
   @Delete(':id')
-  remove(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
-    return this.service.remove(id, user);
+  remove(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Query('unlink') unlink?: string,
+  ) {
+    return this.service.remove(id, user, parseUnlinkFlag(unlink));
   }
 }

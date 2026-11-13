@@ -26,6 +26,7 @@ import {
 } from '../components/ListCardHeader';
 import { useAppDialog } from '../contexts/AppDialogContext';
 import { useAppToast } from '../contexts/AppToastContext';
+import { useDeleteWithDependencies } from '../hooks/useDeleteWithDependencies';
 import { getApiErrorMessage } from '../utils/apiError';
 import { usePermissions } from '../contexts/usePermissions';
 import { useUrlState, urlPage, type UrlCodec } from '../hooks/useUrlState';
@@ -53,6 +54,7 @@ export function Patients() {
   const queryClient = useQueryClient();
   const { confirm } = useAppDialog();
   const toast = useAppToast();
+  const deleteWithDependencies = useDeleteWithDependencies();
   const { has } = usePermissions();
   const canCreate = has('patients:create');
   const canEdit = has('patients:edit');
@@ -102,18 +104,6 @@ export function Patients() {
     queryFn: () => patientsApi.stats(),
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) => patientsApi.remove(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['patients'] });
-      queryClient.invalidateQueries({ queryKey: ['patients-stats'] });
-      toast.success('Paciente excluído.');
-    },
-    onError: (err) => {
-      toast.error(getApiErrorMessage(err, 'Não foi possível excluir o paciente.'));
-    },
-  });
-
   const sortedPatients = useMemo(() => {
     if (!sort) return patients;
     const dir = sort.dir === 'asc' ? 1 : -1;
@@ -151,13 +141,17 @@ export function Patients() {
 
 
   const handleDelete = async (patient: Patient) => {
-    const ok = await confirm({
+    await deleteWithDependencies({
       title: 'Excluir paciente',
       message: `Excluir paciente ${patient.name}?`,
-      confirmLabel: 'Excluir',
-      confirmColor: 'error',
+      remove: (options) => patientsApi.remove(patient.id, options),
+      successMessage: 'Paciente excluído.',
+      errorMessage: 'Não foi possível excluir o paciente.',
+      onDeleted: () => {
+        queryClient.invalidateQueries({ queryKey: ['patients'] });
+        queryClient.invalidateQueries({ queryKey: ['patients-stats'] });
+      },
     });
-    if (ok) deleteMutation.mutate(patient.id);
   };
 
   return (

@@ -6,6 +6,7 @@ import { CreatePromotionDto } from './dto/create-promotion.dto';
 import { UpdatePromotionDto } from './dto/update-promotion.dto';
 import { parseDateOnlyToUtcNoon } from '../common/utils/date-only.util';
 import { AuditLogService, AuditUser } from '../audit-log/audit-log.service';
+import { assertDeletable, dependency } from '../common/deletion/deletion-dependencies';
 
 export interface PromotionQuote {
   originalPrice: number;
@@ -126,13 +127,34 @@ export class PromotionsService {
     return updated;
   }
 
-  async remove(id: string, user?: AuditUser) {
-    const existing = await this.prisma.promotion.findUnique({ where: { id } });
-    if (!existing) throw new NotFoundException('Promoção não encontrada');
-    await this.prisma.promotion.delete({ where: { id } });
-    this.auditLog.logDelete('Promotion', id, existing as unknown as Record<string, unknown>, user).catch(() => undefined);
-    return { ok: true };
+  async remove(id: string, user?: AuditUser, unlink = false) {
+    const old = await this.prisma.promotion.findUnique({ where: { id } });
+    if (!old) throw new NotFoundException('Promoção não encontrada');
+    const unlinked = await this.prisma.$transactionWithRetry(async (tx) => {
+      const appointmentCount = await tx.appointment.count({ where: { promotionId: id } });
+      const deps = assertDeletable(
+        `a promoção "${old.name}"`,
+        [
+          dependency({
+            type: 'appointments',
+            label: 'Atendimentos',
+            count: appointmentCount,
+            unlinkable: true,
+            note: 'Os atendimentos e seus lançamentos continuam iguais; só deixam de apontar para a promoção.',
+          }),
+        ],
+        { unlink },
+      );
+      await tx.appointment.updateMany({ where: { promotionId: id }, data: { promotionId: null } });
+      await tx.promotion.delete({ where: { id } });
+      return deps;
+    });
+    this.auditLog
+      .logDelete('Promotion', id, { ...old, unlinkedDependencies: unlinked } as unknown as Record<string, unknown>, user)
+      .catch(() => undefined);
+    return { ok: true, unlinked };
   }
+
 
   /**
    * Melhor promoção ativa no dia para um procedimento avulso. Promoções sem procedimentos

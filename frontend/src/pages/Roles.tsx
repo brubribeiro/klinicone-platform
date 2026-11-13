@@ -25,6 +25,7 @@ import { PermissionsMatrix } from '../components/roles/PermissionsMatrix';
 import { roleColor } from '../components/roles/roleColors';
 import { useAppDialog } from '../contexts/AppDialogContext';
 import { useAppToast } from '../contexts/AppToastContext';
+import { useDeleteWithDependencies } from '../hooks/useDeleteWithDependencies';
 import { getApiErrorMessage } from '../utils/apiError';
 import { usePermissions } from '../contexts/usePermissions';
 import { ALL_PERMISSIONS, countCatalogPermissions, SYSTEM_ADMIN_ROLE_NAME } from '../contexts/permissions';
@@ -141,6 +142,7 @@ export function Roles() {
   const queryClient = useQueryClient();
   const { confirm } = useAppDialog();
   const toast = useAppToast();
+  const deleteWithDependencies = useDeleteWithDependencies();
   const { has } = usePermissions();
   const canCreate = has('roles:create');
   const canEdit = has('roles:edit');
@@ -196,27 +198,19 @@ export function Roles() {
     },
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) => rolesApi.remove(id),
-    onSuccess: () => {
-      setDraft(null);
-      setSelectedId(null);
-      queryClient.invalidateQueries({ queryKey: ['roles'] });
-      toast.success('Grupo excluído.');
-    },
-    onError: (err) => {
-      toast.error(getApiErrorMessage(err, 'Não foi possível excluir o grupo.'));
-    },
-  });
-
   const handleDelete = async (role: Role) => {
-    const ok = await confirm({
+    await deleteWithDependencies({
       title: 'Excluir grupo',
       message: `Excluir o grupo ${role.name}?`,
-      confirmLabel: 'Excluir',
-      confirmColor: 'error',
+      remove: () => rolesApi.remove(role.id),
+      successMessage: 'Grupo excluído.',
+      errorMessage: 'Não foi possível excluir o grupo.',
+      onDeleted: () => {
+        setDraft(null);
+        setSelectedId(null);
+        queryClient.invalidateQueries({ queryKey: ['roles'] });
+      },
     });
-    if (ok) deleteMutation.mutate(role.id);
   };
 
   return (
