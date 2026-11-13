@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 
 import { InventoryService } from './inventory.service';
 import { CreateInventoryItemDto } from './dto/create-inventory-item.dto';
@@ -11,6 +11,7 @@ import { FeatureGuard } from '../common/guards/feature.guard';
 import { RequirePermissions } from '../common/decorators/require-permissions.decorator';
 import { RequireFeature } from '../common/decorators/require-feature.decorator';
 import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
+import { parseUnlinkFlag } from '../common/deletion/deletion-dependencies';
 
 @RequireFeature('inventory')
 @UseGuards(JwtAuthGuard, FeatureGuard, PermissionsGuard)
@@ -28,12 +29,6 @@ export class InventoryController {
   @Get('low-stock')
   listLowStock() {
     return this.inventory.listLowStock();
-  }
-
-  @RequirePermissions('inventory:view')
-  @Get(':id/deletion-preview')
-  getDeletionPreview(@Param('id') id: string) {
-    return this.inventory.getDeletionPreview(id);
   }
 
   @RequirePermissions('inventory:view')
@@ -62,8 +57,12 @@ export class InventoryController {
 
   @RequirePermissions('inventory:delete')
   @Delete(':id')
-  remove(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
-    return this.inventory.remove(id, user);
+  remove(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Query('unlink') unlink?: string,
+  ) {
+    return this.inventory.remove(id, user, parseUnlinkFlag(unlink));
   }
 
   // Movimentação manual conta como edição do item

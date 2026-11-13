@@ -9,6 +9,8 @@ import type {
   PatientPhotoPhase,
   PatientMeasurement,
 } from '../types';
+import { deleteWithUnlink } from './deletion';
+import type { RemoveOptions } from '../utils/deletionConflict';
 
 export interface PatientPayload {
   name: string;
@@ -66,8 +68,8 @@ export const patientsApi = {
     const { data } = await api.patch<Patient>(`/patients/${id}`, { anamnesis });
     return data;
   },
-  remove: async (id: string): Promise<void> => {
-    await api.delete(`/patients/${id}`);
+  remove: async (id: string, options?: RemoveOptions): Promise<void> => {
+    await deleteWithUnlink(`/patients/${id}`, options);
   },
 
   uploadPhoto: async (id: string, file: File): Promise<Patient> => {

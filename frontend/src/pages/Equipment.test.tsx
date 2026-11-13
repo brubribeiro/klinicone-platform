@@ -252,14 +252,38 @@ describe('EquipmentPage', () => {
     const { invalidate } = renderPage();
     await screen.findByText('Laser CO2');
     await userEvent.click(iconBtn(card('Laser CO2'), 'Delete'));
-    expect(dialogs.confirm).toHaveBeenCalledWith(expect.objectContaining({ title: 'Excluir equipamento', message: 'Excluir Laser CO2?' }));
-    await waitFor(() => expect(equipmentApi.remove).toHaveBeenCalledWith('e1'));
+    expect(dialogs.confirm).toHaveBeenCalledWith(expect.objectContaining({ title: 'Excluir equipamento', message: 'Excluir Laser CO2? Esta ação não pode ser desfeita.' }));
+    await waitFor(() => expect(equipmentApi.remove).toHaveBeenCalledWith('e1', {}));
     expect(toast.success).toHaveBeenCalledWith('Equipamento excluído.');
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['equipment'] });
 
     mocked(equipmentApi.remove).mockRejectedValue({ response: { data: {} } });
     await userEvent.click(iconBtn(card('Maca'), 'Delete'));
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Não foi possível excluir o equipamento.'));
+  });
+
+  it('com vínculos (409): "Desvincular e excluir" refaz a exclusão com unlink', async () => {
+    mocked(equipmentApi.remove)
+      .mockRejectedValueOnce({
+        response: {
+          status: 409,
+          data: {
+            code: 'DELETE_HAS_DEPENDENCIES',
+            message: 'Equipamento em uso.',
+            canUnlink: true,
+            dependencies: [{ type: 'procedures', label: 'Procedimentos', count: 1, items: ['Peeling'] }],
+          },
+        },
+      })
+      .mockResolvedValueOnce(undefined);
+    const { invalidate } = renderPage();
+    await screen.findByText('Laser CO2');
+    await userEvent.click(iconBtn(card('Laser CO2'), 'Delete'));
+    await waitFor(() => expect(equipmentApi.remove).toHaveBeenLastCalledWith('e1', { unlink: true }));
+    expect(dialogs.confirm).toHaveBeenCalledTimes(2);
+    expect(dialogs.confirm.mock.calls[1][0]).toMatchObject({ confirmLabel: 'Desvincular e excluir', disableConfirm: false });
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Equipamento excluído.'));
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['equipment'] });
   });
 
   it('não exclui se a confirmação for recusada', async () => {

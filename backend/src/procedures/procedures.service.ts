@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditLogService, AuditUser } from '../audit-log/audit-log.service';
+import { assertDeletable, dependency } from '../common/deletion/deletion-dependencies';
 import {
   computeHourlyCostSummary,
   getHourlyCostIncludeVariable,
@@ -198,10 +199,72 @@ export class ProceduresService {
     };
   }
 
-  async remove(id: string, user?: AuditUser) {
+  async remove(id: string, user?: AuditUser, unlink = false) {
     const old = await this.findOne(id);
-    await this.prisma.procedure.delete({ where: { id } });
-    this.auditLog.logDelete('Procedure', id, old as unknown as Record<string, unknown>, user).catch(() => undefined);
-    return { ok: true };
+    const unlinked = await this.prisma.$transactionWithRetry(async (tx) => {
+      const [appointmentCount, packageItems, promotions, messageTemplates] = await Promise.all([
+        tx.appointment.count({
+          where: {
+            OR: [{ procedureId: id }, { appointmentProcedures: { some: { procedureId: id } } }],
+          },
+        }),
+        tx.packageItem.findMany({
+          where: { procedureId: id },
+          select: { package: { select: { name: true } } },
+        }),
+        tx.promotionProcedure.findMany({
+          where: { procedureId: id },
+          select: { promotion: { select: { name: true } } },
+        }),
+        tx.messageTemplate.findMany({ where: { procedureId: id }, select: { name: true } }),
+      ]);
+      const deps = assertDeletable(
+        `o procedimento "${old.name}"`,
+        [
+          dependency({
+            type: 'appointments',
+            label: 'Atendimentos',
+            count: appointmentCount,
+            unlinkable: false,
+            note: 'Atendimentos fazem parte do histórico clínico e não podem ser desvinculados.',
+          }),
+          dependency({
+            type: 'packages',
+            label: 'Pacotes',
+            count: packageItems.length,
+            names: packageItems.map((i) => i.package.name),
+            unlinkable: true,
+            note: 'O procedimento sai da composição desses pacotes; pacotes já vendidos não mudam.',
+          }),
+          dependency({
+            type: 'promotions',
+            label: 'Promoções',
+            count: promotions.length,
+            names: promotions.map((p) => p.promotion.name),
+            unlinkable: true,
+            note: 'O procedimento sai dessas promoções.',
+          }),
+          dependency({
+            type: 'messageTemplates',
+            label: 'Modelos de mensagem',
+            count: messageTemplates.length,
+            names: messageTemplates.map((t) => t.name),
+            unlinkable: true,
+            note: 'Os modelos continuam, sem o vínculo com o procedimento.',
+          }),
+        ],
+        { unlink, blockedHint: 'Inative o procedimento para que ele deixe de aparecer nas opções.' },
+      );
+      await tx.packageItem.deleteMany({ where: { procedureId: id } });
+      await tx.promotionProcedure.deleteMany({ where: { procedureId: id } });
+      await tx.messageTemplate.updateMany({ where: { procedureId: id }, data: { procedureId: null } });
+      await tx.procedure.delete({ where: { id } });
+      return deps;
+    });
+    this.auditLog
+      .logDelete('Procedure', id, { ...old, unlinkedDependencies: unlinked } as unknown as Record<string, unknown>, user)
+      .catch(() => undefined);
+    return { ok: true, unlinked };
   }
+
 }

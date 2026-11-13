@@ -10,7 +10,7 @@ import type { InventoryItem } from '../types';
 import { Inventory } from './Inventory';
 
 vi.mock('../api/inventory', () => ({
-  inventoryApi: { list: vi.fn(), findOne: vi.fn(), getDeletionPreview: vi.fn(), remove: vi.fn() },
+  inventoryApi: { list: vi.fn(), findOne: vi.fn(), remove: vi.fn() },
 }));
 vi.mock('../utils/csv', () => ({ downloadCsv: vi.fn() }));
 // Os diálogos têm testes próprios; aqui só interessa com quais props a página os abre.
@@ -164,18 +164,16 @@ describe('Inventory (página)', () => {
     expect(dialogs.alert).not.toHaveBeenCalled();
   });
 
-  it('botões da barra abrem cadastro, movimentação livre e compra em lote', async () => {
+  it('botões da barra abrem movimentação livre e compra em lote', async () => {
     renderPage();
     await screen.findByText('Toxina');
-    await userEvent.click(screen.getByRole('button', { name: 'Cadastrar produto' }));
-    expect(screen.getByRole('dialog', { name: 'form' })).toHaveTextContent('Novo produto');
     await userEvent.click(screen.getByRole('button', { name: 'Movimentar' }));
     expect(screen.getByRole('dialog', { name: 'movimento' })).toHaveTextContent('Movimento livre (12 produtos)');
     await userEvent.click(screen.getByRole('button', { name: 'Adicionar item' }));
     expect(screen.getByRole('dialog', { name: 'lote' })).toBeInTheDocument();
   });
 
-  it('sem permissões esconde cadastrar, adicionar item e as ações do detalhe', async () => {
+  it('sem permissões esconde adicionar item e as ações do detalhe', async () => {
     auth.user.permissions = [];
     renderPage();
     await screen.findByText('Toxina');
@@ -207,65 +205,73 @@ describe('Inventory (página)', () => {
     expect(await screen.findByTestId('where')).toHaveTextContent('/estoque/a');
   });
 
-  it('exclusão: consulta o que será afetado, confirma e remove', async () => {
-    mocked(inventoryApi.getDeletionPreview).mockResolvedValue({
-      procedures: [{ id: 'p1', name: 'Botox glabela' }],
-      appointmentCount: 2,
-      movementsCount: 5,
-      canDelete: true,
-    });
+  const conflict = (canUnlink: boolean) => ({
+    response: {
+      status: 409,
+      data: {
+        code: 'DELETE_HAS_DEPENDENCIES',
+        message: canUnlink ? 'Para excluir o item "Toxina", é preciso desfazer os vínculos.' : 'Não é possível excluir o item "Toxina".',
+        canUnlink,
+        dependencies: [
+          { type: 'procedures', label: 'Procedimentos', count: 1, names: ['Botox glabela'], unlinkable: true, note: 'Sai da lista.' },
+          ...(canUnlink ? [] : [{ type: 'appointments', label: 'Atendimentos', count: 3, names: [], unlinkable: false, note: 'Histórico.' }]),
+        ],
+      },
+    },
+  });
+
+  it('ícone Excluir na linha confirma e remove sem abrir o detalhe', async () => {
     mocked(inventoryApi.remove).mockResolvedValue(undefined);
+    renderPage();
+    await screen.findByText('Toxina');
+    await userEvent.click(screen.getByRole('button', { name: 'Excluir Toxina' }));
+    await waitFor(() => expect(inventoryApi.remove).toHaveBeenCalledWith('a', {}));
+    expect(dialogs.confirm).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Excluir item', message: 'Excluir o item "Toxina"? Esta ação não pode ser desfeita.' }),
+    );
+    expect(inventoryApi.findOne).not.toHaveBeenCalled();
+  });
+
+  it('com vínculos (409): mostra a lista e "Desvincular e excluir" refaz a exclusão com unlink', async () => {
+    mocked(inventoryApi.remove).mockRejectedValueOnce(conflict(true)).mockResolvedValueOnce(undefined);
     const { invalidate } = renderPage();
     await userEvent.click(await screen.findByText('Toxina'));
     await userEvent.click(await screen.findByRole('button', { name: 'Excluir item' }));
 
-    await waitFor(() => expect(dialogs.confirm).toHaveBeenCalled());
-    expect(inventoryApi.getDeletionPreview).toHaveBeenCalledWith('a');
-    expect(dialogs.confirm).toHaveBeenCalledWith(
-      expect.objectContaining({
-        title: 'Excluir item',
-        message: 'Excluir o item "Toxina"? Esta ação não pode ser desfeita.',
-        detailsTitle: 'Procedimentos que usam este item:',
-        details: ['Botox glabela', '2 agendamento(s) com este material', '5 movimentação(ões) de estoque serão removidas'],
-        disableConfirm: false,
-      }),
-    );
-    await waitFor(() => expect(inventoryApi.remove).toHaveBeenCalledWith('a'));
+    await waitFor(() => expect(inventoryApi.remove).toHaveBeenLastCalledWith('a', { unlink: true }));
+    expect(dialogs.confirm).toHaveBeenCalledTimes(2);
+    const second = dialogs.confirm.mock.calls[1][0];
+    expect(second).toMatchObject({ confirmLabel: 'Desvincular e excluir', disableConfirm: false });
+    expect(second.content).toBeTruthy();
     await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Item excluído.'));
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['inventory'] });
   });
 
-  it('item em uso: o diálogo vem com a confirmação desabilitada e nada é excluído se cancelar', async () => {
-    mocked(inventoryApi.getDeletionPreview).mockResolvedValue({
-      procedures: [{ id: 'p1', name: 'Botox' }],
-      appointmentCount: 3,
-      movementsCount: 4,
-      canDelete: false,
-    });
-    dialogs.confirm.mockResolvedValue(false);
+  it('vínculo que não dá para desfazer: diálogo bloqueado e nada é refeito', async () => {
+    mocked(inventoryApi.remove).mockRejectedValueOnce(conflict(false));
+    dialogs.confirm.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
     renderPage();
     await userEvent.click(await screen.findByText('Toxina'));
     await userEvent.click(await screen.findByRole('button', { name: 'Excluir item' }));
-    await waitFor(() => expect(dialogs.confirm).toHaveBeenCalled());
-    const arg = dialogs.confirm.mock.calls[0][0];
-    expect(arg.message).toBe('O item "Toxina" não pode ser excluído enquanto estiver em uso. Há 3 agendamento(s) com este material.');
-    expect(arg.disableConfirm).toBe(true);
-    expect(arg.details).toEqual(['Botox', '3 agendamento(s) com este material']);
-    expect(inventoryApi.remove).not.toHaveBeenCalled();
+    await waitFor(() => expect(dialogs.confirm).toHaveBeenCalledTimes(2));
+    const second = dialogs.confirm.mock.calls[1][0];
+    expect(second.disableConfirm).toBe(true);
+    expect(second.message).toBe('Não é possível excluir o item "Toxina".');
+    expect(inventoryApi.remove).toHaveBeenCalledTimes(1);
+    expect(toast.success).not.toHaveBeenCalled();
   });
 
-  it('falha ao consultar a exclusão mostra alerta de erro; falha ao excluir mostra toast', async () => {
-    mocked(inventoryApi.getDeletionPreview).mockRejectedValueOnce({ response: { data: { message: 'Sem acesso' } } });
+  it('cancelar a confirmação não chama a API; outro erro mostra toast', async () => {
+    dialogs.confirm.mockResolvedValueOnce(false);
     renderPage();
     await userEvent.click(await screen.findByText('Toxina'));
     await userEvent.click(await screen.findByRole('button', { name: 'Excluir item' }));
-    await waitFor(() => expect(dialogs.alert).toHaveBeenCalledWith({ title: 'Erro', message: 'Sem acesso', severity: 'error' }));
-    expect(dialogs.confirm).not.toHaveBeenCalled();
+    await waitFor(() => expect(dialogs.confirm).toHaveBeenCalledTimes(1));
+    expect(inventoryApi.remove).not.toHaveBeenCalled();
 
-    mocked(inventoryApi.getDeletionPreview).mockResolvedValueOnce({ procedures: [], appointmentCount: 0, movementsCount: 0, canDelete: true });
-    mocked(inventoryApi.remove).mockRejectedValueOnce({ response: { data: { message: 'Falhou' } } });
+    mocked(inventoryApi.remove).mockRejectedValueOnce({ response: { status: 500, data: { message: 'Falhou' } } });
     await userEvent.click(screen.getByRole('button', { name: 'Excluir item' }));
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Falhou'));
-    expect(dialogs.confirm.mock.calls[0][0].details).toBeUndefined();
+    expect(dialogs.confirm).toHaveBeenCalledTimes(2);
   });
 });
