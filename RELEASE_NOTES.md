@@ -4,7 +4,7 @@ Notas de versão para usuários do painel. Para detalhes técnicos, veja [CHANGE
 
 ---
 
-## Próxima versão
+## v0.3.0 — 10 nov 2026
 
 ### Marca e endereços
 
@@ -26,6 +26,22 @@ Notas de versão para usuários do painel. Para detalhes técnicos, veja [CHANGE
 ### Login
 
 - Se sua conta Google for **usuário da clínica e administrador da plataforma**, após entrar você escolhe entre o **Painel da clínica** e o **Console KlinicOne** (`/admin`). No menu do seu avatar, **Trocar painel** permite alternar depois.
+
+### Mapa de aplicação
+
+- O mapa de aplicação foi redesenhado: o **rosto e o corpo em 3D** agora usam modelos ilustrados próprios (sem a foto da paciente), e as **regiões do rosto** (testa e glabela, têmporas, olheiras, nariz, malar, sulco nasogeniano, lábios e outras) abrem um foco no próprio desenho do rosto, com nomes e marcações por cima.
+
+### Visual e telas
+
+- Novo **logotipo e favicon KlinicOne** no painel, no site e no console.
+- O tema padrão agora é o **claro**.
+- O painel da plataforma passou a se chamar **Console KlinicOne**.
+- A tela **Mensagens** ficou mais compacta, e os modais de **Novo lançamento** (Financeiro) e de **Equipamentos** ganharam o visual Aurora, com campos agrupados em seções.
+
+### Correções
+
+- **Excluir** em Equipamentos e Estoque não some mais: sem permissão, o botão explica o motivo. Ao excluir um equipamento vinculado a procedimentos, a mensagem lista quais são e sugere inativar.
+- O **Ajuste** de estoque agora permite zerar o item.
 
 ### Correções de segurança
 
