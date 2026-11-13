@@ -16,6 +16,26 @@ export function totalProcedureDurationMinutes(procedures: Procedure[], procedure
   );
 }
 
+/**
+ * Fim do agendamento a enviar. Na edição, se início e procedimentos não mudaram, mantém o fim
+ * salvo: recalcular pela soma das durações atuais pode divergir (duração do procedimento alterada
+ * depois, procedimento fora do catálogo) e mudar o horário sem o usuário ter mexido nele.
+ */
+export function resolveAppointmentEnd(
+  start: dayjs.Dayjs,
+  procedureIds: string[],
+  procedures: Procedure[],
+  saved?: Pick<Appointment, 'startAt' | 'endAt' | 'procedureId' | 'appointmentProcedures'> | null,
+): dayjs.Dayjs {
+  if (saved && start.isSame(dayjs(saved.startAt))) {
+    const savedIds = appointmentProcedureIds(saved);
+    const sameProcedures =
+      savedIds.length === procedureIds.length && savedIds.every((id, i) => id === procedureIds[i]);
+    if (sameProcedures) return dayjs(saved.endAt);
+  }
+  return start.add(totalProcedureDurationMinutes(procedures, procedureIds), 'minute');
+}
+
 export interface ExtraMaterialRow {
   itemId: string;
   quantity: number;

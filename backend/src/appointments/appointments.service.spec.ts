@@ -283,6 +283,96 @@ describe('AppointmentsService', () => {
     });
   });
 
+  describe('update — revalidação de horário', () => {
+    const sameSlotDto = {
+      professionalId: 'user-1',
+      startAt: '2025-01-15T10:00:00.000Z',
+      endAt: '2025-01-15T11:00:00.000Z',
+      procedureIds: ['proc-1'],
+      procedureId: 'proc-1',
+    };
+
+    it('não revalida quando o form reenvia o mesmo horário e profissional', async () => {
+      await service.update('appt-1', { ...sameSlotDto, notes: 'obs' } as any);
+
+      expect(availability.checkProfessionalSlot).not.toHaveBeenCalled();
+      expect(availability.assertNoAppointmentConflict).not.toHaveBeenCalled();
+      expect(prisma.appointment.update).toHaveBeenCalled();
+    });
+
+    it('salva agendamento Concluído sem mudar horário mesmo com outro ativo no slot', async () => {
+      prisma.appointment.findUnique.mockResolvedValue({
+        ...mockAppointment,
+        status: 'COMPLETED',
+        materialsDeducted: true,
+        financeGenerated: true,
+      });
+      availability.assertNoAppointmentConflict.mockRejectedValue(
+        new BadRequestException('Já existe outro agendamento ativo do mesmo profissional nesse horário.'),
+      );
+
+      await expect(
+        service.update('appt-1', { ...sameSlotDto, status: 'COMPLETED' } as any),
+      ).resolves.toBeDefined();
+      expect(availability.assertNoAppointmentConflict).not.toHaveBeenCalled();
+    });
+
+    it('não bloqueia corrigir o horário de um agendamento Cancelado', async () => {
+      prisma.appointment.findUnique.mockResolvedValue({ ...mockAppointment, status: 'CANCELLED' });
+
+      await service.update('appt-1', {
+        ...sameSlotDto,
+        startAt: '2025-01-15T12:00:00.000Z',
+        endAt: '2025-01-15T13:00:00.000Z',
+      } as any);
+
+      expect(availability.checkProfessionalSlot).not.toHaveBeenCalled();
+      expect(availability.assertNoAppointmentConflict).not.toHaveBeenCalled();
+    });
+
+    it('mantém o bloqueio de conflito ao mudar o horário de um agendamento ativo', async () => {
+      availability.assertNoAppointmentConflict.mockRejectedValue(
+        new BadRequestException('Já existe outro agendamento ativo do mesmo profissional nesse horário.'),
+      );
+
+      await expect(
+        service.update('appt-1', {
+          ...sameSlotDto,
+          startAt: '2025-01-15T10:30:00.000Z',
+          endAt: '2025-01-15T11:30:00.000Z',
+        } as any),
+      ).rejects.toThrow('Já existe outro agendamento ativo');
+      expect(availability.checkProfessionalSlot).toHaveBeenCalledWith(
+        'user-1',
+        new Date('2025-01-15T10:30:00.000Z'),
+        new Date('2025-01-15T11:30:00.000Z'),
+        'appt-1',
+      );
+      expect(prisma.appointment.update).not.toHaveBeenCalled();
+    });
+
+    it('revalida ao trocar o profissional', async () => {
+      await service.update('appt-1', { ...sameSlotDto, professionalId: 'user-2' } as any);
+
+      expect(availability.assertNoAppointmentConflict).toHaveBeenCalledWith(
+        'user-2',
+        mockAppointment.startAt,
+        mockAppointment.endAt,
+        'appt-1',
+        prisma,
+      );
+    });
+
+    it('revalida ao reabrir um agendamento Cancelado no mesmo horário', async () => {
+      prisma.appointment.findUnique.mockResolvedValue({ ...mockAppointment, status: 'CANCELLED' });
+
+      await service.update('appt-1', { ...sameSlotDto, status: 'SCHEDULED' } as any);
+
+      expect(availability.checkProfessionalSlot).toHaveBeenCalled();
+      expect(availability.assertNoAppointmentConflict).toHaveBeenCalled();
+    });
+  });
+
   describe('start', () => {
     it('should throw if status is not SCHEDULED or CONFIRMED', async () => {
       prisma.appointment.findUnique.mockResolvedValue({ ...mockAppointment, status: 'COMPLETED' });

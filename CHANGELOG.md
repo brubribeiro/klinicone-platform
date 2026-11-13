@@ -5,6 +5,7 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 ## [Unreleased]
 
 ### Fixed
+- Agenda — salvar um agendamento sem mudar horário (ex.: Concluído, só editando observações) não acusa mais "Já existe outro agendamento ativo do mesmo profissional nesse horário.". `AppointmentsService.update` só revalida disponibilidade/conflito quando início, fim ou profissional mudam em relação ao salvo (antes bastava o form reenviá-los), ou quando um agendamento fechado é reaberto; Concluído/Cancelado/Faltou não ocupam a agenda e não são revalidados. O formulário mantém o `endAt` salvo quando início e procedimentos não mudaram (não recalcula pela soma das durações). Mudar o horário de um agendamento ativo para cima de outro continua bloqueado.
 - Equipamentos e Estoque — o botão **Excluir** não some mais para quem não tem permissão: ao clicar, aparece o motivo ("sem permissão para excluir", com o caminho para liberar no grupo). Antes o botão ficava oculto e parecia bug (reports da Camila, grupo Profissional).
 - Equipamentos — excluir equipamento vinculado a procedimentos agora retorna mensagem clara (lista os procedimentos e sugere inativar) em vez de erro genérico.
 
