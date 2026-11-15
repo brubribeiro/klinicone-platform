@@ -4,6 +4,7 @@ import { NotFoundException } from '@nestjs/common';
 import { ProceduresService } from './procedures.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditLogService } from '../audit-log/audit-log.service';
+import { DeletionConflictException } from '../common/deletion/deletion-dependencies';
 
 jest.mock('../common/utils/hourly-cost.util', () => ({
   getHourlyCostIncludeVariable: jest.fn().mockResolvedValue(false),
@@ -133,8 +134,80 @@ describe('ProceduresService', () => {
   });
 
   describe('remove', () => {
-    it('should delete procedure', async () => {
-      await service.remove('proc-1');
+    const conflictOf = async (promise: Promise<unknown>) => {
+      const err = await promise.catch((e) => e);
+      expect(err).toBeInstanceOf(DeletionConflictException);
+      return (err as DeletionConflictException).getResponse() as Record<string, any>;
+    };
+
+    beforeEach(() => {
+      prisma.appointment.count = jest.fn().mockResolvedValue(0);
+      prisma.packageItem = {
+        findMany: jest.fn().mockResolvedValue([]),
+        deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+      };
+      prisma.promotionProcedure = {
+        findMany: jest.fn().mockResolvedValue([]),
+        deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+      };
+      prisma.messageTemplate = {
+        findMany: jest.fn().mockResolvedValue([]),
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+      };
+    });
+
+    const withUnlinkables = () => {
+      prisma.packageItem.findMany.mockResolvedValue([{ package: { name: 'Pacote A' } }]);
+      prisma.promotionProcedure.findMany.mockResolvedValue([{ promotion: { name: 'Promo B' } }]);
+      prisma.messageTemplate.findMany.mockResolvedValue([{ name: 'Modelo C' }]);
+    };
+
+    it('responde 409 com canUnlink true listando pacotes, promoções e modelos', async () => {
+      withUnlinkables();
+      const body = await conflictOf(service.remove('proc-1'));
+      expect(body.canUnlink).toBe(true);
+      expect(body.dependencies).toEqual([
+        expect.objectContaining({ type: 'packages', names: ['Pacote A'] }),
+        expect.objectContaining({ type: 'promotions', names: ['Promo B'] }),
+        expect.objectContaining({ type: 'messageTemplates', names: ['Modelo C'] }),
+      ]);
+      expect(prisma.procedure.delete).not.toHaveBeenCalled();
+    });
+
+    it('bloqueia (canUnlink false) quando há atendimentos, mesmo desvinculando', async () => {
+      withUnlinkables();
+      prisma.appointment.count.mockResolvedValue(4);
+      const body = await conflictOf(service.remove('proc-1', undefined, true));
+      expect(body.canUnlink).toBe(false);
+      expect(body.message).toContain('Atendimentos (4)');
+      expect(prisma.packageItem.deleteMany).not.toHaveBeenCalled();
+      expect(prisma.promotionProcedure.deleteMany).not.toHaveBeenCalled();
+      expect(prisma.messageTemplate.updateMany).not.toHaveBeenCalled();
+      expect(prisma.procedure.delete).not.toHaveBeenCalled();
+    });
+
+    it('desvincula pacotes, promoções e modelos e exclui', async () => {
+      withUnlinkables();
+      const result = await service.remove('proc-1', { id: 'u1' } as never, true);
+      expect(result.ok).toBe(true);
+      expect(result.unlinked.map((d) => d.type)).toEqual(['packages', 'promotions', 'messageTemplates']);
+      expect(prisma.packageItem.deleteMany).toHaveBeenCalledWith({ where: { procedureId: 'proc-1' } });
+      expect(prisma.promotionProcedure.deleteMany).toHaveBeenCalledWith({ where: { procedureId: 'proc-1' } });
+      expect(prisma.messageTemplate.updateMany).toHaveBeenCalledWith({
+        where: { procedureId: 'proc-1' },
+        data: { procedureId: null },
+      });
+      expect(prisma.procedure.delete).toHaveBeenCalledWith({ where: { id: 'proc-1' } });
+      expect(auditLog.logDelete).toHaveBeenCalledWith(
+        'Procedure',
+        'proc-1',
+        expect.objectContaining({ unlinkedDependencies: expect.any(Array) }),
+        expect.anything(),
+      );
+    });
+
+    it('exclui direto quando não há vínculos', async () => {
+      await expect(service.remove('proc-1')).resolves.toEqual({ ok: true, unlinked: [] });
       expect(prisma.procedure.delete).toHaveBeenCalledWith({ where: { id: 'proc-1' } });
     });
   });

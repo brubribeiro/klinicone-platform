@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import {
   IsBoolean,
   IsDateString,
@@ -14,6 +14,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { parseDateOnlyToUtcNoon } from '../common/utils/date-only.util';
 import { AuditLogService, AuditUser } from '../audit-log/audit-log.service';
+import { assertDeletable, dependency } from '../common/deletion/deletion-dependencies';
 
 export class CreateEquipmentDto {
   @IsString()
@@ -201,22 +202,58 @@ export class EquipmentService {
     });
   }
 
-  async remove(id: string, user?: AuditUser) {
+  async remove(id: string, user?: AuditUser, unlink = false) {
     const oldData = await this.findOne(id);
-    const procedures = await this.prisma.procedureEquipment.findMany({
-      where: { equipmentId: id },
-      include: { procedure: { select: { name: true } } },
-    });
-    if (procedures.length > 0) {
-      const names = [...new Set(procedures.map((p) => p.procedure.name))].join(', ');
-      throw new BadRequestException(
-        `Não é possível excluir: equipamento usado nos procedimentos: ${names}. Remova-o dos procedimentos ou apenas inative o equipamento.`,
+    const unlinked = await this.prisma.$transactionWithRetry(async (tx) => {
+      const [procedures, documents, financialCount] = await Promise.all([
+        tx.procedureEquipment.findMany({
+          where: { equipmentId: id },
+          select: { procedure: { select: { name: true } } },
+        }),
+        tx.document.findMany({ where: { equipmentId: id }, select: { name: true } }),
+        tx.financialEntry.count({ where: { equipmentId: id } }),
+      ]);
+      const deps = assertDeletable(
+        `o equipamento "${oldData.name}"`,
+        [
+          dependency({
+            type: 'procedures',
+            label: 'Procedimentos',
+            count: procedures.length,
+            names: procedures.map((p) => p.procedure.name),
+            unlinkable: true,
+            note: 'O equipamento sai da lista desses procedimentos.',
+          }),
+          dependency({
+            type: 'documents',
+            label: 'Documentos',
+            count: documents.length,
+            names: documents.map((d) => d.name),
+            unlinkable: true,
+            note: 'Os documentos continuam salvos, sem o vínculo com o equipamento.',
+          }),
+          dependency({
+            type: 'financialEntries',
+            label: 'Lançamentos financeiros',
+            count: financialCount,
+            unlinkable: true,
+            note: 'Os lançamentos continuam no financeiro, sem o vínculo com o equipamento.',
+          }),
+        ],
+        { unlink },
       );
-    }
-    await this.prisma.equipment.delete({ where: { id } });
-    this.auditLog.logDelete('Equipment', id, oldData as unknown as Record<string, unknown>, user).catch(() => undefined);
-    return { ok: true };
+      await tx.procedureEquipment.deleteMany({ where: { equipmentId: id } });
+      await tx.document.updateMany({ where: { equipmentId: id }, data: { equipmentId: null } });
+      await tx.financialEntry.updateMany({ where: { equipmentId: id }, data: { equipmentId: null } });
+      await tx.equipment.delete({ where: { id } });
+      return deps;
+    });
+    this.auditLog
+      .logDelete('Equipment', id, { ...oldData, unlinkedDependencies: unlinked } as unknown as Record<string, unknown>, user)
+      .catch(() => undefined);
+    return { ok: true, unlinked };
   }
+
 
   /** Lista equipamentos cuja próxima manutenção é em até X dias (default 30). */
   async dueSoon(days = 30) {

@@ -5,6 +5,7 @@ import { InventoryService } from './inventory.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { AuditLogService } from '../audit-log/audit-log.service';
+import { DeletionConflictException } from '../common/deletion/deletion-dependencies';
 
 describe('InventoryService', () => {
   let service: InventoryService;
@@ -119,31 +120,70 @@ describe('InventoryService', () => {
     });
   });
 
-  describe('getDeletionPreview', () => {
-    it('should allow deletion when item has no procedure/appointment usages', async () => {
-      const result = await service.getDeletionPreview('item-1');
-      expect(result.canDelete).toBe(true);
-      expect(result.procedures).toEqual([]);
-    });
-
-    it('should prevent deletion when item is used in procedures', async () => {
-      prisma.procedureMaterial.findMany.mockResolvedValue([
-        { procedure: { id: 'proc-1', name: 'Botox Full' } },
-      ]);
-
-      const result = await service.getDeletionPreview('item-1');
-      expect(result.canDelete).toBe(false);
-      expect(result.procedures).toHaveLength(1);
-    });
-  });
-
   describe('remove', () => {
-    it('should throw BadRequestException if cannot delete', async () => {
+    const conflictOf = async (promise: Promise<unknown>) => {
+      const err = await promise.catch((e) => e);
+      expect(err).toBeInstanceOf(DeletionConflictException);
+      return (err as DeletionConflictException).getResponse() as Record<string, any>;
+    };
+
+    beforeEach(() => {
+      prisma.procedureMaterial.deleteMany = jest.fn().mockResolvedValue({ count: 1 });
+      prisma.inventoryMovement.updateMany = jest.fn().mockResolvedValue({ count: 3 });
+    });
+
+    it('responde 409 listando procedimentos e movimentações quando não pediu para desvincular', async () => {
       prisma.procedureMaterial.findMany.mockResolvedValue([
+        { procedure: { id: 'proc-1', name: 'Botox Full' } },
         { procedure: { id: 'proc-1', name: 'Botox Full' } },
       ]);
 
-      await expect(service.remove('item-1')).rejects.toThrow(BadRequestException);
+      const body = await conflictOf(service.remove('item-1'));
+      expect(body.canUnlink).toBe(true);
+      expect(body.dependencies).toEqual([
+        expect.objectContaining({ type: 'procedures', count: 1, names: ['Botox Full'], unlinkable: true }),
+        expect.objectContaining({ type: 'movements', count: 3, unlinkable: true }),
+      ]);
+      expect(prisma.inventoryItem.delete).not.toHaveBeenCalled();
+    });
+
+    it('bloqueia (sem desvincular) quando o item foi consumido em atendimentos', async () => {
+      prisma.appointmentMaterial.count.mockResolvedValue(2);
+
+      const body = await conflictOf(service.remove('item-1', undefined, true));
+      expect(body.canUnlink).toBe(false);
+      expect(body.message).toContain('Atendimentos (2)');
+      expect(prisma.procedureMaterial.deleteMany).not.toHaveBeenCalled();
+      expect(prisma.inventoryItem.delete).not.toHaveBeenCalled();
+    });
+
+    it('desvincula, mantém as movimentações no histórico e exclui', async () => {
+      const result = await service.remove('item-1', { id: 'u1', name: 'Ana' } as never, true);
+
+      expect(result).toEqual({ ok: true, unlinked: [expect.objectContaining({ type: 'movements' })] });
+      expect(prisma.procedureMaterial.deleteMany).toHaveBeenCalledWith({ where: { itemId: 'item-1' } });
+      expect(prisma.inventoryMovement.updateMany).toHaveBeenCalledWith({
+        where: { itemId: 'item-1' },
+        data: { itemId: null, itemName: 'Botox 100U' },
+      });
+      expect(prisma.inventoryMovement.deleteMany).not.toHaveBeenCalled();
+      expect(prisma.inventoryItem.delete).toHaveBeenCalledWith({ where: { id: 'item-1' } });
+      expect(auditLog.logDelete).toHaveBeenCalledWith(
+        'InventoryItem',
+        'item-1',
+        expect.objectContaining({ unlinkedDependencies: [expect.objectContaining({ type: 'movements' })] }),
+        expect.anything(),
+      );
+    });
+
+    it('exclui direto quando não há vínculos', async () => {
+      prisma.inventoryMovement.count.mockResolvedValue(0);
+      await expect(service.remove('item-1')).resolves.toEqual({ ok: true, unlinked: [] });
+    });
+
+    it('404 quando o item não existe', async () => {
+      prisma.inventoryItem.findUnique.mockResolvedValue(null);
+      await expect(service.remove('nope')).rejects.toThrow(NotFoundException);
     });
   });
 

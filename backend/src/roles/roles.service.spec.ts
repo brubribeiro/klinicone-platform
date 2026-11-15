@@ -9,6 +9,7 @@ import {
 import { RolesService } from './roles.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditLogService } from '../audit-log/audit-log.service';
+import { DeletionConflictException } from '../common/deletion/deletion-dependencies';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { ALL_PERMISSIONS, SYSTEM_ADMIN_ROLE_NAME } from '../common/permissions';
 
@@ -182,8 +183,16 @@ describe('RolesService', () => {
       await expect(service.remove('role-1', adminActor)).rejects.toThrow(ForbiddenException);
     });
 
-    it('should throw BadRequestException if role has users', async () => {
-      await expect(service.remove('role-1', adminActor)).rejects.toThrow(BadRequestException);
+    it('responde 409 sem opção de desvincular quando o grupo tem usuários', async () => {
+      prisma.user = { findMany: jest.fn().mockResolvedValue([{ name: 'Ana' }, { name: 'Bia' }]) };
+      const err = await service.remove('role-1', adminActor).catch((e) => e);
+      expect(err).toBeInstanceOf(DeletionConflictException);
+      const body = err.getResponse();
+      expect(body.canUnlink).toBe(false);
+      expect(body.dependencies).toEqual([
+        expect.objectContaining({ type: 'users', count: 2, names: ['Ana', 'Bia'], unlinkable: false }),
+      ]);
+      expect(prisma.role.delete).not.toHaveBeenCalled();
     });
 
     it('should delete role with no users', async () => {

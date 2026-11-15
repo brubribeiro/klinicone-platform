@@ -4,6 +4,16 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 
 ## [Unreleased]
 
+### Added
+- Exclusão com vínculos padronizada: `DELETE` de item de estoque, equipamento, procedimento, pacote, promoção, despesa recorrente, paciente e modelo de documento responde **409** (`code: DELETE_HAS_DEPENDENCIES`) listando o que está atrelado (tipo, nomes, quantidade, se dá para desvincular). Com `?unlink=true` desfaz só os vínculos (sem apagar os registros dependentes) e exclui, numa transação; vínculos de histórico (atendimentos, consumo de material, pacotes vendidos) seguem bloqueando com mensagem clara. Grupos com usuários usam o mesmo 409 (sempre bloqueado). Helper em `backend/src/common/deletion/deletion-dependencies.ts`; auditoria grava `unlinkedDependencies`.
+- Painel — diálogo de exclusão comum (`useDeleteWithDependencies` + `DeletionDependenciesList`) com a lista de vínculos e a ação **Desvincular e excluir**, usado em Estoque, Equipamentos, Procedimentos, Pacotes, Promoções, Despesas recorrentes, Pacientes, Modelos de documento e Grupos.
+
+### Changed
+- Estoque — excluir item **não apaga mais as movimentações**: elas ficam no histórico sem o vínculo, com o nome do item (`inventory_movements.itemId` passa a aceitar nulo, nova coluna `itemName`; migration `20261113120000_inventory_movement_keep_history`). Removido `GET /api/inventory/:id/deletion-preview` (substituído pelo 409).
+- Pacientes — a foto do paciente só é apagada do R2 depois que a exclusão passa (antes um bloqueio deixava o paciente sem foto).
+- Painel — **Estoque**: cada linha da lista ganhou o ícone **Excluir** (mesma confirmação e regras do detalhe, com o diálogo de vínculos). O endpoint `DELETE /api/inventory/:id` (permissão `inventory:delete`) já existia.
+- Painel — **Estoque**: removido o botão "Cadastrar produto" do cabeçalho (redundante com "Adicionar item", que já permite cadastrar produto novo). O passo do tour da tela aponta para "Adicionar item".
+
 ## [0.3.0] - 2026-11-10
 
 ### Fixed

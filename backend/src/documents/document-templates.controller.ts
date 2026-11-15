@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
 
 import {
   CreateDocumentTemplateDto,
@@ -11,6 +11,7 @@ import { FeatureGuard } from '../common/guards/feature.guard';
 import { RequirePermissions } from '../common/decorators/require-permissions.decorator';
 import { RequireFeature } from '../common/decorators/require-feature.decorator';
 import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
+import { parseUnlinkFlag } from '../common/deletion/deletion-dependencies';
 
 @RequireFeature('documents')
 @UseGuards(JwtAuthGuard, FeatureGuard, PermissionsGuard)
@@ -42,7 +43,11 @@ export class DocumentTemplatesController {
 
   @RequirePermissions('documents:delete')
   @Delete(':id')
-  remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthenticatedUser) {
-    return this.templates.remove(id, user);
+  remove(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Query('unlink') unlink?: string,
+  ) {
+    return this.templates.remove(id, user, parseUnlinkFlag(unlink));
   }
 }

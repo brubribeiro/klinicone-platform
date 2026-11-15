@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditLogService, AuditUser } from '../audit-log/audit-log.service';
+import { assertDeletable, dependency } from '../common/deletion/deletion-dependencies';
 import {
   computeHourlyCostSummary,
   getHourlyCostIncludeVariable,
@@ -74,12 +75,36 @@ export class RecurringExpensesService {
     return updated;
   }
 
-  async remove(id: string, user?: AuditUser) {
-    const oldData = await this.findOne(id);
-    await this.prisma.recurringExpense.delete({ where: { id } });
-    this.auditLog.logDelete('RecurringExpense', id, oldData as unknown as Record<string, unknown>, user).catch(() => undefined);
-    return { ok: true };
+  async remove(id: string, user?: AuditUser, unlink = false) {
+    const old = await this.findOne(id);
+    const unlinked = await this.prisma.$transactionWithRetry(async (tx) => {
+      const entryCount = await tx.financialEntry.count({ where: { recurringExpenseId: id } });
+      const deps = assertDeletable(
+        `a despesa recorrente "${old.name}"`,
+        [
+          dependency({
+            type: 'financialEntries',
+            label: 'Lançamentos financeiros gerados',
+            count: entryCount,
+            unlinkable: true,
+            note: 'Os lançamentos já gerados continuam no financeiro.',
+          }),
+        ],
+        { unlink },
+      );
+      await tx.financialEntry.updateMany({
+        where: { recurringExpenseId: id },
+        data: { recurringExpenseId: null },
+      });
+      await tx.recurringExpense.delete({ where: { id } });
+      return deps;
+    });
+    this.auditLog
+      .logDelete('RecurringExpense', id, { ...old, unlinkedDependencies: unlinked } as unknown as Record<string, unknown>, user)
+      .catch(() => undefined);
+    return { ok: true, unlinked };
   }
+
 
   async generateForMonth(year: number, month: number) {
     const actives = await this.prisma.recurringExpense.findMany({

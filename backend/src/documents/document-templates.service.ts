@@ -3,6 +3,7 @@ import { IsBoolean, IsNotEmpty, IsOptional, IsString, ValidateIf } from 'class-v
 
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditLogService, AuditUser } from '../audit-log/audit-log.service';
+import { assertDeletable, dependency } from '../common/deletion/deletion-dependencies';
 
 export class CreateDocumentTemplateDto {
   @IsString() @IsNotEmpty()
@@ -91,12 +92,32 @@ export class DocumentTemplatesService {
   }
 
   /** Documentos já gerados mantêm o texto; só perdem a referência ao modelo. */
-  async remove(id: string, user?: AuditUser) {
-    const before = await this.findOne(id);
-    await this.prisma.documentTemplate.delete({ where: { id } });
+  async remove(id: string, user?: AuditUser, unlink = false) {
+    const old = await this.findOne(id);
+    const unlinked = await this.prisma.$transactionWithRetry(async (tx) => {
+      const documents = await tx.document.findMany({ where: { templateId: id }, select: { name: true } });
+      const deps = assertDeletable(
+        `o modelo "${old.name}"`,
+        [
+          dependency({
+            type: 'documents',
+            label: 'Documentos gerados',
+            count: documents.length,
+            names: documents.map((d) => d.name),
+            unlinkable: true,
+            note: 'Os documentos continuam salvos, sem o vínculo com o modelo.',
+          }),
+        ],
+        { unlink },
+      );
+      await tx.document.updateMany({ where: { templateId: id }, data: { templateId: null } });
+      await tx.documentTemplate.delete({ where: { id } });
+      return deps;
+    });
     this.auditLog
-      .logDelete('DocumentTemplate', id, before as unknown as Record<string, unknown>, user)
+      .logDelete('DocumentTemplate', id, { ...old, unlinkedDependencies: unlinked } as unknown as Record<string, unknown>, user)
       .catch(() => undefined);
-    return { ok: true };
+    return { ok: true, unlinked };
   }
+
 }

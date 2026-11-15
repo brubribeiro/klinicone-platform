@@ -25,6 +25,7 @@ import { packagesApi } from '../api/packages';
 import { PackageFormDialog } from '../components/packages/PackageFormDialog';
 import { useAppDialog } from '../contexts/AppDialogContext';
 import { useAppToast } from '../contexts/AppToastContext';
+import { useDeleteWithDependencies } from '../hooks/useDeleteWithDependencies';
 import { getApiErrorMessage } from '../utils/apiError';
 import { usePermissions } from '../contexts/usePermissions';
 import type { Package } from '../types';
@@ -44,6 +45,7 @@ export function Packages() {
   const queryClient = useQueryClient();
   const { confirm } = useAppDialog();
   const toast = useAppToast();
+  const deleteWithDependencies = useDeleteWithDependencies();
   const { has } = usePermissions();
   const canManage = has('packages:edit');
   const canCreate = has('packages:create');
@@ -60,15 +62,6 @@ export function Packages() {
   const { data: stats } = useQuery({
     queryKey: ['packages', 'stats'],
     queryFn: () => packagesApi.getStats(),
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) => packagesApi.remove(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['packages'] });
-      toast.success('Pacote excluído.');
-    },
-    onError: (err) => toast.error(getApiErrorMessage(err, 'Não foi possível excluir o pacote.')),
   });
 
   const filtered = useMemo(() => {
@@ -94,13 +87,16 @@ export function Packages() {
   };
 
   const handleDelete = async (p: Package) => {
-    const ok = await confirm({
+    await deleteWithDependencies({
       title: 'Excluir pacote',
       message: `Excluir o pacote "${p.name}"?`,
-      confirmLabel: 'Excluir',
-      confirmColor: 'error',
+      remove: (options) => packagesApi.remove(p.id, options),
+      successMessage: 'Pacote excluído.',
+      errorMessage: 'Não foi possível excluir o pacote.',
+      onDeleted: () => {
+        queryClient.invalidateQueries({ queryKey: ['packages'] });
+      },
     });
-    if (ok) deleteMutation.mutate(p.id);
   };
 
   return (

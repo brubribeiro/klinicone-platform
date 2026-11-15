@@ -5,6 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreatePatientDto } from './dto/create-patient.dto';
 import { UpdatePatientDto } from './dto/update-patient.dto';
 import { AuditUser } from '../audit-log/audit-log.service';
+import { assertDeletable, dependency } from '../common/deletion/deletion-dependencies';
 import { normalizePatientWritableFields } from './patient-fields.util';
 import { PatientPhotoStorageService } from './patient-photo-storage.service';
 import { PatientStatsService } from './patient-stats.service';
@@ -210,15 +211,63 @@ export class PatientsService {
     return { ok: true };
   }
 
-  async remove(id: string, user?: AuditUser) {
+  async remove(id: string, user?: AuditUser, unlink = false) {
     const patient = await this.findOne(id);
+    const unlinked = await this.prisma.$transactionWithRetry(async (tx) => {
+      const [appointmentCount, packageCount, financialCount, documents] = await Promise.all([
+        tx.appointment.count({ where: { patientId: id } }),
+        tx.patientPackage.count({ where: { patientId: id } }),
+        tx.financialEntry.count({ where: { patientId: id } }),
+        tx.document.findMany({ where: { patientId: id }, select: { name: true } }),
+      ]);
+      const deps = assertDeletable(
+        `o paciente "${patient.name}"`,
+        [
+          dependency({
+            type: 'appointments',
+            label: 'Atendimentos',
+            count: appointmentCount,
+            unlinkable: false,
+            note: 'Atendimentos fazem parte do histórico clínico e não podem ser desvinculados.',
+          }),
+          dependency({
+            type: 'patientPackages',
+            label: 'Pacotes comprados',
+            count: packageCount,
+            unlinkable: false,
+            note: 'Pacotes comprados fazem parte do histórico do paciente e do financeiro.',
+          }),
+          dependency({
+            type: 'financialEntries',
+            label: 'Lançamentos financeiros',
+            count: financialCount,
+            unlinkable: true,
+            note: 'Os lançamentos continuam no financeiro, sem o vínculo com o paciente.',
+          }),
+          dependency({
+            type: 'documents',
+            label: 'Documentos',
+            count: documents.length,
+            names: documents.map((d) => d.name),
+            unlinkable: true,
+            note: 'Os documentos continuam salvos, sem o vínculo com o paciente.',
+          }),
+        ],
+        { unlink },
+      );
+      await tx.financialEntry.updateMany({ where: { patientId: id }, data: { patientId: null } });
+      await tx.document.updateMany({ where: { patientId: id }, data: { patientId: null } });
+      await tx.patient.delete({ where: { id } });
+      return deps;
+    });
+    // Só remove a foto depois que a exclusão passou (antes, um bloqueio deixava o paciente sem foto)
     if (patient.photoStorageKey) {
-      await this.photos.remove(patient.photoStorageKey);
+      await this.photos.remove(patient.photoStorageKey).catch(() => undefined);
     }
-    await this.prisma.patient.delete({ where: { id } });
-    this.events.deleted('Patient', id, patient, user);
-    return { ok: true };
+    this.events.deleted('Patient', id, { ...patient, unlinkedDependencies: unlinked }, user);
+    return { ok: true, unlinked };
   }
+
 
   private async findPatientOrThrow(id: string) {
     const patient = await this.prisma.patient.findUnique({ where: { id } });

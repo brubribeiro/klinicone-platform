@@ -31,6 +31,7 @@ import {
 } from '../components/ListCardHeader';
 import { useAppDialog } from '../contexts/AppDialogContext';
 import { useAppToast } from '../contexts/AppToastContext';
+import { useDeleteWithDependencies } from '../hooks/useDeleteWithDependencies';
 import { getApiErrorMessage } from '../utils/apiError';
 import { usePermissions } from '../contexts/usePermissions';
 import type { Procedure } from '../types';
@@ -59,6 +60,7 @@ export function Procedures() {
   const queryClient = useQueryClient();
   const { confirm } = useAppDialog();
   const toast = useAppToast();
+  const deleteWithDependencies = useDeleteWithDependencies();
   const { has } = usePermissions();
   const canCreate = has('procedures:create');
   const canEdit = has('procedures:edit');
@@ -74,15 +76,6 @@ export function Procedures() {
   const { data: procedures = [], isLoading } = useQuery({
     queryKey: ['procedures'],
     queryFn: () => proceduresApi.list(),
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) => proceduresApi.remove(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['procedures'] });
-      toast.success('Procedimento excluído.');
-    },
-    onError: (err) => toast.error(getApiErrorMessage(err, 'Não foi possível excluir o procedimento.')),
   });
 
   const categories = useMemo(() => {
@@ -109,13 +102,16 @@ export function Procedures() {
   const rows = filtered.slice(current * PAGE_SIZE, current * PAGE_SIZE + PAGE_SIZE);
 
   const handleDelete = async (p: Procedure) => {
-    const ok = await confirm({
+    await deleteWithDependencies({
       title: 'Excluir procedimento',
       message: `Excluir procedimento ${p.name}?`,
-      confirmLabel: 'Excluir',
-      confirmColor: 'error',
+      remove: (options) => proceduresApi.remove(p.id, options),
+      successMessage: 'Procedimento excluído.',
+      errorMessage: 'Não foi possível excluir o procedimento.',
+      onDeleted: () => {
+        queryClient.invalidateQueries({ queryKey: ['procedures'] });
+      },
     });
-    if (ok) deleteMutation.mutate(p.id);
   };
 
   return (

@@ -4,6 +4,7 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { PromotionsService } from './promotions.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditLogService } from '../audit-log/audit-log.service';
+import { DeletionConflictException } from '../common/deletion/deletion-dependencies';
 
 describe('PromotionsService', () => {
   let service: PromotionsService;
@@ -165,13 +166,55 @@ describe('PromotionsService', () => {
   });
 
   describe('remove', () => {
+    const conflictOf = async (promise: Promise<unknown>) => {
+      const err = await promise.catch((e) => e);
+      expect(err).toBeInstanceOf(DeletionConflictException);
+      return (err as DeletionConflictException).getResponse() as Record<string, any>;
+    };
+
+    beforeEach(() => {
+      prisma.appointment = {
+        count: jest.fn().mockResolvedValue(0),
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+      };
+      prisma.$transactionWithRetry = jest.fn().mockImplementation(async (fn) => fn(prisma));
+    });
+
     it('should throw NotFoundException if not found', async () => {
       prisma.promotion.findUnique.mockResolvedValue(null);
       await expect(service.remove('invalid')).rejects.toThrow(NotFoundException);
     });
 
-    it('should delete promotion', async () => {
-      await service.remove('promo-1');
+    it('responde 409 com canUnlink true quando há atendimentos usando a promoção', async () => {
+      prisma.appointment.count.mockResolvedValue(3);
+      const body = await conflictOf(service.remove('promo-1'));
+      expect(body.canUnlink).toBe(true);
+      expect(body.dependencies).toEqual([
+        expect.objectContaining({ type: 'appointments', count: 3, unlinkable: true }),
+      ]);
+      expect(prisma.appointment.updateMany).not.toHaveBeenCalled();
+      expect(prisma.promotion.delete).not.toHaveBeenCalled();
+    });
+
+    it('desvincula os atendimentos e exclui', async () => {
+      prisma.appointment.count.mockResolvedValue(3);
+      const result = await service.remove('promo-1', { id: 'u1' } as never, true);
+      expect(result).toEqual({ ok: true, unlinked: [expect.objectContaining({ type: 'appointments' })] });
+      expect(prisma.appointment.updateMany).toHaveBeenCalledWith({
+        where: { promotionId: 'promo-1' },
+        data: { promotionId: null },
+      });
+      expect(prisma.promotion.delete).toHaveBeenCalledWith({ where: { id: 'promo-1' } });
+      expect(auditLog.logDelete).toHaveBeenCalledWith(
+        'Promotion',
+        'promo-1',
+        expect.objectContaining({ unlinkedDependencies: expect.any(Array) }),
+        expect.anything(),
+      );
+    });
+
+    it('exclui direto quando não há vínculos', async () => {
+      await expect(service.remove('promo-1')).resolves.toEqual({ ok: true, unlinked: [] });
       expect(prisma.promotion.delete).toHaveBeenCalledWith({ where: { id: 'promo-1' } });
     });
   });

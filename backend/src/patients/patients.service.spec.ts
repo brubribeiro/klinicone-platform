@@ -7,6 +7,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { R2StorageService } from '../documents/r2-storage.service';
 import { CompressionService } from '../documents/compression.service';
 import { AuditLogService } from '../audit-log/audit-log.service';
+import { DeletionConflictException } from '../common/deletion/deletion-dependencies';
 import { PatientPhotoStorageService } from './patient-photo-storage.service';
 import { PatientStatsService } from './patient-stats.service';
 import { PatientEventsService } from './patient-events.service';
@@ -270,12 +271,82 @@ describe('PatientsService', () => {
   });
 
   describe('remove', () => {
+    const conflictOf = async (promise: Promise<unknown>) => {
+      const err = await promise.catch((e) => e);
+      expect(err).toBeInstanceOf(DeletionConflictException);
+      return (err as DeletionConflictException).getResponse() as Record<string, any>;
+    };
+
+    beforeEach(() => {
+      prisma.appointment.count = jest.fn().mockResolvedValue(0);
+      prisma.patientPackage = { count: jest.fn().mockResolvedValue(0) };
+      prisma.financialEntry.count = jest.fn().mockResolvedValue(0);
+      prisma.financialEntry.updateMany = jest.fn().mockResolvedValue({ count: 0 });
+      prisma.document = {
+        findMany: jest.fn().mockResolvedValue([]),
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+      };
+      prisma.$transactionWithRetry = jest.fn().mockImplementation(async (fn) => fn(prisma));
+    });
+
     it('should delete patient and remove photo if exists', async () => {
       prisma.patient.findUnique.mockResolvedValue({ ...mockPatient, photoStorageKey: 'key-1' });
-      await service.remove('patient-1');
+      await expect(service.remove('patient-1')).resolves.toEqual({ ok: true, unlinked: [] });
 
       expect(r2.remove).toHaveBeenCalledWith('key-1');
       expect(prisma.patient.delete).toHaveBeenCalledWith({ where: { id: 'patient-1' } });
+    });
+
+    it('responde 409 com canUnlink true listando lançamentos e documentos', async () => {
+      prisma.financialEntry.count.mockResolvedValue(2);
+      prisma.document.findMany.mockResolvedValue([{ name: 'Termo' }]);
+
+      const body = await conflictOf(service.remove('patient-1'));
+      expect(body.canUnlink).toBe(true);
+      expect(body.dependencies).toEqual([
+        expect.objectContaining({ type: 'financialEntries', count: 2, unlinkable: true }),
+        expect.objectContaining({ type: 'documents', count: 1, names: ['Termo'], unlinkable: true }),
+      ]);
+      expect(prisma.patient.delete).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ['atendimentos', () => prisma.appointment.count.mockResolvedValue(1), 'Atendimentos (1)'],
+      ['pacotes comprados', () => prisma.patientPackage.count.mockResolvedValue(2), 'Pacotes comprados (2)'],
+    ])('bloqueia (canUnlink false) por %s, mesmo desvinculando, sem escrever nem apagar a foto', async (_n, setup, text) => {
+      prisma.patient.findUnique.mockResolvedValue({ ...mockPatient, photoStorageKey: 'key-1' });
+      prisma.financialEntry.count.mockResolvedValue(1);
+      setup();
+
+      const body = await conflictOf(service.remove('patient-1', undefined, true));
+      expect(body.canUnlink).toBe(false);
+      expect(body.message).toContain(text);
+      expect(prisma.financialEntry.updateMany).not.toHaveBeenCalled();
+      expect(prisma.document.updateMany).not.toHaveBeenCalled();
+      expect(prisma.patient.delete).not.toHaveBeenCalled();
+      expect(r2.remove).not.toHaveBeenCalled();
+    });
+
+    it('desvincula lançamentos e documentos, exclui e só então remove a foto', async () => {
+      prisma.patient.findUnique.mockResolvedValue({ ...mockPatient, photoStorageKey: 'key-1' });
+      prisma.financialEntry.count.mockResolvedValue(2);
+      prisma.document.findMany.mockResolvedValue([{ name: 'Termo' }]);
+
+      const result = await service.remove('patient-1', { id: 'u1' } as never, true);
+
+      expect(result.ok).toBe(true);
+      expect(result.unlinked.map((d) => d.type)).toEqual(['financialEntries', 'documents']);
+      expect(prisma.financialEntry.updateMany).toHaveBeenCalledWith({
+        where: { patientId: 'patient-1' },
+        data: { patientId: null },
+      });
+      expect(prisma.document.updateMany).toHaveBeenCalledWith({
+        where: { patientId: 'patient-1' },
+        data: { patientId: null },
+      });
+      expect(prisma.patient.delete).toHaveBeenCalledWith({ where: { id: 'patient-1' } });
+      expect(r2.remove).toHaveBeenCalledWith('key-1');
+      expect(prisma.patient.delete.mock.invocationCallOrder[0]).toBeLessThan(r2.remove.mock.invocationCallOrder[0]);
     });
   });
 });

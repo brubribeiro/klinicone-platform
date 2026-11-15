@@ -1,5 +1,7 @@
 import { api } from './client';
 import type { ExpenseType, RecurringExpense } from '../types';
+import { deleteWithUnlink } from './deletion';
+import type { RemoveOptions } from '../utils/deletionConflict';
 
 export interface RecurringExpensePayload {
   name: string;
@@ -68,8 +70,8 @@ export const recurringExpensesApi = {
     const { data } = await api.patch<RecurringExpense>(`/recurring-expenses/${id}`, payload);
     return data;
   },
-  remove: async (id: string): Promise<void> => {
-    await api.delete(`/recurring-expenses/${id}`);
+  remove: async (id: string, options?: RemoveOptions): Promise<void> => {
+    await deleteWithUnlink(`/recurring-expenses/${id}`, options);
   },
   generate: async (year?: number, month?: number): Promise<GenerateResult> => {
     const { data } = await api.post<GenerateResult>('/recurring-expenses/generate', null, {

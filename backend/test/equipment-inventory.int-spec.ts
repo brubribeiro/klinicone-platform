@@ -1,5 +1,6 @@
 /** Equipamentos e estoque (movimentações, compra em lote, exclusão) com Nest + Postgres reais. */
 import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { DELETION_CONFLICT_CODE } from '../src/common/deletion/deletion-dependencies';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaClient } from '@prisma/client';
 
@@ -75,7 +76,14 @@ describe('equipamentos', () => {
     expect(done.scheduledMaintenanceAt).toBeNull();
     expect(done.nextMaintenanceAt).not.toBeNull();
 
-    expect(await as(() => equipment.remove(eq.id, C.actor))).toEqual({ ok: true });
+    // despesas de manutenção ficam atreladas: 409, e "desvincular e excluir" mantém os lançamentos
+    const conflict = await as(() => equipment.remove(eq.id, C.actor)).catch((e) => e.getResponse());
+    expect(conflict).toMatchObject({ canUnlink: true, dependencies: [expect.objectContaining({ type: 'financialEntries', count: 2 })] });
+    const entryIds = (await expenses()).map((e: { id: string }) => e.id);
+    expect((await as(() => equipment.remove(eq.id, C.actor, true))).ok).toBe(true);
+    const keptEntries = await as(() => prisma.financialEntry.findMany({ where: { id: { in: entryIds } } }));
+    expect(keptEntries).toHaveLength(2);
+    expect(keptEntries.every((e) => e.equipmentId === null)).toBe(true);
     await expect(as(() => equipment.findOne(eq.id))).rejects.toBeInstanceOf(NotFoundException);
     await expect(as(() => equipment.update(MISSING, {}))).rejects.toBeInstanceOf(NotFoundException);
   });
@@ -125,12 +133,12 @@ describe('estoque', () => {
     const proc = await as(() => prisma.procedure.create({ data: { name: `Proc ${suffix}`, price: 10 } }));
     await as(() => prisma.procedureMaterial.create({ data: { procedureId: proc.id, itemId: used.id, quantity: 1 } }));
 
-    const preview = await as(() => inventory.getDeletionPreview(used.id));
-    expect(preview).toMatchObject({ canDelete: false, appointmentCount: 0 });
-    expect(preview.procedures.map((p) => p.id)).toEqual([proc.id]);
-    await expect(as(() => inventory.remove(used.id))).rejects.toThrow('procedimentos');
+    // só procedimento: 409 pedindo para desvincular
+    const conflict = await as(() => inventory.remove(used.id)).catch((e) => e.getResponse());
+    expect(conflict).toMatchObject({ code: DELETION_CONFLICT_CODE, canUnlink: true });
+    expect(conflict.dependencies.map((d: { type: string }) => d.type)).toEqual(['procedures']);
 
-    // usado também em atendimento
+    // usado também em atendimento: bloqueia mesmo pedindo para desvincular
     const patient = await as(() => prisma.patient.create({ data: { name: `Pac ${suffix}` } }));
     const appt = await as(() =>
       prisma.appointment.create({
@@ -138,15 +146,23 @@ describe('estoque', () => {
       }),
     );
     await as(() => prisma.appointmentMaterial.create({ data: { appointmentId: appt.id, itemId: used.id, quantity: 1 } }));
-    await expect(as(() => inventory.remove(used.id))).rejects.toThrow('agendamento(s) e nos procedimentos');
+    const blocked = await as(() => inventory.remove(used.id, C.actor, true)).catch((e) => e.getResponse());
+    expect(blocked).toMatchObject({ canUnlink: false });
+    expect(await as(() => prisma.procedureMaterial.count({ where: { itemId: used.id } }))).toBe(1);
 
-    const onlyAppt = await as(() => inventory.create({ name: `SoAtend ${suffix}`, quantity: 5 } as never));
-    await as(() => prisma.appointmentMaterial.create({ data: { appointmentId: appt.id, itemId: onlyAppt.id, quantity: 1 } }));
-    await expect(as(() => inventory.remove(onlyAppt.id))).rejects.toThrow(/agendamento\(s\)\.$/);
-
+    // desvincular e excluir: sai do procedimento, movimentações ficam no histórico
     const free = await as(() => inventory.create({ name: `Livre ${suffix}`, quantity: 5 } as never));
+    await as(() => prisma.procedureMaterial.create({ data: { procedureId: proc.id, itemId: free.id, quantity: 1 } }));
     await as(() => inventory.createMovement(free.id, { type: 'OUT', quantity: 1 } as never));
-    expect(await as(() => inventory.remove(free.id, C.actor))).toEqual({ ok: true });
+    const movementIds = (await as(() => prisma.inventoryMovement.findMany({ where: { itemId: free.id } }))).map((m) => m.id);
+    expect(movementIds.length).toBeGreaterThan(0);
+    const done = await as(() => inventory.remove(free.id, C.actor, true));
+    expect(done.ok).toBe(true);
+    expect(await as(() => prisma.procedureMaterial.count({ where: { itemId: free.id } }))).toBe(0);
+    expect(await as(() => prisma.procedure.count({ where: { id: proc.id } }))).toBe(1);
+    const kept = await as(() => prisma.inventoryMovement.findMany({ where: { id: { in: movementIds } } }));
+    expect(kept).toHaveLength(movementIds.length);
+    expect(kept.every((m) => m.itemId === null && m.itemName === `Livre ${suffix}`)).toBe(true);
     await expect(as(() => inventory.findOne(free.id))).rejects.toBeInstanceOf(NotFoundException);
   });
 

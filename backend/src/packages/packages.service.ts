@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditLogService, AuditUser } from '../audit-log/audit-log.service';
+import { assertDeletable, dependency } from '../common/deletion/deletion-dependencies';
 import { PromotionsService } from '../promotions/promotions.service';
 import { toBrazilDateAtUtcNoon } from '../common/utils/brazil-time.util';
 import { CreatePackageDto, PackageItemDto } from './dto/create-package.dto';
@@ -175,21 +176,51 @@ export class PackagesService {
     return updated;
   }
 
-  async remove(id: string, user?: AuditUser) {
-    const pkg = await this.findOne(id);
-    // Verifica se há pacotes ativos vinculados a pacientes
-    const activeCount = await this.prisma.patientPackage.count({
-      where: { packageId: id, status: 'ACTIVE' },
-    });
-    if (activeCount > 0) {
-      throw new BadRequestException(
-        `Não é possível excluir: ${activeCount} paciente(s) possui(em) este pacote ativo.`,
+  async remove(id: string, user?: AuditUser, unlink = false) {
+    const old = await this.findOne(id);
+    const unlinked = await this.prisma.$transactionWithRetry(async (tx) => {
+      const [patientPackages, promotions] = await Promise.all([
+        tx.patientPackage.findMany({
+          where: { packageId: id },
+          select: { patient: { select: { name: true } } },
+        }),
+        tx.promotionPackage.findMany({
+          where: { packageId: id },
+          select: { promotion: { select: { name: true } } },
+        }),
+      ]);
+      const deps = assertDeletable(
+        `o pacote "${old.name}"`,
+        [
+          dependency({
+            type: 'patientPackages',
+            label: 'Pacotes vendidos a pacientes',
+            count: patientPackages.length,
+            names: patientPackages.map((p) => p.patient.name),
+            unlinkable: false,
+            note: 'Pacotes vendidos fazem parte do histórico do paciente e do financeiro.',
+          }),
+          dependency({
+            type: 'promotions',
+            label: 'Promoções',
+            count: promotions.length,
+            names: promotions.map((p) => p.promotion.name),
+            unlinkable: true,
+            note: 'O pacote sai dessas promoções.',
+          }),
+        ],
+        { unlink, blockedHint: 'Inative o pacote para que ele deixe de ser oferecido.' },
       );
-    }
-    await this.prisma.package.delete({ where: { id } });
-    this.auditLog.logDelete('Package', id, pkg as unknown as Record<string, unknown>, user).catch(() => undefined);
-    return { ok: true };
+      await tx.promotionPackage.deleteMany({ where: { packageId: id } });
+      await tx.package.delete({ where: { id } });
+      return deps;
+    });
+    this.auditLog
+      .logDelete('Package', id, { ...old, unlinkedDependencies: unlinked } as unknown as Record<string, unknown>, user)
+      .catch(() => undefined);
+    return { ok: true, unlinked };
   }
+
 
   // ─── PatientPackage (venda/vínculo) ───
 

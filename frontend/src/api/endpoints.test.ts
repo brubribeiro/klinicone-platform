@@ -447,6 +447,7 @@ describe('api endpoints', () => {
         'DATA',
       ],
       ['remove', ['id-1'], ['delete', '/equipment/id-1'], undefined],
+      ['remove', ['id-1', { unlink: true }], ['delete', '/equipment/id-1', { params: { unlink: true } }], undefined],
     ]);
   });
 
@@ -577,12 +578,6 @@ describe('api endpoints', () => {
       ['listLowStock', [], ['get', '/inventory/low-stock'], 'DATA'],
       ['findOne', ['id-1'], ['get', '/inventory/id-1'], 'DATA'],
       [
-        'getDeletionPreview',
-        ['id-1'],
-        ['get', '/inventory/id-1/deletion-preview'],
-        'DATA',
-      ],
-      [
         'create',
         [{ payloadK: 'v' }],
         ['post', '/inventory', { payloadK: 'v' }],
@@ -595,6 +590,7 @@ describe('api endpoints', () => {
         'DATA',
       ],
       ['remove', ['id-1'], ['delete', '/inventory/id-1'], undefined],
+      ['remove', ['id-1', { unlink: true }], ['delete', '/inventory/id-1', { params: { unlink: true } }], undefined],
       [
         'createMovement',
         ['id-1', { payloadK: 'v' }],

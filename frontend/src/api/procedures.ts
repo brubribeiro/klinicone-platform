@@ -1,5 +1,7 @@
 import { api } from './client';
 import type { Procedure } from '../types';
+import { deleteWithUnlink } from './deletion';
+import type { RemoveOptions } from '../utils/deletionConflict';
 
 export interface ProcedureMaterialInput {
   itemId: string;
@@ -36,7 +38,7 @@ export const proceduresApi = {
     const { data } = await api.patch<Procedure>(`/procedures/${id}`, payload);
     return data;
   },
-  remove: async (id: string): Promise<void> => {
-    await api.delete(`/procedures/${id}`);
+  remove: async (id: string, options?: RemoveOptions): Promise<void> => {
+    await deleteWithUnlink(`/procedures/${id}`, options);
   },
 };

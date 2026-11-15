@@ -29,6 +29,7 @@ import { StatCard } from '../components/StatCard';
 import { usePagination } from '../hooks/usePagination';
 import { useAppDialog } from '../contexts/AppDialogContext';
 import { useAppToast } from '../contexts/AppToastContext';
+import { useDeleteWithDependencies } from '../hooks/useDeleteWithDependencies';
 import { getApiErrorMessage } from '../utils/apiError';
 import { usePermissions } from '../contexts/usePermissions';
 import type { Equipment } from '../types';
@@ -41,6 +42,7 @@ export function EquipmentPage() {
   const queryClient = useQueryClient();
   const { confirm } = useAppDialog();
   const toast = useAppToast();
+  const deleteWithDependencies = useDeleteWithDependencies();
   const { has } = usePermissions();
   const canCreate = has('equipment:create');
   const canEdit = has('equipment:edit');
@@ -55,17 +57,6 @@ export function EquipmentPage() {
   const { data: items = [], isLoading } = useQuery({
     queryKey: ['equipment'],
     queryFn: () => equipmentApi.list(),
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) => equipmentApi.remove(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['equipment'] });
-      toast.success('Equipamento excluído.');
-    },
-    onError: (err) => {
-      toast.error(getApiErrorMessage(err, 'Não foi possível excluir o equipamento.'));
-    },
   });
 
   const maintenanceMutation = useMutation({
@@ -131,13 +122,16 @@ export function EquipmentPage() {
       toast.error('Você não tem permissão para excluir equipamentos. Peça a um administrador para liberar "Equipamentos > Excluir" no seu grupo.');
       return;
     }
-    const ok = await confirm({
+    await deleteWithDependencies({
       title: 'Excluir equipamento',
       message: `Excluir ${e.name}?`,
-      confirmLabel: 'Excluir',
-      confirmColor: 'error',
+      remove: (options) => equipmentApi.remove(e.id, options),
+      successMessage: 'Equipamento excluído.',
+      errorMessage: 'Não foi possível excluir o equipamento.',
+      onDeleted: () => {
+        queryClient.invalidateQueries({ queryKey: ['equipment'] });
+      },
     });
-    if (ok) deleteMutation.mutate(e.id);
   };
 
   return (

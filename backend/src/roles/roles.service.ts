@@ -15,6 +15,7 @@ import {
   isValidPermission,
   SYSTEM_ADMIN_ROLE_NAME,
 } from '../common/permissions';
+import { assertDeletable, dependency } from '../common/deletion/deletion-dependencies';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator';
 
@@ -134,8 +135,20 @@ export class RolesService {
       throw new ForbiddenException('Grupos do sistema não podem ser excluídos.');
     }
     if (role._count.users > 0) {
-      throw new BadRequestException(
-        `Existem ${role._count.users} usuário(s) vinculado(s) a este grupo. Realoque-os antes de excluir.`,
+      const users = await this.prisma.user.findMany({ where: { roleId: id }, select: { name: true } });
+      assertDeletable(
+        `o grupo "${role.name}"`,
+        [
+          dependency({
+            type: 'users',
+            label: 'Usuários',
+            count: role._count.users,
+            names: users.map((u) => u.name),
+            unlinkable: false,
+            note: 'Usuários sem grupo perderiam as permissões; escolha outro grupo para eles.',
+          }),
+        ],
+        { unlink: false, blockedHint: 'Realoque os usuários para outro grupo antes de excluir.' },
       );
     }
     await this.prisma.role.delete({ where: { id } });

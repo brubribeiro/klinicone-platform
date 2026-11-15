@@ -30,6 +30,7 @@ import { promotionsApi } from '../api/promotions';
 import { PromotionFormDialog } from '../components/promotions/PromotionFormDialog';
 import { useAppDialog } from '../contexts/AppDialogContext';
 import { useAppToast } from '../contexts/AppToastContext';
+import { useDeleteWithDependencies } from '../hooks/useDeleteWithDependencies';
 import { getApiErrorMessage } from '../utils/apiError';
 import { usePermissions } from '../contexts/usePermissions';
 import type { Promotion } from '../types';
@@ -66,6 +67,7 @@ export function Promotions() {
   const queryClient = useQueryClient();
   const { confirm } = useAppDialog();
   const toast = useAppToast();
+  const deleteWithDependencies = useDeleteWithDependencies();
   const { has } = usePermissions();
   const canCreate = has('promotions:create');
   const canEdit = has('promotions:edit');
@@ -91,15 +93,6 @@ export function Promotions() {
   const { data: promotions = [], isLoading } = useQuery({
     queryKey: ['promotions'],
     queryFn: () => promotionsApi.list(),
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) => promotionsApi.remove(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['promotions'] });
-      toast.success('Promoção excluída.');
-    },
-    onError: (err) => toast.error(getApiErrorMessage(err, 'Não foi possível excluir a promoção.')),
   });
 
   const toggleActiveMutation = useMutation({
@@ -132,13 +125,16 @@ export function Promotions() {
   };
 
   const handleDelete = async (p: Promotion) => {
-    const ok = await confirm({
+    await deleteWithDependencies({
       title: 'Excluir promoção',
       message: `Excluir a promoção "${p.name}"?`,
-      confirmLabel: 'Excluir',
-      confirmColor: 'error',
+      remove: (options) => promotionsApi.remove(p.id, options),
+      successMessage: 'Promoção excluída.',
+      errorMessage: 'Não foi possível excluir a promoção.',
+      onDeleted: () => {
+        queryClient.invalidateQueries({ queryKey: ['promotions'] });
+      },
     });
-    if (ok) deleteMutation.mutate(p.id);
   };
 
   return (

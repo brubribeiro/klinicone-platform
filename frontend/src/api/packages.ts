@@ -1,5 +1,7 @@
 import { api } from './client';
 import type { Package, PackageStats, PatientPackage, PromotionQuote } from '../types';
+import { deleteWithUnlink } from './deletion';
+import type { RemoveOptions } from '../utils/deletionConflict';
 
 export interface PackageItemInput {
   procedureId: string;
@@ -53,8 +55,8 @@ export const packagesApi = {
     const { data } = await api.patch<Package>(`/packages/${id}`, payload);
     return data;
   },
-  remove: async (id: string): Promise<void> => {
-    await api.delete(`/packages/${id}`);
+  remove: async (id: string, options?: RemoveOptions): Promise<void> => {
+    await deleteWithUnlink(`/packages/${id}`, options);
   },
 
   listPatientPackages: async (patientId?: string): Promise<PatientPackage[]> => {

@@ -156,8 +156,8 @@ describe('Promotions', () => {
 
     mocked(dialogs.confirm).mockResolvedValueOnce(true);
     await userEvent.click(screen.getByRole('button', { name: 'Excluir Combo Livre' }));
-    expect(dialogs.confirm).toHaveBeenLastCalledWith(expect.objectContaining({ message: 'Excluir a promoção "Combo Livre"?' }));
-    await waitFor(() => expect(promotionsApi.remove).toHaveBeenCalledWith('Combo Livre'));
+    expect(dialogs.confirm).toHaveBeenLastCalledWith(expect.objectContaining({ message: 'Excluir a promoção "Combo Livre"? Esta ação não pode ser desfeita.' }));
+    await waitFor(() => expect(promotionsApi.remove).toHaveBeenCalledWith('Combo Livre', {}));
     await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Promoção excluída.'));
   });
 

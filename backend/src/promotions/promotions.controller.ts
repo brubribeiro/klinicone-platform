@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 
@@ -18,6 +19,7 @@ import { FeatureGuard } from '../common/guards/feature.guard';
 import { RequirePermissions } from '../common/decorators/require-permissions.decorator';
 import { RequireFeature } from '../common/decorators/require-feature.decorator';
 import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
+import { parseUnlinkFlag } from '../common/deletion/deletion-dependencies';
 
 @RequireFeature('promotions')
 @UseGuards(JwtAuthGuard, FeatureGuard, PermissionsGuard)
@@ -51,7 +53,11 @@ export class PromotionsController {
 
   @RequirePermissions('promotions:delete')
   @Delete(':id')
-  remove(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
-    return this.promotions.remove(id, user);
+  remove(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Query('unlink') unlink?: string,
+  ) {
+    return this.promotions.remove(id, user, parseUnlinkFlag(unlink));
   }
 }

@@ -146,7 +146,7 @@ describe('DocumentTemplatesDialog', () => {
     await userEvent.click(screen.getByLabelText('Excluir modelo Termo de peeling'));
     await waitFor(() => expect(api.remove).toHaveBeenCalled());
     expect(api.remove.mock.calls[0][0]).toBe('t1');
-    expect(confirm.mock.calls[1][0].subtitle).toContain('2 documento(s)');
+    expect(api.remove.mock.calls[0][1]).toEqual({});
     await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Modelo excluído.'));
     expect(await screen.findByText('Nenhum modelo cadastrado.')).toBeInTheDocument();
   });

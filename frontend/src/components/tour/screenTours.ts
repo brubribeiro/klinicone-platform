@@ -195,8 +195,8 @@ const SCREEN_TOURS: ScreenTour[] = [
       },
       {
         target: 'inventory-new',
-        title: 'Cadastrar produto',
-        body: 'Registre um novo produto com estoque mínimo e unidade.',
+        title: 'Adicionar item',
+        body: 'Dê entrada de itens no estoque; produtos novos podem ser cadastrados na própria janela.',
       },
       {
         target: 'inventory-move',

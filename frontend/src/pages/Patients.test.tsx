@@ -154,8 +154,8 @@ describe('Patients page', () => {
     const { invalidate } = setup();
     await screen.findByText('Paciente 01');
     await userEvent.click(screen.getByRole('button', { name: 'Excluir Paciente 01' }));
-    expect(dialog.confirm).toHaveBeenCalledWith(expect.objectContaining({ message: 'Excluir paciente Paciente 01?' }));
-    await waitFor(() => expect(api.remove).toHaveBeenCalledWith('p1'));
+    expect(dialog.confirm).toHaveBeenCalledWith(expect.objectContaining({ message: 'Excluir paciente Paciente 01? Esta ação não pode ser desfeita.' }));
+    await waitFor(() => expect(api.remove).toHaveBeenCalledWith('p1', {}));
     await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Paciente excluído.'));
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['patients-stats'] });
   });

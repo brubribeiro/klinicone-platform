@@ -36,6 +36,10 @@ export type ConfirmOptions = {
   cancelLabel?: string;
   confirmColor?: 'primary' | 'error' | 'warning' | 'inherit';
   disableConfirm?: boolean;
+  /** Texto do aviso quando `disableConfirm` (padrão: "Remova os vínculos antes de excluir."). */
+  blockedMessage?: string;
+  /** Conteúdo extra abaixo da mensagem (ex.: lista de vínculos). */
+  content?: ReactNode;
 };
 
 export type AlertOptions = {
@@ -158,9 +162,11 @@ export function AppDialogProvider({ children }: { children: ReactNode }) {
 
           {confirmOptions?.disableConfirm && (
             <Alert severity="warning" sx={{ mt: 1.5 }}>
-              Remova os vínculos antes de excluir.
+              {confirmOptions.blockedMessage ?? 'Remova os vínculos antes de excluir.'}
             </Alert>
           )}
+
+          {confirmOptions?.content}
 
           {confirmOptions?.details && confirmOptions.details.length > 0 && (
             <Box sx={{ mt: 1.5 }}>
